@@ -16,6 +16,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import MessageList from '@/components/standalone/MessageList';
+import { personalChatStartError } from '@/lib/eza/mirror-network/createSohbetSession';
 import { useMirrorPendingReply, type MirrorPendingDelivery } from '@/components/mirror-landing/useMirrorPendingReply';
 import YansiPersonalReplayHistory from '@/components/mirror-landing/YansiPersonalReplayHistory';
 import { replaySelection } from '@/lib/eza/mirror-network/publicReplayContinuation';
@@ -1686,6 +1687,10 @@ export default function StandaloneChatInner() {
           model: analysisModelId,
           ...(activeChat?.publicReplayContext ? { publicReplaySelection: replaySelection(activeChat.publicReplayContext) } : {}),
         };
+        if (!isServerBacked && activeChat?.mirrorOrigin?.guestTrialSessionId) {
+          Object.assign(streamBody, { guestTrialSessionId: activeChat.mirrorOrigin.guestTrialSessionId,
+            clientUserMessageId: userMessageId, clientAssistantMessageId: assistantMessageId });
+        }
         const lineageProofToken = lineageProofTokenForSend;
         if (lineageProofToken) {
           streamBody.lineageProofToken = lineageProofToken;
@@ -1860,9 +1865,15 @@ export default function StandaloneChatInner() {
           throw new Error('empty_stream');
         }
         completedAssistantText = result.text;
-      } catch {
+      } catch (streamError) {
         if (!isSendSessionActive()) return;
         setIsTyping(false);
+        if (activeChat?.mirrorOrigin?.guestTrialSessionId && streamError && typeof streamError === 'object' && 'status' in streamError) {
+          setIsLoading(false);
+          setMessages((prev) => prev.filter((msg) => msg.id !== assistantMessageId));
+          setSendRequestError(personalChatStartError(streamError as { status: number; reason?: string }));
+          return false;
+        }
         useNormalEndpoint = true;
       }
 
@@ -1882,6 +1893,10 @@ export default function StandaloneChatInner() {
           ...(chatHistory.length > 0 ? { history: chatHistory } : {}),
           ...(lineageProofTokenForSend ? { lineageProofToken: lineageProofTokenForSend } : {}),
         };
+        if (!isServerBacked && activeChat?.mirrorOrigin?.guestTrialSessionId) {
+          Object.assign(fallbackBody, { guestTrialSessionId: activeChat.mirrorOrigin.guestTrialSessionId,
+            clientUserMessageId: userMessageId, clientAssistantMessageId: assistantMessageId });
+        }
         if (isServerBacked && resolvedChatId) {
           const persistence = buildGenerationPersistencePayload(
             resolvedChatId,

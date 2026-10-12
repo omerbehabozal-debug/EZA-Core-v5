@@ -1289,6 +1289,17 @@ async def start_mirror_sohbet_session(
     Never uses private payload, raw conversation, or user identity.
     """
     guest = body.guestToken if body else None
+    from backend.core.account.subject import resolve_account_subject
+    subject = await resolve_account_subject(db, credentials=credentials, guest_token=guest)
+    if not subject.is_authenticated:
+        from backend.services.mirror_network.guest_trial import prepare_guest_trial
+        try:
+            result = await prepare_guest_trial(db, slug, guest, body.replaySelection if body else None)
+            await db.commit()
+            return result
+        except BaseException:
+            await db.rollback()
+            raise
     subject = await assert_can_start_discover_conversation(
         db,
         credentials=credentials,

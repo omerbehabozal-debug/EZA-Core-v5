@@ -37,9 +37,20 @@ def _auth_header(user) -> dict[str, str]:
 
 @pytest.fixture(autouse=True)
 def _noop_rate_limit():
+    from backend.core.utils.dependencies import get_db
+    previous = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_db] = lambda: AsyncMock()
     app.dependency_overrides[rate_limit_standalone] = lambda: None
-    yield
-    app.dependency_overrides.pop(rate_limit_standalone, None)
+    async def fake_stream(**kwargs):
+        yield 'data: {"token":"Test answer"}\n\n'
+        yield 'data: {"done":true}\n\n'
+    try:
+        with patch("backend.main.stream_standalone_response", side_effect=fake_stream):
+            yield
+    finally:
+        app.dependency_overrides.pop(rate_limit_standalone, None)
+        if previous is None: app.dependency_overrides.pop(get_db, None)
+        else: app.dependency_overrides[get_db] = previous
 
 
 @patch("backend.main.assert_can_send_message", new_callable=AsyncMock)

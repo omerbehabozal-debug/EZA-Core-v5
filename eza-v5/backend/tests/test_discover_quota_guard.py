@@ -131,15 +131,24 @@ def test_sohbet_session_endpoint_records_discover_event(
 
     public = node_to_public_payload(build_fixture_mirror_node(slug_suffix="discover-quota"))
     mock_guard.return_value = SimpleNamespace(
-        user_id=None,
-        guest_fingerprint="fp-guest",
+        user_id="free-user",
+        guest_fingerprint=None,
     )
     mock_create.return_value = build_sohbet_session_response(public, guest_token=GUEST_TOKEN)
 
-    response = client.post(
-        f"/api/mirror-network/{public.slug}/sohbet/session",
-        json={"guestToken": GUEST_TOKEN},
-    )
+    from backend.core.utils.dependencies import get_db
+    db = AsyncMock()
+    previous = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_db] = lambda: db
+    try:
+        with patch("backend.core.account.subject.resolve_account_subject", new=AsyncMock(return_value=AccountSubject(AccountTier.FREE, "free-user", None, True))):
+            response = client.post(
+                f"/api/mirror-network/{public.slug}/sohbet/session",
+                json={"guestToken": GUEST_TOKEN},
+            )
+    finally:
+        if previous is None: app.dependency_overrides.pop(get_db, None)
+        else: app.dependency_overrides[get_db] = previous
 
     assert response.status_code == 201
     mock_guard.assert_awaited_once()

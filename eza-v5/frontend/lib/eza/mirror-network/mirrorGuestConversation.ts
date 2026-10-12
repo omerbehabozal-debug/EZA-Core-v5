@@ -113,11 +113,19 @@ export function startMirrorGuestChat(
 
   const { session } = input;
   const groupId = resolveMirrorGroupId(session);
-  const chatId = `chat-mirror-${Date.now()}`;
+  const chatId = session.guestTrialSessionId ? `chat-mirror-${session.guestTrialSessionId}` : `chat-mirror-${Date.now()}`;
+  const existing = session.guestTrialSessionId ? getChatArchive(chatId) : null;
+  if (existing?.mirrorOrigin?.guestTrialOwnerToken && existing.mirrorOrigin.guestTrialOwnerToken !== session.guestToken) return null;
+  // A failed pending turn keeps its stable IDs and text; opening it is a retry.
+  if (existing?.mirrorOrigin?.autoReplyPending) return { chatId, groupId: existing.groupId ?? groupId, mirrorOrigin: existing.mirrorOrigin };
   const mirrorOrigin = buildMirrorOrigin(session);
   mirrorOrigin.pendingUserMessage = text;
+  if (session.guestTrialSessionId) {
+    mirrorOrigin.guestTrialSessionId = session.guestTrialSessionId;
+    mirrorOrigin.guestTrialOwnerToken = session.guestToken;
+  }
 
-  const messages: ArchivedChatMessage[] = session.publicReplayContext ? [] : [buildOpeningMessage(session)];
+  const messages: ArchivedChatMessage[] = session.guestTrialMessages ?? (session.publicReplayContext ? [] : [buildOpeningMessage(session)]);
 
   const sceneIdentity = buildConversationSceneIdentityFields({
     url: session.sceneImageUrl,

@@ -8,6 +8,9 @@ export type MirrorThoughtCard = {
 };
 
 export type MirrorSohbetSession = {
+  guestTrialSessionId?: string | null;
+  guestTrialResumed?: boolean;
+  guestTrialMessages?: { id: string; text: string; isUser: boolean }[];
   publicReplayContext?: import('./publicReplayContinuation').PublicReplayContext | null;
   sessionId: string;
   guestToken: string;

@@ -470,6 +470,29 @@ async def standalone_endpoint(
     
     Note: Public endpoint; message quota enforced per account tier.
     """
+    from backend.services.mirror_network.guest_trial import begin_guest_turn, finish_guest_turn, guest_history, record_trial_continuation
+    trial = await begin_guest_turn(db, request, credentials, x_guest_token)
+    if trial is not None:
+        row, cached = trial
+        if cached:
+            await db.rollback()
+            return {"ok": True, "mode": "standalone", "data": cached["result"]}
+        try:
+            history = await guest_history(db, row, request)
+            result = await run_full_pipeline(user_input=request.query_value, mode="standalone", db_session=None,
+                safe_only=request.safe_only or False, analysis_model=request.model, chat_history=history)
+            result = PipelineResponse.model_validate(result) if isinstance(result, dict) else result
+            if not result.ok or not isinstance(result.data, dict):
+                await db.rollback()
+                return result
+            answer = result.data.get("safe_answer") or result.data.get("assistant_answer") or ""
+            await finish_guest_turn(db, row, request, answer, result.data)
+            await record_trial_continuation(db, row, x_guest_token)
+            return result
+        except BaseException:
+            await db.rollback()
+            raise
+
     persistence = try_resolve_generation_persistence(request, credentials)
     from backend.services.mirror_network.public_replay_continuation import resolve_generation_replay_history
     chat_history = await resolve_generation_replay_history(db, request, persistence)
@@ -584,6 +607,30 @@ async def standalone_stream_endpoint(
     Note: Public endpoint; message quota enforced per account tier.
     """
     from backend.api.standalone_chat_memory import serialized_history_text
+
+    from backend.services.mirror_network.guest_trial import begin_guest_turn, guest_history, guest_stream
+    trial = await begin_guest_turn(db, request, credentials, x_guest_token)
+    if trial is not None:
+        row, cached = trial
+        if cached:
+            await db.rollback()
+            async def replay_cached():
+                import json
+                yield "data: " + json.dumps({"token": cached["answer"]}) + "\n\n"
+                yield "data: " + json.dumps({**cached["result"], "done": True}) + "\n\n"
+            stream = replay_cached()
+        else:
+            try:
+                history = await guest_history(db, row, request)
+                enforce_public_demo_limits(request.query_value,
+                    estimated_output_tokens=220 if request.safe_only else 180,
+                    quota_context_text=serialized_history_text(request.query_value, history))
+                stream = guest_stream(db, row, request, history, x_guest_token)
+            except BaseException:
+                await db.rollback()
+                raise
+        return StreamingResponse(stream, media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
     persistence = try_resolve_generation_persistence(request, credentials)
     from backend.services.mirror_network.public_replay_continuation import resolve_generation_replay_history

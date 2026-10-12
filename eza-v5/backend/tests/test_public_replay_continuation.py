@@ -155,7 +155,11 @@ async def test_generation_endpoints_receive_canonical_public_context(public_sour
     async def stream(**kwargs):
         captured.update(kwargs)
         yield 'data: {"done": true}\n\n'
-    with patch.object(main, "assert_can_send_message", new_callable=AsyncMock), \
+    # This path is authenticated; guests must bind a server-owned trial first.
+    from backend.core.account.subject import AccountSubject
+    from backend.core.account.tiers import AccountTier
+    with patch("backend.services.mirror_network.guest_trial.resolve_account_subject", new=AsyncMock(return_value=AccountSubject(AccountTier.FREE, str(uuid.uuid4()), None, True))), \
+         patch.object(main, "assert_can_send_message", new_callable=AsyncMock), \
          patch.object(main, "record_own_continuation_started_best_effort", new_callable=AsyncMock), \
          patch.object(main, "enforce_public_demo_limits"), \
          patch.object(main, "run_full_pipeline", new_callable=AsyncMock) as pipeline, \

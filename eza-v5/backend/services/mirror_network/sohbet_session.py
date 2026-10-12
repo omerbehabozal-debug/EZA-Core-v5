@@ -248,6 +248,7 @@ async def create_sohbet_session(
     slug: str,
     guest_token: str | None,
     replay_selection: PublicReplaySelection | None = None,
+    defer_commit: bool = False,
 ) -> MirrorSohbetSessionResponse:
     public = await fetch_public_mirror_by_slug(db, slug)
     replay_context = None
@@ -281,6 +282,7 @@ async def create_sohbet_session(
         source_mirror_slug=public.slug,
         session_id=session.sessionId,
         guest_token=session.guestToken,
+        **({"defer_commit": True} if defer_commit else {}),
     )
     return session.model_copy(update={"lineageProofToken": str(proof.id), "publicReplayContext": replay_context})
 

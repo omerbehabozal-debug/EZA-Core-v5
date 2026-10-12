@@ -19,7 +19,7 @@ import { parsePublicReplayContext } from './publicReplayContinuation';
 
 export type CreateSohbetSessionResult =
   | { ok: true; session: MirrorSohbetSession }
-  | { ok: false; status: number; quotaDetail?: QuotaErrorDetail };
+  | { ok: false; status: number; quotaDetail?: QuotaErrorDetail; reason?: string };
 
 function sessionStorageKey(slug: string): string {
   return `${MIRROR_SOHBET_SESSION_STORAGE_PREFIX}${slug}`;
@@ -92,7 +92,7 @@ export async function createMirrorSohbetSession(
 
   if (!options?.forceNew && !options?.replaySelection) {
     const cached = loadCachedSohbetSession(normalized);
-    if (cached) {
+    if (cached && !cached.guestTrialSessionId && typeof window !== 'undefined' && window.localStorage.getItem('eza_token')) {
       const eligible = await isSohbetSourceStillEligible(normalized);
       if (eligible) {
         return { ok: true, session: cached };
@@ -119,7 +119,9 @@ export async function createMirrorSohbetSession(
         try {
           const data = (await response.json()) as { detail?: QuotaErrorDetail };
           if (data.detail?.reason) {
-            return { ok: false, status: 403, quotaDetail: data.detail };
+            const reason = data.detail.reason;
+            const quota = ['guest_discover_limit_reached', 'daily_discover_limit_reached', 'guest_message_limit_reached', 'daily_message_limit_reached'].includes(reason);
+            return { ok: false, status: 403, reason, ...(quota ? { quotaDetail: data.detail } : {}) };
           }
         } catch {
           // fall through
@@ -130,8 +132,8 @@ export async function createMirrorSohbetSession(
     }
 
     const session = (await response.json()) as MirrorSohbetSession;
-    if (options?.replaySelection) {
-      const context = parsePublicReplayContext(session.publicReplayContext, options.replaySelection);
+    if (options?.replaySelection && !(session.guestTrialResumed && !session.publicReplayContext)) {
+      const context = parsePublicReplayContext(session.publicReplayContext, session.guestTrialResumed ? undefined : options.replaySelection);
       if (!context) return { ok: false, status: 502 };
       session.publicReplayContext = context;
     }
@@ -143,4 +145,15 @@ export async function createMirrorSohbetSession(
   } catch {
     return { ok: false, status: 502 };
   }
+}
+
+export function personalChatStartError(result: { status: number; reason?: string; quotaDetail?: QuotaErrorDetail }): string {
+  const reason = result.reason ?? result.quotaDetail?.reason;
+  if (reason === 'guest_discover_limit_reached') return 'Misafir deneme sohbeti hakkını kullandın. Mevcut sohbetine devam edebilir veya ücretsiz hesap oluşturabilirsin.';
+  if (reason === 'guest_message_limit_reached') return '10 mesajlık misafir deneme hakkını tamamladın. Sohbete devam etmek için ücretsiz hesap oluşturabilirsin.';
+  if (reason === 'daily_discover_limit_reached') return 'Günlük sohbet başlatma sınırına ulaştın. Mesajın korundu.';
+  if (reason === 'guest_token_required' || reason === 'guest_trial_session_invalid') return 'Misafir oturumun doğrulanamadı. Lütfen oturumunu yenileyip tekrar dene.';
+  if (result.status === 401 || result.status === 403) return 'Oturumun doğrulanamadı. Mesajın korundu; oturumunu kontrol edip tekrar dene.';
+  if (result.status === 429) return 'Çok sık denedin. Mesajın korundu; biraz bekleyip tekrar dene.';
+  return 'Sohbet şu anda başlatılamıyor. Mesajın korundu; tekrar deneyebilirsin.';
 }

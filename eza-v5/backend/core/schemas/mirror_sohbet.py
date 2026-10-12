@@ -27,6 +27,9 @@ class MirrorSohbetSessionRequest(BaseModel):
 
 
 class MirrorSohbetSessionResponse(BaseModel):
+    guestTrialSessionId: Optional[str] = None
+    guestTrialResumed: bool = False
+    guestTrialMessages: List[dict] = Field(default_factory=list)
     sessionId: str
     guestToken: str
     mirrorSlug: str

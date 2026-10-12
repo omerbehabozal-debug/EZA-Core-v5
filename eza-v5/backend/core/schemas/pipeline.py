@@ -67,6 +67,7 @@ class StandaloneRequest(BaseModel):
         max_length=64,
         description="Optional verified continuation proof; measurement only, never required for chat.",
     )
+    guestTrialSessionId: Optional[str] = Field(None, max_length=36)
     serverConversationId: Optional[str] = Field(
         None,
         max_length=36,

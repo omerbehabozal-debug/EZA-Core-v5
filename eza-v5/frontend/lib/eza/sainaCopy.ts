@@ -275,7 +275,7 @@ export const SAINA_CHAT_LIMIT_REACHED =
   'Bugünkü sohbet limitine ulaştın.\nDevam etmek için hesabını yükseltebilirsin.';
 
 export const SAINA_GUEST_CHAT_LIMIT_REACHED =
-  'Sohbet limitine ulaştın.\nDevam etmek için giriş yapabilir veya hesabını yükseltebilirsin.';
+  '10 mesajlık misafir deneme hakkını tamamladın. Sohbete devam etmek için ücretsiz hesap oluşturabilirsin.';
 
 export const SAINA_VISUAL_COOLDOWN_PREFIX = 'Yeni görsel oluşturmak için';
 

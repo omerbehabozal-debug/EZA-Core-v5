@@ -9,7 +9,7 @@ import SainaCinematicScene from '@/components/saina/SainaCinematicScene';
 import SainaHeroScene from '@/components/saina/SainaHeroScene';
 import SainaComposer from '@/components/saina/SainaComposer';
 import { resolvePublicHonorificId } from '@/lib/eza/mirror/publicHonorific';
-import { createMirrorSohbetSession } from '@/lib/eza/mirror-network/createSohbetSession';
+import { createMirrorSohbetSession, personalChatStartError } from '@/lib/eza/mirror-network/createSohbetSession';
 import { startMirrorGuestChat, MIRROR_GUEST_CHAT_REPLY_PARAM } from '@/lib/eza/mirror-network/mirrorGuestConversation';
 import { trackSeedStart, trackGuestConversationStarted } from '@/lib/eza/mirror-network/mirrorSohbetAnalytics';
 import { cancelYansiSpeech } from '@/lib/eza/mirror/yansiSpeech';
@@ -65,8 +65,7 @@ export default function YansiDesktopExperience({ slug, identity, messages, repla
       const result = await createMirrorSohbetSession(slug, { replaySelection });
       if (!isCurrent()) return;
       if (!result.ok) {
-        setError(result.quotaDetail ? 'Sohbet sınırına ulaştın. Kişisel sohbet şu an başlatılamadı.'
-          : 'Kişisel sohbet başlatılamadı. Sorun korundu; yeniden deneyebilirsin.');
+        setError(personalChatStartError(result));
         return;
       }
       const created = startMirrorGuestChat({ session: result.session, firstUserMessage: message });

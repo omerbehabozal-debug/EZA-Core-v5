@@ -62,6 +62,7 @@ async def create_continuation_proof(
     source_mirror_slug: str,
     session_id: str,
     guest_token: str,
+    defer_commit: bool = False,
 ) -> MirrorContinuationProof:
     now = datetime.now(timezone.utc)
     proof = MirrorContinuationProof(
@@ -72,8 +73,11 @@ async def create_continuation_proof(
         expires_at=now + timedelta(hours=PROOF_TTL_HOURS),
     )
     db.add(proof)
-    await db.commit()
-    await db.refresh(proof)
+    if defer_commit:
+        await db.flush()
+    else:
+        await db.commit()
+        await db.refresh(proof)
     return proof
 
 

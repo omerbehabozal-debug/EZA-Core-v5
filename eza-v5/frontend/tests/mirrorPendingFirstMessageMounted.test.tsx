@@ -102,4 +102,23 @@ describe('actual StandaloneChatInner first continuation send, mocked transport',
     expect(mocks.stream).toHaveBeenCalledTimes(2);
     expect(getChatArchive('personal')?.messages.filter((m) => m.isUser && m.text === text)).toHaveLength(1);
   });
+  it('sends trial session and stable turn IDs through the actual controller', async () => {
+    const archive = getChatArchive('personal')!;
+    upsertChatArchive({ ...archive, mirrorOrigin: { ...archive.mirrorOrigin!, guestTrialSessionId: 'trial-id' } });
+    render(<StandaloneChatInner />);
+    await waitFor(() => expect(getChatArchive('personal')?.mirrorOrigin?.autoReplyPending).toBe(false));
+    expect(mocks.stream.mock.calls[0][1]).toMatchObject({ guestTrialSessionId: 'trial-id',
+      clientUserMessageId: expect.any(String), clientAssistantMessageId: expect.any(String) });
+  });
+  it.each([403, 429, 502])('preserves pending trial after HTTP %s without a second fallback request', async (status) => {
+    const archive = getChatArchive('personal')!;
+    upsertChatArchive({ ...archive, mirrorOrigin: { ...archive.mirrorOrigin!, guestTrialSessionId: 'trial-id' } });
+    mocks.stream.mockRejectedValueOnce(Object.assign(new Error('Failed'), {status, reason: status === 403 ? 'guest_token_required' : undefined}));
+    render(<StandaloneChatInner />);
+    await screen.findByRole('button', { name: 'İlk mesajı tekrar gönder' });
+    expect(mocks.fallback).not.toHaveBeenCalled();
+    expect(getChatArchive('personal')?.mirrorOrigin?.pendingUserMessage).toBe(text);
+    expect(screen.getByText(text)).toBeInTheDocument();
+  });
+
 });

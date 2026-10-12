@@ -76,6 +76,8 @@ export interface MirrorConversationOrigin {
   /** First user message awaits assistant stream on standalone load. */
   autoReplyPending?: boolean;
   pendingUserMessage?: string;
+  guestTrialSessionId?: string;
+  guestTrialOwnerToken?: string;
   pendingUserMessageId?: string;
   pendingAssistantMessageId?: string;
 }

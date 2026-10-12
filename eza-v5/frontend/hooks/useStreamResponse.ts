@@ -104,20 +104,14 @@ export function useStreamResponse(): UseStreamResponseReturn {
         }
 
         const detail = errorData.detail;
-        if (response.status === 403 && detail && typeof detail === 'object' && detail.reason) {
-          const quotaError = new Error(
-            typeof detail.message === 'string' ? detail.message : 'Sohbet limitine ulaştın.'
-          );
-          (quotaError as Error & { quotaDetail?: unknown }).quotaDetail = detail;
-          throw quotaError;
+        const reason = detail && typeof detail === 'object' ? detail.reason : undefined;
+        const failure = new Error(typeof detail?.message === 'string' ? detail.message :
+          errorData.error?.error_message || (typeof detail === 'string' ? detail : '') || errorData.message || `Backend hatası: HTTP ${response.status}`);
+        Object.assign(failure, { status: response.status, reason });
+        if (response.status === 403 && reason && ['guest_message_limit_reached', 'daily_message_limit_reached', 'message_too_long'].includes(reason)) {
+          Object.assign(failure, { quotaDetail: detail });
         }
-        
-        throw new Error(
-          errorData.error?.error_message || 
-          errorData.detail || 
-          errorData.message || 
-          `Backend hatası: HTTP ${response.status}`
-        );
+        throw failure;
       }
 
       // Check if response is streaming (text/event-stream or application/x-ndjson)

@@ -98,10 +98,16 @@ def test_resolve_mirror_lineage_ids_with_parent():
 
 def test_start_sohbet_session_endpoint():
     public = _public_payload()
+    from backend.core.utils.dependencies import get_db
+    from backend.core.account.subject import AccountSubject
+    from backend.core.account.tiers import AccountTier
+    previous = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_db] = lambda: AsyncMock()
     with (
+        patch("backend.core.account.subject.resolve_account_subject", new=AsyncMock(return_value=AccountSubject(AccountTier.GUEST,None,"fp",False))),
         patch(
-            "backend.routers.mirror_network.assert_can_start_discover_conversation",
-            new=AsyncMock(return_value=SimpleNamespace(user_id=None, guest_fingerprint="fp")),
+            "backend.services.mirror_network.guest_trial.prepare_guest_trial",
+            new=AsyncMock(return_value=build_sohbet_session_response(public,guest_token="guest-existing-token-12345")),
         ),
         patch(
             "backend.routers.mirror_network.record_account_usage_event",
@@ -118,6 +124,8 @@ def test_start_sohbet_session_endpoint():
             f"/api/mirror-network/{public.slug}/sohbet/session",
             json={"guestToken": "guest-existing-token-12345"},
         )
+    if previous is None: app.dependency_overrides.pop(get_db, None)
+    else: app.dependency_overrides[get_db] = previous
     assert response.status_code == 201
     body = response.json()
     assert body["mirrorSlug"] == public.slug
