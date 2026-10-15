@@ -35,7 +35,6 @@ import type { PublicReplayContext } from '@/lib/eza/mirror-network/publicReplayC
 import SainaMobileAynaSheet from './SainaMobileAynaSheet';
 import SainaMobileYansiHeader from './SainaMobileYansiHeader';
 import SainaPageTopBar from './SainaPageTopBar';
-import SainaProfileMenu from './SainaProfileMenu';
 import SainaStandaloneMirrorPanel from './SainaStandaloneMirrorPanel';
 import SainaYansiContextRail from './SainaYansiContextRail';
 
@@ -119,7 +118,6 @@ function SainaChatSurface({
 }) {
   void _mirrorMobileContext;
   const [mirrorCollapsed, setMirrorCollapsed] = useState(true);
-  const [profileOpen, setProfileOpen] = useState(false);
   const showMessages = !isEmpty && messages != null;
   const { user, isAuthenticated } = useAuth();
   const isGuest = !isAuthenticated;
@@ -153,7 +151,6 @@ function SainaChatSurface({
     setChrome({ onOpenMirror: tryOpenMirror });
   }, [setChrome, tryOpenMirror]);
 
-  const openProfile = useCallback(() => setProfileOpen(true), []);
 
   const identityHeader = (
     <SainaHeroScene
@@ -194,8 +191,6 @@ function SainaChatSurface({
                 metaTimeLabel={heroMeta?.timeLabel}
                 metaTypeLabel={heroMeta?.typeLabel}
                 onOpenMenu={onMobileMenu}
-                onOpenProfile={openProfile}
-                profileOpen={profileOpen}
               />
             ) : (
               <SainaPageTopBar
@@ -280,23 +275,7 @@ function SainaChatSurface({
           />
         ) : null}
 
-        {!isCompactShell ? (
-          <div
-            className="saina-mobile-utility-hosts"
-            data-testid="saina-mobile-utility-hosts"
-          >
-            <SainaProfileMenu
-              safeOnlyMode={safeOnlyMode}
-              onSafeOnlyModeChange={onSafeOnlyModeChange}
-              analysisModelId={analysisModelId}
-              onAnalysisModelChange={onAnalysisModelChange}
-              disabled={settingsDisabled}
-              open={profileOpen}
-              onOpenChange={setProfileOpen}
-              hideTrigger
-            />
-          </div>
-        ) : null}
+
 
         {isCompactShell ? (
           <div
@@ -442,6 +421,8 @@ export default function SainaStandaloneShell({
               onUpgrade={onUpgrade}
               onRequestLogin={onRequestLogin}
               mobileOpen={mobileSidebarOpen}
+              accountSettings={{ safeOnlyMode, onSafeOnlyModeChange, analysisModelId, onAnalysisModelChange, disabled: settingsDisabled }}
+              onMobileOpen={() => setMobileSidebarOpen(true)}
               onMobileClose={() => setMobileSidebarOpen(false)}
               showMobileChrome={!isCompactShell}
             />

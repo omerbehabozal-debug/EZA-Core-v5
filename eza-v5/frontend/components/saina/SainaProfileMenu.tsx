@@ -4,9 +4,11 @@ import '@/styles/saina-profile-panel.css';
 import '@/styles/saina-account-navigation.css';
 import '@/styles/profile-avatar-crop-viewer.css';
 import '@/styles/bilign-avatar-identity-frame.css';
-import { useEffect, useId, useRef, useState, type ChangeEvent, type KeyboardEvent, type RefObject } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type ChangeEvent, type KeyboardEvent, type MutableRefObject, type RefObject } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Bell, ChevronDown, ChevronRight, CreditCard, LogOut, Settings, User, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { useModalFocusTrap } from '@/hooks/useModalFocusTrap';
+import { ArrowLeft, Bell, ChevronDown, ChevronUp, ChevronRight, CreditCard, LogOut, Settings, User, X } from 'lucide-react';
 import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
 import { SainaNotificationsContent } from './SainaNotificationsDropdown';
 import { cn } from '@/lib/utils';
@@ -69,6 +71,10 @@ export type SainaProfileMenuProps = {
   onOpenChange?: (open: boolean) => void;
   /** Hide the top-bar avatar trigger when another affordance owns open/close. */
   hideTrigger?: boolean;
+  onDetailOpen?: () => void;
+  onReturnToMenu?: () => void;
+  onUpgradeRequest?: () => void;
+  drawerCloseGuardRef?: MutableRefObject<(() => boolean) | null>;
 };
 
 function resolveQuietAccountPlanLabel(planTier: SainaPlanTier): string | null {
@@ -176,20 +182,34 @@ export default function SainaProfileMenu({
   open: openProp,
   onOpenChange,
   hideTrigger = false,
+  onDetailOpen,
+  onReturnToMenu,
+  onUpgradeRequest,
+  drawerCloseGuardRef,
 }: SainaProfileMenuProps) {
-  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
-  const open = openProp ?? uncontrolledOpen;
+  const [section, setAccountView] = useState<'closed' | 'menu' | 'notifications' | 'profile' | 'settings' | 'plan'>(openProp ? 'menu' : 'closed');
+  const open = section !== 'closed';
+  const detail = open && section !== 'menu';
+  const setSection = (next: typeof section) => {
+    setAccountView(next);
+    if (next === 'menu') onReturnToMenu?.();
+    else if (next !== 'closed') onDetailOpen?.();
+  };
   const setOpen = (next: boolean) => {
-    if (openProp === undefined) setUncontrolledOpen(next);
+    setAccountView(next ? 'menu' : 'closed');
     onOpenChange?.(next);
   };
-  const [section, setSection] = useState<'menu' | 'notifications' | 'profile' | 'settings' | 'plan'>('menu');
+  useEffect(() => {
+    if (openProp !== undefined) setAccountView(openProp ? 'menu' : 'closed');
+  }, [openProp]);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const returnFocusRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const notifications = useSainaChromeStore((state) => state.notifications);
-  const onUpgrade = useSainaChromeStore((state) => state.onUpgrade);
+  const storedUpgrade = useSainaChromeStore((state) => state.onUpgrade);
+  const onUpgrade = onUpgradeRequest ?? storedUpgrade;
   const settingsSectionRef = useRef<HTMLDivElement>(null);
   const [modelOpen, setModelOpen] = useState(false);
   const [ezaPrefs, setEzaPrefs] = useState<EzaUserPreferences>(() =>
@@ -308,7 +328,7 @@ export default function SainaProfileMenu({
     if (!open) return;
     const onDoc = (event: MouseEvent) => {
       if (cropSourceFile || avatarViewerOpen) return;
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node) && !panelRef.current?.contains(event.target as Node)) {
         close();
       }
     };
@@ -345,18 +365,29 @@ export default function SainaProfileMenu({
     finishClose();
   };
 
+  if (drawerCloseGuardRef) drawerCloseGuardRef.current = () => {
+    if (!open) return true;
+    if (detail) return false;
+    close();
+    return false; // finishClose owns drawer dismissal; a dirty form stays open.
+  };
+  useEffect(() => () => { if (drawerCloseGuardRef) drawerCloseGuardRef.current = null; }, [drawerCloseGuardRef]);
+
   useEffect(() => {
     if (!open) return;
-    setSection('menu');
     setConfirmDiscard(false);
     returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    return () => returnFocusRef.current?.focus();
+    return () => {
+      const mobileOpener = document.querySelector<HTMLElement>('[data-testid="yansi-mobile-public-menu"], [data-testid="saina-mobile-menu-btn"], [data-testid="saina-discover-mobile-menu-btn"], .saina-standalone-menu-btn');
+      const target = window.matchMedia?.('(max-width: 899px)').matches ? mobileOpener ?? returnFocusRef.current : returnFocusRef.current;
+      target?.focus();
+    };
   }, [open]);
 
   useEffect(() => {
     if (!open) return;
     panelRef.current?.querySelector<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled)')?.focus();
-  }, [open, section, confirmDiscard]);
+  }, [open, section, confirmDiscard, cropSourceFile, avatarViewerOpen]);
 
   const patchEzaPref = (patch: Partial<EzaUserPreferences>) => {
     setEzaPrefs(setEzaUserPreferences(ownerUserId, patch));
@@ -493,49 +524,43 @@ export default function SainaProfileMenu({
     }
   };
 
-  return (
-    <div
-      ref={rootRef}
-      className={cn('saina-profile-menu-root', hideTrigger && 'saina-profile-menu-root--host')}
-    >
-      {hideTrigger ? null : (
-        <button
-          type="button"
-          className="saina-top-avatar-wrap saina-profile-menu-trigger"
-          onClick={() => (open ? close() : setOpen(true))}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          aria-label="Profil ve ayarlar"
-          data-testid="saina-profile-menu-trigger"
-        >
-          {isGuest ? (
-            <div
-              className="saina-profile-avatar saina-profile-avatar--top saina-profile-avatar--guest"
-              aria-hidden
-            >
-              <User size={16} />
-            </div>
-          ) : (
-            <ProfileUserAvatar
-              displayName={displayName}
-              userId={ownerUserId}
-              avatarUrl={panelAvatarUrl}
-              cacheBust={avatarCacheBust}
-              size="top"
-            />
-          )}
-        </button>
-      )}
+  const dismissRef = useRef<() => void>(() => {});
+  dismissRef.current = () => {
+    if (modelOpen) setModelOpen(false);
+    else if (confirmDiscard) setConfirmDiscard(false);
+    else close();
+  };
+  const dismissModal = useCallback(() => dismissRef.current(), []);
+  useModalFocusTrap({ open: detail && !cropSourceFile && !avatarViewerOpen,
+    onClose: dismissModal, containerRef: panelRef, initialFocusRef: closeButtonRef });
 
-      {open ? (
-        <div ref={panelRef} className="saina-profile-menu saina-account-panel" data-testid="saina-profile-menu"
-          data-section={section} role="dialog" aria-labelledby={titleId} onKeyDown={handlePanelKeyDown}
+  const portalTarget = typeof document === 'undefined' ? null :
+    rootRef.current?.closest('.saina-shell')?.querySelector<HTMLElement>('.saina-main-col') ?? document.body;
+
+  useEffect(() => {
+    if (!detail || !portalTarget) return;
+    const bodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const blocked = Array.from(portalTarget.children).filter((element) => !element.classList.contains('saina-account-overlay'));
+    const sidebar = rootRef.current?.closest('aside');
+    if (sidebar && portalTarget !== document.body) blocked.push(sidebar);
+    const originals = blocked.map((element) => ({ element, inert: element.hasAttribute('inert') }));
+    blocked.forEach((element) => element.setAttribute('inert', ''));
+    return () => {
+      document.body.style.overflow = bodyOverflow;
+      originals.forEach(({ element, inert }) => { if (!inert) element.removeAttribute('inert'); });
+    };
+  }, [detail, portalTarget]);
+
+  const surface = open && !cropSourceFile && !avatarViewerOpen ? (
+        <div ref={panelRef} className={cn('saina-profile-menu saina-account-panel', detail && 'saina-account-panel--detail')} data-testid="saina-profile-menu"
+          data-section={section} role="dialog" aria-modal={detail || undefined} aria-labelledby={titleId} onKeyDown={handlePanelKeyDown}
           onWheel={(event) => event.stopPropagation()} onTouchMove={(event) => event.stopPropagation()}>
           <div className="saina-account-panel-heading">
             {section !== 'menu' && !confirmDiscard ? <button type="button" className="saina-account-icon-button"
               aria-label="Profil menüsüne dön" data-testid="saina-profile-back" onClick={() => { setSection('menu'); setModelOpen(false); }}><ArrowLeft size={18} aria-hidden /></button> : null}
-            <h2 id={titleId}>{confirmDiscard ? 'Kaydedilmemiş değişiklikler' : { menu: 'Hesabım', notifications: 'Bildirimler', profile: 'Profilimi düzenle', settings: 'Ayarlar', plan: planTier === 'premium' ? 'Premium planım' : 'Planım' }[section]}</h2>
-            <button type="button" className="saina-account-icon-button" aria-label="Profil panelini kapat" data-testid="saina-profile-close"
+            <h2 id={titleId}>{confirmDiscard ? 'Kaydedilmemiş değişiklikler' : { menu: 'Hesabım', notifications: 'Bildirimler', profile: 'Profilimi düzenle', settings: 'Ayarlar', plan: planTier === 'premium' ? 'Premium planım' : 'Planım', closed: '' }[section]}</h2>
+            <button ref={closeButtonRef} type="button" className="saina-account-icon-button" aria-label="Profil panelini kapat" data-testid="saina-profile-close"
               disabled={nameSaveState === 'saving' || avatarSaveState === 'saving'} onClick={close}><X size={18} aria-hidden /></button>
           </div>
           <div className="saina-account-panel-content">
@@ -906,7 +931,53 @@ export default function SainaProfileMenu({
           </>}
           </div>
         </div>
-      ) : null}
+      ) : null;
+
+  return (
+    <div
+      ref={rootRef}
+      className={cn('saina-profile-menu-root saina-sidebar-account', hideTrigger && 'saina-profile-menu-root--host')}
+    >
+      {hideTrigger ? null : (
+        <button
+          type="button"
+          className="saina-sidebar-account-trigger saina-profile-menu-trigger"
+          onClick={() => (open ? close() : setOpen(true))}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label="Profil ve ayarlar"
+          data-testid="saina-profile-menu-trigger"
+        >
+          {isGuest ? (
+            <div
+              className="saina-profile-avatar saina-profile-avatar--top saina-profile-avatar--guest"
+              aria-hidden
+            >
+              <User size={16} />
+            </div>
+          ) : (
+            <ProfileUserAvatar
+              displayName={displayName}
+              userId={ownerUserId}
+              avatarUrl={panelAvatarUrl}
+              cacheBust={avatarCacheBust}
+              size="top"
+            />
+          )}
+          <span className="saina-sidebar-account-copy">
+            <span className="saina-sidebar-account-name">{isGuest ? SAINA_MENU_GUEST_LABEL : displayName}</span>
+            <span className="saina-sidebar-account-plan">{quietPlanLabel ? `biligN ${quietPlanLabel}` : planTier === 'loading' ? 'Plan bilgisi yükleniyor…' : isGuest ? 'Giriş yap / Kayıt ol' : 'Oturum doğrulanamadı'}</span>
+          </span>
+          <ChevronUp size={15} aria-hidden />
+        </button>
+      )}
+
+      {detail && portalTarget ? createPortal(
+        <div className={cn('saina-account-overlay', portalTarget === document.body && 'saina-account-overlay--viewport')} data-testid="saina-account-overlay">
+          <div className="saina-account-backdrop" aria-hidden="true" />
+          {surface}
+        </div>, portalTarget
+      ) : surface}
 
       {cropSourceFile ? (
         <ProfileAvatarCropEditor

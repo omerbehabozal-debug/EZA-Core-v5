@@ -53,3 +53,5 @@ describe('Sidebar final IA — no own-Yansı rows', () => {
     expect(screen.getByTestId(`saina-conv-menu-${conv.id}`)).toBeTruthy();
   });
 });
+
+vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ isAuthenticated: false, isAuthReady: true, user: null, token: null, logout: vi.fn(), setAuth: vi.fn(), patchAuthUser: vi.fn() }) }));

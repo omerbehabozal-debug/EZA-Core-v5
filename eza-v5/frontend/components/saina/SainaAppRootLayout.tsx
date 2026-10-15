@@ -103,6 +103,7 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
               onUpgrade={chrome.onUpgrade}
               onRequestLogin={chrome.onRequestLogin}
               mobileOpen={mobileSidebarOpen}
+              onMobileOpen={openMobileSidebar}
               onMobileClose={() => setMobileSidebarOpen(false)}
               showMobileChrome={!isCompactShell}
             />

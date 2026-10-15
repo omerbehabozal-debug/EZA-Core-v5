@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Compass, GitBranch, User, MessageSquarePlus, MoreHorizontal, Pencil, Trash2, X } from 'lucide-react';
+import SainaProfileMenu, { type SainaProfileMenuProps } from './SainaProfileMenu';
+import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
 import { cn } from '@/lib/utils';
 import {
   SAINA_BRAND,
@@ -11,12 +13,8 @@ import {
   SAINA_CONV_RENAME,
   SAINA_EMPTY_CHAT_PREVIEW,
   SAINA_NEW_CHAT,
-  SAINA_PLAN_LOADING_BODY,
-  SAINA_PLAN_LOGIN_CTA,
-  SAINA_PLAN_SESSION_INVALID_BODY,
   SAINA_RELATIONSHIP_PATTERN_TITLE,
 } from '@/lib/eza/sainaCopy';
-import { resolveSainaSidebarFooter } from '@/lib/eza/plan/sainaAccountTiers';
 import { SAINA_DISCOVER_TITLE } from '@/lib/eza/mirror-network/discoverCopy';
 import { SAINA_DISCOVER_ROUTE, SAINA_MY_PAGE_ROUTE } from '@/lib/eza/sainaRoutes';
 import type { SainaAppView } from '@/lib/eza/sainaRoutes';
@@ -162,6 +160,8 @@ type SainaConversationSidebarProps = {
   onRequestLogin?: () => void;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
+  onMobileOpen?: () => void;
+  accountSettings?: Pick<SainaProfileMenuProps, 'safeOnlyMode' | 'onSafeOnlyModeChange' | 'analysisModelId' | 'onAnalysisModelChange' | 'disabled'>;
   /** When false (desktop layout), hide drawer backdrop and close control. */
   showMobileChrome?: boolean;
   className?: string;
@@ -186,12 +186,21 @@ export default function SainaConversationSidebar({
   onUpgrade,
   onRequestLogin,
   mobileOpen = false,
+  onMobileOpen,
+  accountSettings,
   onMobileClose,
   showMobileChrome = true,
   className,
   interactionsDisabled = false,
 }: SainaConversationSidebarProps) {
   const router = useRouter();
+  const accountChrome = useSainaChromeStore();
+  const accountCloseGuard = useRef<(() => boolean) | null>(null);
+  const requestMobileClose = () => {
+    if (accountCloseGuard.current && !accountCloseGuard.current()) return;
+    onMobileClose?.();
+  };
+  const account = accountSettings ?? { ...accountChrome, disabled: accountChrome.settingsDisabled };
   const items = conversations ?? MOCK_SAINA_CONVERSATIONS;
   const isMock = conversations == null && conversationGroups == null;
   const disabled = interactionsDisabled || isMock;
@@ -608,109 +617,6 @@ export default function SainaConversationSidebar({
     );
   };
 
-  const renderPlanFooter = () => {
-    if (planTier === 'loading') {
-      return (
-        <p className="saina-sidebar-plan-footer-text">{SAINA_PLAN_LOADING_BODY}</p>
-      );
-    }
-
-    if (planTier === 'session_invalid') {
-      return (
-        <>
-          <span className="saina-sidebar-plan-footer-text">{SAINA_PLAN_SESSION_INVALID_BODY}</span>
-          <button
-            type="button"
-            className="saina-sidebar-plan-footer-cta"
-            data-testid="saina-plan-login-cta"
-            onClick={() => onRequestLogin?.()}
-          >
-            {SAINA_PLAN_LOGIN_CTA}
-          </button>
-        </>
-      );
-    }
-
-    if (planTier === 'premium' || planTier === 'mini' || planTier === 'standard') {
-      const footer = resolveSainaSidebarFooter(planTier);
-      if (!footer) return null;
-
-      if (!footer.showUpgrade) {
-        return (
-          <span
-            className={cn(
-              'saina-sidebar-plan-footer-text',
-              footer.paidAccent && 'saina-sidebar-plan-footer-text--premium'
-            )}
-          >
-            {footer.tierLabel}
-          </span>
-        );
-      }
-
-      return (
-        <button
-          type="button"
-          className="saina-sidebar-plan-footer-cta saina-sidebar-plan-footer-cta--full"
-          data-testid="saina-plan-upgrade-cta"
-          onClick={() => onUpgrade?.()}
-        >
-          <span className="saina-sidebar-plan-footer-stack">
-            <span
-              className={cn(
-                'saina-sidebar-plan-footer-tier',
-                footer.paidAccent && 'saina-sidebar-plan-footer-tier--paid'
-              )}
-            >
-              {footer.tierLabel}
-            </span>
-            <span className="saina-sidebar-plan-footer-action">{footer.actionLabel}</span>
-          </span>
-        </button>
-      );
-    }
-
-    if (planTier === 'anonymous') {
-      const footer = resolveSainaSidebarFooter(planTier);
-      if (!footer) return null;
-
-      return (
-        <button
-          type="button"
-          className="saina-sidebar-plan-footer-cta saina-sidebar-plan-footer-cta--full"
-          data-testid="saina-plan-login-cta"
-          onClick={() => onRequestLogin?.()}
-        >
-          <span className="saina-sidebar-plan-footer-stack">
-            <span className="saina-sidebar-plan-footer-tier">{footer.tierLabel}</span>
-            <span className="saina-sidebar-plan-footer-action">{footer.actionLabel}</span>
-          </span>
-        </button>
-      );
-    }
-
-    if (planTier === 'free') {
-      const footer = resolveSainaSidebarFooter(planTier);
-      if (!footer) return null;
-
-      return (
-        <button
-          type="button"
-          className="saina-sidebar-plan-footer-cta saina-sidebar-plan-footer-cta--full"
-          data-testid="saina-plan-upgrade-cta"
-          onClick={() => onUpgrade?.()}
-        >
-          <span className="saina-sidebar-plan-footer-stack">
-            <span className="saina-sidebar-plan-footer-tier">{footer.tierLabel}</span>
-            <span className="saina-sidebar-plan-footer-action">{footer.actionLabel}</span>
-          </span>
-        </button>
-      );
-    }
-
-    return null;
-  };
-
   const handlePatternOpen = () => {
     if (onOpenPattern) {
       onOpenPattern();
@@ -729,7 +635,7 @@ export default function SainaConversationSidebar({
           type="button"
           className="saina-sidebar-backdrop"
           aria-label="Menüyü kapat"
-          onClick={onMobileClose}
+          onClick={requestMobileClose}
         />
       ) : null}
 
@@ -751,7 +657,7 @@ export default function SainaConversationSidebar({
                   type="button"
                   className="saina-sidebar-close-btn"
                   data-testid="saina-sidebar-close-btn"
-                  onClick={onMobileClose}
+                  onClick={requestMobileClose}
                   aria-label="Kapat"
                 >
                   <X size={18} />
@@ -978,13 +884,18 @@ export default function SainaConversationSidebar({
               <span>{SAINA_RELATIONSHIP_PATTERN_TITLE}</span>
             </button>
 
-            <div
-              className="saina-sidebar-plan-footer"
-              data-testid="saina-plan-card"
-              data-plan-tier={planTier}
-            >
-              {renderPlanFooter()}
-            </div>
+            <SainaProfileMenu
+              safeOnlyMode={account.safeOnlyMode}
+              onSafeOnlyModeChange={account.onSafeOnlyModeChange}
+              analysisModelId={account.analysisModelId}
+              onAnalysisModelChange={account.onAnalysisModelChange}
+              disabled={account.disabled}
+              onUpgradeRequest={onUpgrade}
+              onDetailOpen={() => { if (mobileOpen) onMobileClose?.(); }}
+              onReturnToMenu={onMobileOpen}
+              onOpenChange={(next) => { if (!next && mobileOpen) onMobileClose?.(); }}
+              drawerCloseGuardRef={accountCloseGuard}
+            />
           </nav>
         </div>
       </aside>

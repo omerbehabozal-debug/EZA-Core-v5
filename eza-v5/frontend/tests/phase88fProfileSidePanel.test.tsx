@@ -532,16 +532,12 @@ describe('two-level account navigation', () => {
     expect(first).toHaveFocus();
   });
 
-  it('renders avatar-only chrome even before settings callbacks are ready', () => {
+  it('does not render any account, search or notification entry in top chrome', () => {
     const { container } = render(<SainaPageTopBar />);
-    expect(screen.getByTestId('saina-profile-menu-trigger')).toBeInTheDocument();
+    expect(screen.queryByTestId('saina-profile-menu-trigger')).toBeNull();
     expect(screen.queryByTestId('saina-top-search-trigger')).toBeNull();
     expect(screen.queryByTestId('saina-notifications-trigger')).toBeNull();
     expect(container.querySelector('.saina-status-dot')).toBeNull();
-    fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
-    fireEvent.click(screen.getByTestId('saina-profile-nav-settings'));
-    expect(screen.getByTestId('saina-safe-mode-switch')).toBeDisabled();
-    expect(screen.getByTestId('saina-profile-model-trigger')).toBeDisabled();
   });
 
   it('blocks the retained palette and keyboard shortcut from all alternate callers', () => {

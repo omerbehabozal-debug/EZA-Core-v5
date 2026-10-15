@@ -473,3 +473,5 @@ describe('saina sidebar row actions', () => {
     });
   });
 });
+
+vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ isAuthenticated: false, isAuthReady: true, user: null, token: null, logout: vi.fn(), setAuth: vi.fn(), patchAuthUser: vi.fn() }) }));

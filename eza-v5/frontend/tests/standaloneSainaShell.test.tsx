@@ -209,6 +209,7 @@ describe('SainaStandaloneShell (Sprint B.2B)', () => {
 
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
     expect(screen.getByTestId('saina-profile-menu')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('saina-profile-nav-settings'));
     expect(screen.getByText(SAINA_SAFE_MODE_LABEL)).toBeInTheDocument();
     expect(screen.getByText(SAINA_ANALYSIS_MODEL_LABEL)).toBeInTheDocument();
     expect(screen.queryByText(/Analiz edilen model/i)).not.toBeInTheDocument();
@@ -663,56 +664,18 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
     expect(screen.queryByLabelText('Sohbet listesini daralt')).not.toBeInTheDocument();
   });
 
-  it('renders anonymous plan footer for first-time visitors', () => {
-    render(<SainaStandaloneShell {...shellProps} planTier="anonymous" />);
-
-    expect(screen.getByText('biligN Guest')).toBeInTheDocument();
-    expect(screen.getByText('Giriş Yap →')).toBeInTheDocument();
-    expect(screen.queryByText('Hesabını Yükselt')).not.toBeInTheDocument();
-    expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
-    expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
-  });
-
-  it('renders logged-in free plan footer when planTier is free', () => {
-    render(<SainaStandaloneShell {...shellProps} planTier="free" />);
-
-    expect(screen.getByText('biligN Free')).toBeInTheDocument();
-    expect(screen.getByText('Hesabını Yükselt →')).toBeInTheDocument();
-    expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
-    expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
-    expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
-  });
-
-  it('renders premium plan footer when planTier is premium', () => {
-    render(<SainaStandaloneShell {...shellProps} planTier="premium" />);
-
-    expect(screen.getByText('biligN Premium ✦')).toBeInTheDocument();
-    expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
-    expect(screen.queryByText('Şu an ilişki gözlemleniyor')).not.toBeInTheDocument();
-    expect(screen.queryByText('Aylık Mirror Hakkı')).not.toBeInTheDocument();
-    expect(screen.queryByText(/7 \/ 10/)).not.toBeInTheDocument();
-  });
-
-  it('renders loading plan footer without misleading free tier', () => {
-    render(<SainaStandaloneShell {...shellProps} planTier="loading" />);
-
-    const planCard = screen.getByTestId('saina-plan-card');
-    expect(planCard).toHaveAttribute('data-plan-tier', 'loading');
-    expect(within(planCard).getByText('Plan bilgisi kontrol ediliyor...')).toBeInTheDocument();
-    expect(screen.queryByText('biligN Free')).not.toBeInTheDocument();
-    expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
-  });
-
-  it('renders session_invalid plan footer with login CTA', () => {
-    render(<SainaStandaloneShell {...shellProps} planTier="session_invalid" />);
-
-    const planCard = screen.getByTestId('saina-plan-card');
-    expect(planCard).toHaveAttribute('data-plan-tier', 'session_invalid');
-    expect(within(planCard).getByText('Oturum doğrulanamadı')).toBeInTheDocument();
-    expect(within(planCard).getByText('Giriş yap')).toBeInTheDocument();
-    expect(screen.queryByText('biligN Free')).not.toBeInTheDocument();
-    expect(screen.queryByText('Şimdi Premium Ol')).not.toBeInTheDocument();
-  });
+  it.each(['anonymous', 'free', 'premium', 'loading', 'session_invalid'] as const)(
+    'keeps one account entry and trusts the current auth identity over stale shell tier %s', (tier) => {
+      render(<SainaStandaloneShell {...shellProps} planTier={tier} />);
+      expect(screen.getAllByTestId('saina-profile-menu-trigger')).toHaveLength(1);
+      expect(screen.getByTestId('saina-profile-menu-trigger')).toHaveTextContent('biligN Guest');
+      expect(screen.getByTestId('saina-profile-menu-trigger')).toHaveTextContent('Giriş yap / Kayıt ol');
+      expect(screen.queryByTestId('saina-plan-card')).toBeNull();
+      expect(screen.queryByText('biligN Premium ✦')).toBeNull();
+      fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
+      expect(screen.getByTestId('saina-profile-login')).toBeInTheDocument();
+    }
+  );
 
   it('blocks mirror open when onRequestMirror returns false', () => {
     const { container } = render(

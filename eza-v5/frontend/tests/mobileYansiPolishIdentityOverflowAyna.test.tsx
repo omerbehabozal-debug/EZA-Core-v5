@@ -162,12 +162,12 @@ describe('Mobile Yansı polish — identity + overflow + Ayna', () => {
     expect(screen.queryByTestId('saina-notifications-trigger')).not.toBeInTheDocument();
   });
 
-  it('mobile utility avatar opens profile and notifications within it', async () => {
+  it('sidebar account opens profile and notifications', async () => {
     render(<SainaStandaloneShell {...shellProps()} />);
-    await waitFor(() => screen.getByTestId('saina-mobile-profile-trigger'));
+    await waitFor(() => screen.getByTestId('saina-profile-menu-trigger'));
     expect(screen.queryByTestId('saina-mobile-yansi-overflow')).toBeNull();
     expect(screen.queryByTestId('saina-mobile-overflow-search')).toBeNull();
-    fireEvent.click(screen.getByTestId('saina-mobile-profile-trigger'));
+    fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
     expect(screen.getByTestId('saina-profile-menu')).toHaveAttribute('data-section', 'menu');
     fireEvent.click(screen.getByTestId('saina-profile-nav-notifications'));
     expect(screen.getByTestId('saina-notifications-panel')).toBeInTheDocument();
@@ -175,11 +175,13 @@ describe('Mobile Yansı polish — identity + overflow + Ayna', () => {
     expect(screen.getByTestId('saina-profile-nav-settings')).toBeInTheDocument();
   });
 
-  it('avatar/identity opens existing Hesabım profile panel', async () => {
+  it('mobile header keeps menu access without a second account avatar', async () => {
     render(<SainaStandaloneShell {...shellProps()} />);
     await waitFor(() => screen.getByTestId('saina-mobile-yansi-author'));
+    expect(screen.getByTestId('saina-mobile-menu-btn')).toBeInTheDocument();
+    expect(screen.queryByTestId('saina-mobile-profile-trigger')).toBeNull();
     fireEvent.click(screen.getByTestId('saina-mobile-yansi-author'));
-    expect(screen.getByTestId('saina-profile-menu')).toBeInTheDocument();
+    expect(screen.queryByTestId('saina-profile-menu')).toBeNull();
   });
 
   it('explicit Ayna pill opens existing SainaMobileAynaSheet; composer mark is not the only path', async () => {
@@ -209,10 +211,10 @@ describe('Mobile Yansı polish — identity + overflow + Ayna', () => {
 
   it('opening/closing profile does not focus or clear composer', async () => {
     render(<SainaStandaloneShell {...shellProps()} />);
-    await waitFor(() => screen.getByTestId('saina-mobile-profile-trigger'));
+    await waitFor(() => screen.getByTestId('saina-profile-menu-trigger'));
     const input = screen.getByLabelText('Mesaj yaz');
     fireEvent.change(input, { target: { value: 'Korunan taslak' } });
-    fireEvent.click(screen.getByTestId('saina-mobile-profile-trigger'));
+    fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
     expect(document.activeElement).not.toBe(input);
     fireEvent.click(screen.getByTestId('saina-profile-close'));
     expect(screen.queryByTestId('saina-profile-menu')).toBeNull();

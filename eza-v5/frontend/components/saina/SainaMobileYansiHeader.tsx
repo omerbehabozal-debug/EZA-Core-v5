@@ -43,7 +43,6 @@ export default function SainaMobileYansiHeader({
   metaTypeLabel = null,
   onOpenMenu,
   onOpenProfile,
-  profileOpen = false,
   className,
 }: SainaMobileYansiHeaderProps) {
   const name = displayName?.trim() || SAINA_MENU_GUEST_LABEL;
@@ -106,25 +105,6 @@ export default function SainaMobileYansiHeader({
           </div>
         )}
 
-        <button
-          type="button"
-          className="saina-mobile-yansi-header__more saina-mobile-profile-trigger"
-          data-testid="saina-mobile-profile-trigger"
-          aria-label="Profil ve ayarlar"
-          aria-haspopup="dialog"
-          aria-expanded={profileOpen}
-          onClick={onOpenProfile}
-          disabled={!onOpenProfile}
-        >
-          <ProfileUserAvatar
-            displayName={name}
-            userId={userId}
-            avatarUrl={avatarUrl}
-            cacheBust={avatarCacheBust}
-            size="sm"
-            className="saina-mobile-yansi-header__avatar"
-          />
-        </button>
       </div>
 
       {showMeta ? (

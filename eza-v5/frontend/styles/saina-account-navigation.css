@@ -7,6 +7,62 @@
   max-width: calc(100vw - 24px);
   max-height: calc(100dvh - 90px - env(safe-area-inset-bottom, 0px));
 }
+
+/* Account entry lives in the shared sidebar dock, outside history scrolling. */
+.saina-sidebar-account { position: relative; flex: 0 0 auto; width: 100%; min-width: 0; }
+.saina-sidebar-account .saina-sidebar-account-trigger {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 66px;
+  padding: 10px 8px; border: 1px solid transparent; border-radius: 12px;
+  background: transparent; color: var(--bilign-text, #e8e2d7); text-align: left; cursor: pointer;
+}
+.saina-sidebar-account .saina-sidebar-account-trigger:hover,
+.saina-sidebar-account .saina-sidebar-account-trigger[aria-expanded="true"] {
+  border-color: rgba(183, 137, 73, .22); background: rgba(20, 31, 32, .65);
+}
+.saina-sidebar-account-trigger:focus-visible { outline: 2px solid #c29b63; outline-offset: 2px; }
+.saina-sidebar-account-copy { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
+.saina-sidebar-account-name, .saina-sidebar-account-plan { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saina-sidebar-account-name { font-size: 13px; font-weight: 600; }
+.saina-sidebar-account-plan { color: #b7a181; font-size: 11px; }
+.saina-sidebar-account .saina-profile-menu.saina-account-panel {
+  position: absolute; top: auto; bottom: calc(100% + 10px); left: 0; right: 0;
+  width: 100%; max-width: none; max-height: min(480px, calc(100dvh - 170px));
+  z-index: 100; border: 1px solid rgba(183, 137, 73, .32); border-radius: 16px;
+  background: #101a1c; box-shadow: 0 12px 32px rgba(0, 0, 0, .25);
+}
+.saina-main-col { position: relative; }
+.saina-account-overlay {
+  position: absolute; inset: 0; z-index: 250; display: flex; align-items: center; justify-content: center;
+  padding: 24px; min-width: 0; isolation: isolate;
+}
+.saina-account-overlay--viewport { position: fixed; }
+.saina-account-backdrop { position: fixed; inset: 0; z-index: -1; background: rgba(3, 10, 12, .34); }
+.saina-account-overlay .saina-profile-menu.saina-account-panel--detail {
+  position: relative; inset: auto; width: 640px; max-width: 100%;
+  max-height: min(780px, calc(100dvh - 48px)); margin: 0; border-radius: 22px;
+  border: 1px solid rgba(183, 137, 73, .36); background: #0d1c20;
+  box-shadow: 0 20px 64px rgba(0, 0, 0, .32); animation: saina-account-enter 140ms ease-out;
+}
+.saina-account-panel--detail .saina-account-panel-heading { padding: 22px 24px; gap: 12px; background: rgba(5, 12, 15, .3); }
+.saina-account-panel--detail .saina-account-panel-heading h2 { font-size: 22px; line-height: 1.3; letter-spacing: -.02em; }
+.saina-account-panel--detail .saina-account-panel-content { padding: 24px 28px 28px; }
+.saina-account-panel--detail .saina-profile-menu-section { padding: 18px 0; }
+.saina-account-panel--detail .saina-profile-menu-setting-row { gap: 24px; padding: 18px 0; }
+.saina-account-panel--detail .saina-profile-menu-row-note { max-width: 46ch; font-size: 13px; line-height: 1.6; }
+.saina-account-panel--detail input { max-width: 100%; min-width: 0; }
+@keyframes saina-account-enter { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 899px) {
+  .saina-account-overlay { position: fixed; inset: 0 0 var(--saina-keyboard-inset, 0px); padding: max(12px, env(safe-area-inset-top, 0px)) 12px max(12px, env(safe-area-inset-bottom, 0px)); align-items: center; }
+  .saina-account-overlay .saina-profile-menu.saina-account-panel--detail {
+    width: 100%; max-width: 640px; max-height: calc(100dvh - 24px - var(--saina-keyboard-inset, 0px) - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  }
+  .saina-account-panel--detail .saina-account-panel-heading { padding: 16px; }
+  .saina-account-panel--detail .saina-account-panel-heading h2 { font-size: 20px; }
+  .saina-account-panel--detail .saina-account-panel-content { padding: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .saina-account-overlay .saina-profile-menu.saina-account-panel--detail { animation: none; }
+}
 .saina-account-panel-heading {
   display: flex;
   align-items: center;

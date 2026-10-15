@@ -543,3 +543,5 @@ describe('Phase 8.8F.2 sidebar visual contract', () => {
     expect(sidebar).not.toContain('Yayında');
   });
 });
+
+vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ isAuthenticated: false, isAuthReady: true, user: null, token: null, logout: vi.fn(), setAuth: vi.fn(), patchAuthUser: vi.fn() }) }));

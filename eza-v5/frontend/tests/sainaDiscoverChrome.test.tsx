@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SainaDiscoverPage from '@/components/saina/SainaDiscoverPage';
 import { useSainaChromeStore } from '@/lib/eza/sainaChromeStore';
@@ -107,28 +107,17 @@ describe('SainaDiscoverPage chrome actions', () => {
     expect(await screen.findByTestId('identity-modal-stub')).toBeInTheDocument();
   });
 
-  it('opens upgrade modal from discover when free user taps premium footer', async () => {
-    vi.mocked(usePlan).mockReturnValue({
-      plan: 'free',
-      isFree: true,
-      setPlan: vi.fn(),
-      isPlus: false,
-      isLoading: false,
-      source: 'server',
-      refreshPlan: vi.fn(),
-    } as ReturnType<typeof usePlan>);
-
+  it('preserves the existing upgrade authority for the sidebar account plan', async () => {
     render(<SainaDiscoverPage />);
-
-    useSainaChromeStore.getState().onUpgrade?.();
+    await act(async () => { useSainaChromeStore.getState().onUpgrade?.(); });
     expect(await screen.findByTestId('upgrade-modal-stub')).toBeInTheDocument();
   });
 
-  it('renders avatar-only top bar on discover', async () => {
+  it('keeps account access out of the Discover top bar', async () => {
     render(<SainaDiscoverPage />);
 
     expect(screen.queryByTestId('saina-top-search-trigger')).not.toBeInTheDocument();
-    expect(screen.getByTestId('saina-profile-menu-trigger')).toBeInTheDocument();
+    expect(screen.queryByTestId('saina-profile-menu-trigger')).toBeNull();
     expect(screen.queryByTestId('saina-notifications-trigger')).not.toBeInTheDocument();
   });
 });
