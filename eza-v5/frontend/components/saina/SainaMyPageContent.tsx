@@ -3,6 +3,8 @@
 import '@/styles/saina-my-page.css';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
+import { ArrowRight, Bookmark, Layers } from 'lucide-react';
+import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
 import { useAuth } from '@/context/AuthContext';
 import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
 import { fetchOwnerProfileYansilar, mergeProfileItemsBySlug, PROFILE_YANSI_PAGE_SIZE, type AuthorPublishedYansiItem,
@@ -89,14 +91,17 @@ export default function SainaMyPageContent({ onRequireAuth }: { onRequireAuth: (
 
   return <div className="saina-discover-content-scroll">
     <section className="saina-discover-page saina-my-page" data-testid="saina-my-page">
-      <header className="saina-discover-hero">
-        <h1 className="saina-discover-headline saina-serif">Sayfam</h1>
+      <header className="saina-discover-hero saina-my-page__hero">
         <div className="saina-my-page__identity">
           <ProfileUserAvatar displayName={name} userId={account} avatarUrl={user?.public_avatar_url}
-            cacheBust={user?.public_avatar_revision} size="sm" />
-          <p>{name}</p>
+            cacheBust={user?.public_avatar_revision} size="lg" className="saina-my-page__avatar" />
+          <div className="saina-my-page__identity-copy">
+            <h1 className="saina-my-page__name saina-serif">{name}</h1>
+            {account && (currentOwner?.data?.publicHonorific || user?.public_honorific) ?
+              <HonorificMarker honorific={currentOwner?.data?.publicHonorific || user?.public_honorific} size="sm" /> : null}
+            <p className="saina-my-page__intro">Meraklarımın izleri.</p>
+          </div>
         </div>
-        <p className="saina-discover-subhead">Meraklarımın izleri.</p>
       </header>
       <div className="saina-my-page__tabs" role="tablist" aria-label="Yansı koleksiyonları">
         {(['published', 'saved'] as const).map((value, index) => <button key={value} type="button" role="tab"
@@ -118,14 +123,20 @@ export default function SainaMyPageContent({ onRequireAuth }: { onRequireAuth: (
           <div className="saina-discover-state" role="alert"><p>Yansılar alınamadı.</p>
             <button className="saina-discover-retry" onClick={() => setRefresh((value) => value + 1)}>Tekrar dene</button></div> :
           (tab === 'published' ? publications.length === 0 : currentSaved?.data.length === 0) ?
-          <div className="saina-discover-state"><p>{tab === 'published' ? 'Henüz yayımladığın bir Yansı yok.' : 'Henüz meraklarına kaydettiğin bir Yansı yok.'}</p>
-            <Link className="saina-discover-retry" href={tab === 'published' ? SAINA_NEW_CHAT_ROUTE : SAINA_DISCOVER_ROUTE}>{tab === 'published' ? 'Yeni sohbet' : 'Keşfet'}</Link></div> :
+          <div className="saina-my-page__empty" data-testid={`my-page-empty-${tab}`}>
+            {tab === 'published' ? <Layers size={26} aria-hidden /> : <Bookmark size={26} aria-hidden />}
+            <h2>{tab === 'published' ? 'Henüz yayımladığın bir Yansı yok.' : 'Henüz kaydettiğin bir Yansı yok'}</h2>
+            <p>{tab === 'published' ? 'Yayımladığın Yansılar burada yer alacak.' : 'İlgini çeken Yansıları kaydettiğinde burada bulabilirsin.'}</p>
+            <Link className="saina-my-page__empty-cta" href={tab === 'published' ? SAINA_NEW_CHAT_ROUTE : SAINA_DISCOVER_ROUTE}>
+              {tab === 'published' ? 'Yeni sohbet' : "Keşfet’e git"}<ArrowRight size={16} aria-hidden />
+            </Link>
+          </div> :
           <div className="saina-discover-list">
             {tab === 'published' && currentOwner?.data ? publications.map((item) =>
               <SainaDiscoverCard key={item.slug} item={ownerPublicationCard(item, currentOwner.data!)} showSave={false} />) :
               currentSaved?.data.map((item) => {
                 const card = savedPublicationCard(item);
-                return card ? <SainaDiscoverCard key={item.slug} item={card} authorUserId={item.authorUserId} /> :
+                return card ? <SainaDiscoverCard key={item.slug} item={card} authorUserId={item.authorUserId} showSave /> :
                   <div key={item.slug} className="saina-my-page__unavailable" data-testid="my-page-unavailable">
                     <p>Bu Yansı artık erişilebilir değil.</p><SainaYansiSaveControl slug={item.slug} unavailable />
                   </div>;

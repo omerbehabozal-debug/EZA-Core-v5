@@ -20,6 +20,7 @@ import SainaYansiSaveControl from './SainaYansiSaveControl';
 
 export type SainaDiscoverCardProps = {
   item: DiscoverMirror;
+  /** Collection-only control. Discover cards expose the existing open action alone. */
   showSave?: boolean;
   authorUserId?: string | null;
   /** @deprecated Phase 8.2 — card opens /m/{slug}; limit applies at continuation/sohbet. */
@@ -30,7 +31,7 @@ export type SainaDiscoverCardProps = {
 
 export default function SainaDiscoverCard({
   item,
-  showSave = true,
+  showSave = false,
   authorUserId,
 }: SainaDiscoverCardProps) {
   const router = useRouter();

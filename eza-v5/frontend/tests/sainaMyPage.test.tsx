@@ -73,13 +73,39 @@ describe('Sayfam and existing account collections', () => {
     await waitFor(() => expect(unsaveYansi).toHaveBeenCalledWith('gone'));
   });
 
-  it('saves and removes from Discover through the existing APIs and shared flag', async () => {
-    render(<SainaDiscoverCard item={{ slug: 'new', title: 'New Yansı', sceneImageUrl: null, yansiCount: 0 }} />);
+  it('preserves collection save and remove through the existing APIs and shared flag', async () => {
+    render(<SainaDiscoverCard showSave item={{ slug: 'new', title: 'New Yansı', sceneImageUrl: null, yansiCount: 0 }} />);
     const button = screen.getByTestId('saina-save-new'); await waitFor(() => expect(button).not.toBeDisabled());
     fireEvent.click(button); await screen.findByText('Meraklarına kaydedildi.');
     expect(isYansiSavedInStore('new')).toBe(true); expect(state.push).not.toHaveBeenCalled();
     fireEvent.click(button); await screen.findByText('Meraklarından çıkarıldı.');
     expect(isYansiSavedInStore('new')).toBe(false); expect(saveYansi).toHaveBeenCalledTimes(1); expect(unsaveYansi).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps Discover open navigation version-pinned without save UI or save-state requests', async () => {
+    vi.mocked(fetchYansiSaveState).mockResolvedValue({ ok: false, code: 'network_error' } as any);
+    render(<SainaDiscoverCard item={{ slug: 'discover-only', title: 'Discover Yansı', sceneImageUrl: null, yansiCount: 0, journeyVersion: 3 }} />);
+    expect(screen.queryByRole('button', { name: /Meraklarıma kaydet/ })).toBeNull();
+    expect(screen.queryByText('Kayıt durumu alınamadı.')).toBeNull();
+    expect(fetchYansiSaveState).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('saina-discover-card-cta-discover-only'));
+    expect(state.push).toHaveBeenCalledWith('/m/discover-only?journeyVersion=3');
+  });
+
+  it('uses the real profile name as the main heading without a repeated Sayfam title', async () => {
+    render(<SainaMyPageContent onRequireAuth={vi.fn()} />);
+    expect(screen.getByRole('heading', { level: 1, name: 'Ada' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Sayfam' })).toBeNull();
+    await screen.findByText('My published Yansı');
+  });
+
+  it('separates saved empty state from errors and keeps its existing Discover link', async () => {
+    vi.mocked(fetchMySavedYansilar).mockResolvedValue({ ok: true, data: { items: [], total: 0, limit: 48, offset: 0 } });
+    render(<SainaMyPageContent onRequireAuth={vi.fn()} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Kaydettiklerim' }));
+    await screen.findByTestId('my-page-empty-saved');
+    expect(screen.getByRole('link', { name: 'Keşfet’e git' })).toHaveAttribute('href', '/standalone/discover');
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
   it('does not invent empty content on API failure and rejects wrong owner inventory', async () => {
@@ -121,7 +147,7 @@ describe('Sayfam and existing account collections', () => {
   it('does not apply a late save response after account switch or unmount', async () => {
     let finish!: (value: any) => void;
     vi.mocked(saveYansi).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
-    const view = render(<SainaDiscoverCard item={{ slug: 'late', title: 'Late', sceneImageUrl: null, yansiCount: 0 }} />);
+    const view = render(<SainaDiscoverCard showSave item={{ slug: 'late', title: 'Late', sceneImageUrl: null, yansiCount: 0 }} />);
     await waitFor(() => expect(screen.getByTestId('saina-save-late')).not.toBeDisabled());
     fireEvent.click(screen.getByTestId('saina-save-late'));
     view.unmount();
