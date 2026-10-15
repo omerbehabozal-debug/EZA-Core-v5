@@ -32,6 +32,8 @@ from backend.core.utils.dependencies import get_db
 from backend.main import app
 from backend.models.mirror_network import ARTIFACT_KIND_JOURNEY_V1
 from backend.models.production import User
+from backend.models.guest_trial import GuestTrial
+from backend.models.account_usage_event import AccountUsageEvent
 from backend.security.rate_limit import rate_limit_standalone
 from backend.services.mirror.journey_generation_record import (
     clear_journey_generation_records_for_tests,
@@ -90,6 +92,10 @@ class _Result:
     def scalar(self):
         return self._rows[0] if self._rows else None
 
+    def scalar_one(self):
+        assert len(self._rows) == 1
+        return self._rows[0]
+
 
 class NetworkStore:
     """In-memory persistence for nodes, proofs, frozen steps, and users."""
@@ -99,6 +105,7 @@ class NetworkStore:
         self.proofs: dict[uuid.UUID, Any] = {}
         self.steps: dict[tuple[str, int], list[dict[str, Any]]] = {}
         self.users: dict[uuid.UUID, Any] = {}
+        self.guest_trials: dict[str, GuestTrial] = {}
         self.last_slug_lookup: str | None = None
         self.db = FakeDb(self)
 
@@ -271,6 +278,9 @@ class FakeDb:
         self.store = store
 
     def add(self, obj) -> None:
+        if isinstance(obj, GuestTrial):
+            self.store.guest_trials[obj.guest_fingerprint] = obj
+            return
         if getattr(obj, "source_mirror_slug", None) is not None and getattr(
             obj, "actor_hash", None
         ):
@@ -295,6 +305,10 @@ class FakeDb:
     async def close(self) -> None:
         return None
 
+    def get_bind(self):
+        # In-memory persistence has no PostgreSQL connection/advisory locks.
+        return None
+
     async def get(self, model, pk):
         if model is User or getattr(model, "__name__", "") == "User":
             return self.store.users.get(pk)
@@ -302,6 +316,20 @@ class FakeDb:
 
     async def execute(self, stmt):
         """Serve ORM selects from the in-memory store without compiling SQL."""
+        entities = [entry.get("entity") for entry in stmt.column_descriptions]
+        if GuestTrial in entities:
+            fingerprints = {
+                value
+                for clause in stmt._where_criteria
+                for value in _clause_bind_values(clause)
+            }
+            return _Result([
+                row for fingerprint, row in self.store.guest_trials.items()
+                if fingerprint in fingerprints
+            ])
+        if any(table.name == AccountUsageEvent.__tablename__ for table in stmt.get_final_froms()):
+            # This harness never accepts AI turns; preparing a trial is free.
+            return _Result([0])
         mentions_parent = False
         mentions_journey_slug = False
         bind_values: list[Any] = []

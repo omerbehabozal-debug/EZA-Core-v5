@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.core.schemas.mirror_network import MirrorNetworkPublicPayload
+from backend.core.utils.dependencies import get_db
 from backend.main import app
 from backend.services.mirror_network.fixtures import build_fixture_mirror_node
 from backend.services.mirror_network.service import node_to_public_payload
@@ -80,14 +81,32 @@ def test_public_and_session_endpoints_mocked(fixture_public=None):
     for key in FORBIDDEN_PUBLIC_KEYS:
         assert key not in landing_body
 
-    with patch(
-        "backend.routers.mirror_network.create_sohbet_session",
-        new=AsyncMock(return_value=session),
-    ):
-        sohbet = client.post(
-            f"/api/mirror-network/{public.slug}/sohbet/session",
-            json={"guestToken": "guest-token-abcdefghijklmnop"},
-        )
+    db = AsyncMock()
+
+    async def override_db():
+        yield db
+
+    previous_override = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_db] = override_db
+    try:
+        # Guests now enter the trial lifecycle before session creation. Mock
+        # that boundary in this endpoint contract test; never open a real DB.
+        with patch(
+            "backend.services.mirror_network.guest_trial.prepare_guest_trial",
+            new=AsyncMock(return_value=session),
+        ) as prepare:
+            sohbet = client.post(
+                f"/api/mirror-network/{public.slug}/sohbet/session",
+                json={"guestToken": "guest-token-abcdefghijklmnop"},
+            )
+            prepare.assert_awaited_once_with(db, public.slug, "guest-token-abcdefghijklmnop", None)
+        db.commit.assert_awaited_once()
+        db.rollback.assert_not_awaited()
+    finally:
+        if previous_override is None:
+            app.dependency_overrides.pop(get_db, None)
+        else:
+            app.dependency_overrides[get_db] = previous_override
     assert sohbet.status_code == 201
     sohbet_body = sohbet.json()
     assert sohbet_body["mirrorSlug"] == public.slug
