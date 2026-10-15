@@ -1,3 +1,15 @@
+/* Account-only palette: do not change the cinematic content theme. */
+.saina-sidebar-account, .saina-account-overlay {
+  --account-menu: #101B1B;
+  --account-detail: #142222;
+  --account-border: #34413D;
+  --account-accent: #C6A46B;
+  --bilign-text: #F2EEE5;
+  --bilign-secondary: #A9ADA7;
+  --saina-chrome-text: #F2EEE5;
+  --saina-chrome-text-muted: #A9ADA7;
+}
+.saina-shell .saina-sidebar { --bilign-sidebar-surface: #0C0D0D; background: var(--bilign-sidebar-surface); }
 /* Shared account presentation. Existing profile/avatar styles remain intact. */
 .saina-profile-menu.saina-account-panel {
   display: flex;
@@ -11,8 +23,8 @@
 /* Account entry lives in the shared sidebar dock, outside history scrolling. */
 .saina-sidebar-account { position: relative; flex: 0 0 auto; width: 100%; min-width: 0; }
 .saina-sidebar-account .saina-sidebar-account-trigger {
-  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 66px;
-  padding: 10px 8px; border: 1px solid transparent; border-radius: 12px;
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 60px;
+  padding: 8px 6px; border: 1px solid transparent; border-radius: 12px;
   background: transparent; color: var(--bilign-text, #e8e2d7); text-align: left; cursor: pointer;
 }
 .saina-sidebar-account .saina-sidebar-account-trigger:hover,
@@ -23,12 +35,12 @@
 .saina-sidebar-account-copy { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
 .saina-sidebar-account-name, .saina-sidebar-account-plan { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .saina-sidebar-account-name { font-size: 13px; font-weight: 600; }
-.saina-sidebar-account-plan { color: #b7a181; font-size: 11px; }
+.saina-sidebar-account-plan { color: var(--account-accent); font-size: 11px; }
 .saina-sidebar-account .saina-profile-menu.saina-account-panel {
-  position: absolute; top: auto; bottom: calc(100% + 10px); left: 0; right: 0;
-  width: 100%; max-width: none; max-height: min(480px, calc(100dvh - 170px));
-  z-index: 100; border: 1px solid rgba(183, 137, 73, .32); border-radius: 16px;
-  background: #101a1c; box-shadow: 0 12px 32px rgba(0, 0, 0, .25);
+  position: absolute; top: auto; bottom: calc(100% + 7px); left: 0; right: auto;
+  width: min(260px, 100%); max-width: none; max-height: calc(100dvh - 150px);
+  z-index: 100; border: 1px solid var(--account-border); border-radius: 16px;
+  background: var(--account-menu); box-shadow: 0 12px 32px rgba(0, 0, 0, .25);
 }
 .saina-main-col { position: relative; }
 .saina-account-overlay {
@@ -36,11 +48,11 @@
   padding: 24px; min-width: 0; isolation: isolate;
 }
 .saina-account-overlay--viewport { position: fixed; }
-.saina-account-backdrop { position: fixed; inset: 0; z-index: -1; background: rgba(3, 10, 12, .34); }
+.saina-account-backdrop { position: fixed; inset: 0; z-index: -1; background: rgba(3, 10, 12, .22); }
 .saina-account-overlay .saina-profile-menu.saina-account-panel--detail {
   position: relative; inset: auto; width: 640px; max-width: 100%;
   max-height: min(780px, calc(100dvh - 48px)); margin: 0; border-radius: 22px;
-  border: 1px solid rgba(183, 137, 73, .36); background: #0d1c20;
+  border: 1px solid var(--account-border); background: var(--account-detail);
   box-shadow: 0 20px 64px rgba(0, 0, 0, .32); animation: saina-account-enter 140ms ease-out;
 }
 .saina-account-panel--detail .saina-account-panel-heading { padding: 22px 24px; gap: 12px; background: rgba(5, 12, 15, .3); }
@@ -121,16 +133,27 @@
 .saina-account-panel-content .saina-profile-menu-section { margin-top: 12px; }
 .saina-mobile-profile-trigger { padding: 0; border-radius: 50%; }
 @media (max-width: 899px) {
-  .saina-profile-menu.saina-account-panel,
-  .saina-app-root.saina-standalone-shell .saina-mobile-utility-hosts .saina-profile-menu.saina-account-panel {
-    left: 0.75rem;
-    right: 0.75rem;
-    width: auto;
-    overflow: hidden;
-    top: calc(max(12px, env(safe-area-inset-top, 0px)) + 56px);
-    bottom: auto;
-    max-height: calc(100dvh - max(12px, env(safe-area-inset-top, 0px)) - 80px - env(safe-area-inset-bottom, 0px));
-  }
   .saina-profile-menu.saina-account-panel .saina-account-icon-button { min-width: 40px; min-height: 40px; }
   .saina-profile-menu.saina-account-panel .saina-profile-menu-item { min-height: 44px; }
 }
+
+.saina-sidebar-account-chevron { flex-shrink: 0; transition: transform 140ms ease; }
+.saina-sidebar-account-trigger[aria-expanded="true"] .saina-sidebar-account-chevron { transform: rotate(180deg); }
+.saina-sidebar-account-trigger .bilign-profile-avatar,
+.saina-sidebar-account-trigger .saina-profile-avatar--guest { width: 36px; height: 36px; flex: 0 0 36px; }
+.saina-sidebar-account .saina-account-panel-heading { padding: 12px 14px 8px; border-bottom: 0; }
+.saina-sidebar-account .saina-account-panel-content { padding: 4px 8px 8px; }
+.saina-account-menu .saina-profile-menu-logout { border-top: 1px solid var(--account-border); margin-top: 5px; border-radius: 0 0 8px 8px; }
+.saina-account-panel--detail .saina-profile-menu-section {
+  background: transparent; border: 0; border-top: 1px solid var(--account-border); border-radius: 0;
+}
+.saina-account-panel--detail .saina-profile-menu-setting { padding: 14px 0; gap: 20px; }
+.saina-account-panel--detail .saina-profile-menu-input {
+  background: rgba(0, 0, 0, .16); border-color: var(--account-border); padding: 10px 12px;
+}
+.saina-account-panel--detail .saina-profile-menu-row-note { color: var(--bilign-secondary); }
+@media (max-width: 899px) {
+  .saina-account-overlay .saina-profile-menu.saina-account-panel--detail { border-radius: 16px; }
+  .saina-account-panel--detail .saina-profile-menu-setting { gap: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .saina-sidebar-account-chevron { transition: none; } }

@@ -63,6 +63,11 @@ describe('sidebar account entry and a single operation surface', () => {
     const { container } = render(<AccountScene />);
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
     expect(screen.getByTestId('saina-profile-menu')).toHaveAttribute('data-section', 'menu');
+    const compactMenu = screen.getByTestId('saina-profile-menu');
+    expect(within(compactMenu).queryByTestId('saina-profile-menu-identity')).toBeNull();
+    expect(within(compactMenu).queryByTestId('saina-account-email')).toBeNull();
+    expect(within(compactMenu).queryByTestId('saina-profile-plan-summary')).toBeNull();
+    expect(within(compactMenu).getAllByRole('button')).toHaveLength(6);
     expect(screen.queryByTestId('saina-account-overlay')).toBeNull();
     fireEvent.click(screen.getByTestId('saina-profile-nav-settings'));
     expect(screen.getAllByTestId('saina-profile-menu')).toHaveLength(1);

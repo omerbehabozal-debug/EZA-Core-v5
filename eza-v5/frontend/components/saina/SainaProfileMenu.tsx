@@ -569,7 +569,7 @@ export default function SainaProfileMenu({
             <button type="button" className="saina-profile-menu-save" onClick={() => setConfirmDiscard(false)}>Düzenlemeye devam et</button>
             <button type="button" className="saina-profile-menu-item" data-testid="saina-profile-discard" onClick={finishClose}>Kaydetmeden kapat</button>
           </div> : <>
-          {section === 'menu' || section === 'profile' ? <div className="saina-profile-menu-account-block">
+          {section === 'profile' ? <div className="saina-profile-menu-account-block">
             {isGuest ? <div className="saina-profile-menu-identity" data-testid="saina-profile-menu-identity">
               <ProfileIdentityMark isGuest displayName={displayName} /><div className="saina-profile-menu-identity-copy"><p className="saina-profile-menu-account-name">{SAINA_MENU_GUEST_LABEL}</p></div>
             </div> : <>
@@ -615,7 +615,6 @@ export default function SainaProfileMenu({
 
 
             </>}
-            {section === 'menu' && quietPlanLabel && !isGuest ? <p className="saina-profile-menu-row-note" data-testid="saina-profile-plan-summary">{quietPlanLabel}</p> : null}
             {section === 'profile' ? (isGuest ? <>                <ul className="saina-profile-menu-benefits">
                   <li>{SAINA_MENU_GUEST_SAVE_CHATS}</li>
                   <li>{SAINA_MENU_GUEST_SYNC_MIRRORS}</li>
@@ -968,7 +967,7 @@ export default function SainaProfileMenu({
             <span className="saina-sidebar-account-name">{isGuest ? SAINA_MENU_GUEST_LABEL : displayName}</span>
             <span className="saina-sidebar-account-plan">{quietPlanLabel ? `biligN ${quietPlanLabel}` : planTier === 'loading' ? 'Plan bilgisi yükleniyor…' : isGuest ? 'Giriş yap / Kayıt ol' : 'Oturum doğrulanamadı'}</span>
           </span>
-          <ChevronUp size={15} aria-hidden />
+          <ChevronUp className="saina-sidebar-account-chevron" size={15} aria-hidden />
         </button>
       )}
 
