@@ -177,6 +177,7 @@ class DiscoverMirrorItem(BaseModel):
     visibleVerificationCount: int = Field(default=0, ge=0)
     contentVisibleCount: int = Field(default=0, ge=0)
     # Public creator identity — display only. Never userId/email/plan/role.
+    publisherKind: Literal["user", "business"] = "user"
     authorDisplayName: Optional[str] = None
     publicHonorific: Optional[str] = None
     publicAvatarUrl: Optional[str] = None
@@ -258,6 +259,15 @@ class PublicFrozenJourneyStep(BaseModel):
     publicAnswer: str
 
 
+class BusinessPublisherPublic(BaseModel):
+    model_config = {"extra": "forbid"}
+    businessId: str
+    slug: str
+    displayName: str
+    logoUrl: Optional[str] = None
+    verified: bool
+    official: bool = False
+
 class PublicFrozenJourneyArtifact(BaseModel):
     """GET /api/mirror-network/{slug}/frozen — allowlisted public projection."""
 
@@ -273,6 +283,7 @@ class PublicFrozenJourneyArtifact(BaseModel):
     artifactId: Optional[str] = None
     generationId: Optional[str] = None
     sceneAssetId: Optional[str] = None
+    businessPublisher: Optional[BusinessPublisherPublic] = None
     authorUserId: str
     parentSlug: Optional[str] = None
     selectedCount: int = Field(ge=6, le=8)

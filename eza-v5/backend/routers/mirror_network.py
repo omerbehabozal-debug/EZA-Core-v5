@@ -527,6 +527,10 @@ async def get_frozen_published_journey(
             },
         )
     response.headers["Cache-Control"] = "no-store"
+    from backend.services.business_yansi.publication import public_publisher
+    brand = await public_publisher(db, slug, public['journeyVersion'])
+    if brand:
+        public = {**public, 'businessPublisher':brand, 'authorUserId':brand['businessId']}
     return PublicFrozenJourneyArtifact.model_validate(public)
 
 

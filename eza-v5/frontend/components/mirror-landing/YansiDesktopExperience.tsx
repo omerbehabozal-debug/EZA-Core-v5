@@ -16,6 +16,7 @@ import { cancelYansiSpeech } from '@/lib/eza/mirror/yansiSpeech';
 import type { PublicReplaySelection } from '@/lib/eza/mirror-network/publicReplayContinuation';
 
 export type DesktopYansiReplayIdentity = {
+  businessLabel?: string;
   title: string;
   displayName: string;
   authorUserId: string;
@@ -92,7 +93,7 @@ export default function YansiDesktopExperience({ slug, identity, messages, repla
             {mobile ? <h2 className="yansi-mobile-experience-title">{identity.title}</h2> : <SainaHeroScene title={identity.title} displayName={identity.displayName} userId={identity.authorUserId}
               avatarUrl={identity.avatarUrl} avatarCacheBust={identity.avatarRevision ?? undefined}
               honorificId={identity.honorific ? resolvePublicHonorificId(identity.honorific) : null} honorificLabel={identity.honorific}
-              metaTimeLabel={identity.timeLabel} metaTypeLabel="Yansı" />}
+              metaTimeLabel={identity.timeLabel} metaTypeLabel={identity.businessLabel || "Yansı"} />}
           </div>
         </>}
         messages={<div className="yansi-public-reading" data-testid="yansi-public-reading"

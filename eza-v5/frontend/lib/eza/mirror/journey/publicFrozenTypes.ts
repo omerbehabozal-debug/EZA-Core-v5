@@ -9,7 +9,15 @@ export type PublicFrozenJourneyStep = {
   publicAnswer: string;
 };
 
+export type BusinessPublisher = { businessId: string; slug: string; displayName: string; logoUrl: string | null; verified: boolean; official: boolean };
+export function parseBusinessPublisher(value: unknown): BusinessPublisher | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const row = value as Record<string, unknown>;
+  if (typeof row.businessId !== 'string' || typeof row.slug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row.slug) || typeof row.displayName !== 'string' || !row.displayName.trim() || row.verified !== true) return undefined;
+  return { businessId: row.businessId, slug: row.slug, displayName: row.displayName.trim(), logoUrl: typeof row.logoUrl === 'string' ? row.logoUrl : null, verified: true, official: row.official === true };
+}
 export type PublicFrozenJourneyArtifact = {
+  businessPublisher?: BusinessPublisher;
   slug: string;
   journeyId: string;
   journeyVersion: number;
@@ -53,6 +61,7 @@ export function parsePublicFrozenJourneyArtifact(
   if (!raw || typeof raw !== 'object') return null;
   const row = raw as Record<string, unknown>;
   if (row.replayReady !== true) return null;
+  if (row.businessPublisher != null && !parseBusinessPublisher(row.businessPublisher)) return null;
   const slug = String(row.slug || '').trim().toLowerCase();
   const journeyId = String(row.journeyId || slug).trim().toLowerCase();
   const journeyVersion = Number(row.journeyVersion);
@@ -93,6 +102,7 @@ export function parsePublicFrozenJourneyArtifact(
     sceneAssetId:
       typeof row.sceneAssetId === 'string' ? row.sceneAssetId.trim() || null : null,
     authorUserId,
+    businessPublisher: parseBusinessPublisher(row.businessPublisher),
     parentSlug:
       typeof row.parentSlug === 'string'
         ? row.parentSlug.trim().toLowerCase() || null

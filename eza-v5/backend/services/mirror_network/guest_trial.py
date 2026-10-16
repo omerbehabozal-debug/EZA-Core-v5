@@ -126,7 +126,15 @@ async def guest_history(db, row, request):
     personal=[{"role":role,"content":turn[key]} for turn in row.turns for role,key in (("user","query"),("assistant","answer"))]
     from backend.core.schemas.pipeline import ChatHistoryMessage
     bound=request.model_copy(update={"publicReplaySelection":canonical,"history":[ChatHistoryMessage(**m) for m in personal[-12:]]})
-    return await resolve_generation_replay_history(db,bound,None)
+    history = await resolve_generation_replay_history(db,bound,None)
+    from backend.services.business_yansi.publication import enabled
+    if canonical is None and enabled():
+        from backend.models.mirror_network import MirrorNetworkNode
+        from sqlalchemy import select
+        from backend.services.business_yansi.answers import bind_business_history
+        node=await db.scalar(select(MirrorNetworkNode).where(MirrorNetworkNode.slug==row.source_slug))
+        if node: return await bind_business_history(db,row.source_slug,node.journey_version,history,request.query_value)
+    return history
 
 async def record_trial_continuation(db, row, token):
     proof = row.session_payload.get("lineageProofToken")

@@ -187,21 +187,22 @@ type ReelTravel = {
 async function enrichNode(
   artifact: PublicFrozenJourneyArtifact
 ): Promise<ExperienceNode> {
-  const author = await resolvePublicAuthorIdentity(artifact.authorUserId);
+  const brand = artifact.businessPublisher;
+  const author = brand ? { displayName: brand.displayName, publicHonorific: null, publicAvatarUrl: brand.logoUrl, publicAvatarRevision: null }
+    : await resolvePublicAuthorIdentity(artifact.authorUserId);
   let parentAuthorDisplayName: string | null = null;
   let parentPublicTitle: string | null = null;
   if (artifact.parentSlug) {
     const parent = await fetchPublicFrozenJourneyArtifact({ slug: artifact.parentSlug });
     if (parent) {
       parentPublicTitle = parent.publicTitle || null;
-      const parentAuthor = await resolvePublicAuthorIdentity(parent.authorUserId);
-      parentAuthorDisplayName = parentAuthor.displayName;
+      parentAuthorDisplayName = parent.businessPublisher?.displayName ?? (await resolvePublicAuthorIdentity(parent.authorUserId)).displayName;
     }
   }
   return {
     artifact,
     authorDisplayName: author.displayName,
-    authorHonorific: author.publicHonorific,
+    authorHonorific: author.publicHonorific ?? '',
     authorAvatarUrl: author.publicAvatarUrl?.trim() || null,
     authorAvatarRevision:
       typeof author.publicAvatarRevision === 'number' ? author.publicAvatarRevision : null,
@@ -1361,7 +1362,7 @@ export default function MirrorYansiChainExperience({
                     data-bilign-identity-role="primary"
                     data-testid="yansi-desktop-public-author"
                     onClick={() =>
-                      router.push(authorProfilePath(activeNode.artifact.authorUserId))
+                      router.push(activeNode.artifact.businessPublisher ? `/standalone/business/p/${encodeURIComponent(activeNode.artifact.businessPublisher.slug)}` : authorProfilePath(activeNode.artifact.authorUserId))
                     }
                   >
                     <div className="bilign-yansi-identity__mark">
@@ -1383,7 +1384,7 @@ export default function MirrorYansiChainExperience({
                         <span className="bilign-yansi-identity__name">
                           {activeNode.authorDisplayName}
                         </span>
-                        {activeNode.authorHonorific ? (
+                        {activeNode.artifact.businessPublisher ? <span className="text-xs text-[#C6A46B]">Business</span> : activeNode.authorHonorific ? (
                           <HonorificMarker
                             honorific={activeNode.authorHonorific}
                             testId="yansi-desktop-public-honorific"
@@ -1682,7 +1683,7 @@ export default function MirrorYansiChainExperience({
               className="yansi-mobile-public-header__author"
               data-testid="yansi-mobile-public-author"
               onClick={() =>
-                router.push(authorProfilePath(activeNode.artifact.authorUserId))
+                router.push(activeNode.artifact.businessPublisher ? `/standalone/business/p/${encodeURIComponent(activeNode.artifact.businessPublisher.slug)}` : authorProfilePath(activeNode.artifact.authorUserId))
               }
             >
               <ProfileUserAvatar
@@ -1696,7 +1697,7 @@ export default function MirrorYansiChainExperience({
               <span className="yansi-mobile-public-header__name">
                 {activeNode.authorDisplayName}
               </span>
-              {activeNode.authorHonorific ? (
+              {activeNode.artifact.businessPublisher ? <span className="text-xs text-[#C6A46B]">Business</span> : activeNode.authorHonorific ? (
                 <HonorificMarker
                   honorific={activeNode.authorHonorific}
                   testId="yansi-mobile-public-honorific"
@@ -1797,6 +1798,7 @@ export default function MirrorYansiChainExperience({
                   artifact={activeNode.artifact}
                   mobilePresentation={!isDesktop}
                   desktopIdentity={{
+                    businessLabel: activeNode.artifact.businessPublisher ? (activeNode.artifact.businessPublisher.official ? "Resmî BiligN · Business Yansı" : "Business Yansı") : undefined,
                     title, displayName: activeNode.authorDisplayName, authorUserId: activeNode.artifact.authorUserId,
                     avatarUrl: activeNode.authorAvatarUrl ?? null, avatarRevision: activeNode.authorAvatarRevision,
                     honorific: activeNode.authorHonorific ?? null, timeLabel: publicMetaTime ?? null,

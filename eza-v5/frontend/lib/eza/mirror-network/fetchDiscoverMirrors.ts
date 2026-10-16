@@ -30,6 +30,7 @@ export type DiscoverMirror = {
   directChildYansiCount?: number | null;
   visibleVerificationCount?: number;
   contentVisibleCount?: number;
+  publisherKind?: 'user' | 'business';
   authorDisplayName?: string | null;
   publicHonorific?: string | null;
   publicAvatarUrl?: string | null;
@@ -108,6 +109,7 @@ export function parseDiscoverItem(raw: unknown): DiscoverMirror | null {
     directChildYansiCount: canonical?.directChildYansiCount ?? null,
     visibleVerificationCount: parseNonNegInt(row.visibleVerificationCount) ?? 0,
     contentVisibleCount: parseNonNegInt(row.contentVisibleCount) ?? 0,
+    publisherKind: row.publisherKind === 'business' ? 'business' : 'user',
     authorDisplayName:
       typeof row.authorDisplayName === 'string' && row.authorDisplayName.trim()
         ? row.authorDisplayName.trim()

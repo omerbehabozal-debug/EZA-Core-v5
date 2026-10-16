@@ -124,6 +124,19 @@ async def stream_standalone_response(
     - ...
     - data: {"done": true, "assistant_score": 42, "user_score": 85}
     """
+    from backend.services.business_yansi.answers import BusinessHistory, answer
+    if isinstance(chat_history, BusinessHistory):
+        data = await answer(query, chat_history, analysis_model)
+        if persistence is not None:
+            from backend.services.standalone.generation_persistence import persist_assistant_turn_after_generation, build_completion_persistence_status
+            from backend.services.standalone.generation_persistence import update_user_turn_evaluation
+            await update_user_turn_evaluation(db_session, persistence, user_score=data.get('user_score'))
+            persisted = await persist_assistant_turn_after_generation(db_session, persistence, content=data['assistant_answer'], assistant_score=data.get('assistant_score'), behavioral=data.get('behavioral'))
+            data.update(build_completion_persistence_status(user_persisted=True, assistant_persisted=persisted is not None))
+            if persisted is None: raise RuntimeError('Business assistant persistence failed')
+        yield 'data: ' + json.dumps({'token':data['assistant_answer']}) + '\n\n'
+        yield 'data: ' + json.dumps({**data,'done':True}) + '\n\n'
+        return
     settings = get_settings()
 
     try:

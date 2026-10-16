@@ -40,7 +40,7 @@ from backend.services.mirror.mirror_scene_asset_config import (
     MirrorSceneAssetConfigError,
     validate_mirror_scene_asset_startup_config,
 )
-from backend.api.pipeline_runner import run_full_pipeline
+from backend.services.business_yansi.answers import run_business_or_standard_pipeline as run_full_pipeline
 from backend.api.streaming import stream_standalone_response
 from backend.services.standalone.generation_persistence import (
     GenerationPersistenceContext,
@@ -344,6 +344,8 @@ app.include_router(experience_events_router)
 # app.include_router(standalone.router, prefix="/api/standalone", tags=["Standalone"])
 app.include_router(standalone_mirror.router)
 app.include_router(debug_openai.router)
+from backend.routers import business_yansi
+app.include_router(business_yansi.router)
 app.include_router(mirror_network.router)
 app.include_router(mirror_network.debug_router)
 from backend.routers import conversation_groups

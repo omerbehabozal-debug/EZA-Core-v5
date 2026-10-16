@@ -68,7 +68,7 @@ export default function SainaDiscoverCard({
         alt=""
       />
       <span className="saina-discover-card__identity-name">{authorName}</span>
-      <HonorificMarker honorific={item.publicHonorific} size="sm" />
+      {item.publisherKind === 'business' ? <span className="text-xs text-[#C6A46B]">Business</span> : <HonorificMarker honorific={item.publicHonorific} size="sm" />}
     </div>
   ) : null;
 

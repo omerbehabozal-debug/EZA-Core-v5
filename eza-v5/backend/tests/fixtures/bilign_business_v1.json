@@ -1,0 +1,45 @@
+{
+  "purpose": "test-only; never seed public Discover",
+  "sources": [
+    {
+      "title": "BiligN nedir?",
+      "content": "BiligN, sohbetlerden Yansı deneyimleri oluşturulabilen bir uygulamadır.",
+      "source": "frontend/components/standalone/StandaloneChatInner.tsx"
+    },
+    {
+      "title": "Sohbet nedir?",
+      "content": "Kullanıcı kendi sorusunu yazar; kişisel sohbet mesajları kendi sohbet akışında saklanır.",
+      "source": "backend/services/standalone/conversations.py"
+    },
+    {
+      "title": "Ayna nedir?",
+      "content": "Ayna, mevcut sohbetten üretilen görsel hazırlama ve Yansı yayınlama akışında kullanılır.",
+      "source": "backend/routers/standalone_mirror.py"
+    },
+    {
+      "title": "Yansı nedir?",
+      "content": "Yansı, yayınlanmış soru ve cevapları sırasıyla deneyimlemeyi sağlar.",
+      "source": "frontend/components/mirror-landing/MirrorFrozenReplay.tsx"
+    },
+    {
+      "title": "Keşfet nasıl çalışır?",
+      "content": "Keşfet, uygun public Yansı yayınlarını Rastlantısal, Güçlü Merak ve En Yeni sıralamalarıyla gösterir.",
+      "source": "backend/services/mirror_network/discover.py"
+    },
+    {
+      "title": "Kendi merakımla nasıl devam ederim?",
+      "content": "Deneyim sırasında kendi sorunu yazdığında mevcut kişisel sohbet geçişi başlatılır. Misafir deneme ve hesap kotaları geçerlidir.",
+      "source": "frontend/components/mirror-landing/YansiDesktopExperience.tsx"
+    }
+  ],
+  "questions": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    3,
+    5
+  ]
+}

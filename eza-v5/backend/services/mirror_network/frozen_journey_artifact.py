@@ -647,7 +647,12 @@ async def get_public_frozen_journey_artifact(
     )
     if internal is None:
         return None
-    return to_public_frozen_journey_artifact(internal)
+    public = to_public_frozen_journey_artifact(internal)
+    if public:
+        from backend.services.business_yansi.publication import public_publisher
+        brand = await public_publisher(db, slug, public['journeyVersion'])
+        if brand: public = {**public, 'businessPublisher': brand, 'authorUserId': brand['businessId']}
+    return public
 
 
 async def get_public_frozen_journey_artifact_batch(

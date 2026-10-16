@@ -1,6 +1,8 @@
+import { parseBusinessPublisher, type BusinessPublisher } from '@/lib/eza/mirror/journey/publicFrozenTypes';
 /** Public source prefix is metadata, never personal archive turns. */
 export type PublicReplaySelection = { slug: string; journeyVersion: number; completedStepCount: number };
 export type PublicReplayContext = PublicReplaySelection & {
+  businessPublisher?: BusinessPublisher;
   publicTitle: string;
   authorUserId: string;
   steps: { stepIndex: number; publicQuestion: string; publicAnswer: string }[];
@@ -21,6 +23,7 @@ export function parsePublicReplayContext(value: unknown, expected?: PublicReplay
     || typeof step.publicQuestion !== 'string' || !step.publicQuestion.trim()
     || typeof step.publicAnswer !== 'string' || !step.publicAnswer.trim())) return null;
   return { ...replaySelection(candidate), publicTitle: candidate.publicTitle, authorUserId: candidate.authorUserId,
+    ...(candidate.businessPublisher ? { businessPublisher: parseBusinessPublisher(candidate.businessPublisher) } : {}),
     steps: candidate.steps.map(({ stepIndex, publicQuestion, publicAnswer }) => ({ stepIndex, publicQuestion, publicAnswer })) };
 }
 

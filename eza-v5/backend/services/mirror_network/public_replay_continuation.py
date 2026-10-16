@@ -30,6 +30,7 @@ async def resolve_public_replay_context(db, selection: PublicReplaySelection) ->
         **selection.model_dump(),
         "publicTitle": frozen.get("publicTitle") or "",
         "authorUserId": frozen["authorUserId"],
+        **({"businessPublisher":frozen["businessPublisher"]} if frozen.get("businessPublisher") else {}),
         "steps": [{"stepIndex": step["stepIndex"], "publicQuestion": step["publicQuestion"],
                    "publicAnswer": step["publicAnswer"]} for step in prefix],
     }
@@ -71,4 +72,6 @@ async def resolve_generation_replay_history(db, request, persistence):
             {"role": "user", "content": step["publicQuestion"]},
             {"role": "assistant", "content": step["publicAnswer"]},
         ])
-    return PublicReplayHistory(public_messages, history)
+    resolved = PublicReplayHistory(public_messages, history)
+    from backend.services.business_yansi.answers import bind_business_history
+    return await bind_business_history(db, selection.slug, selection.journeyVersion, resolved, request.query_value)

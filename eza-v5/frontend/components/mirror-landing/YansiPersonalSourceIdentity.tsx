@@ -12,13 +12,14 @@ export default function YansiPersonalSourceIdentity({ context, avatarOnly = fals
   useEffect(() => {
     let active = true;
     setAuthor(null);
+    if (context.businessPublisher) return () => { active = false; };
     void resolvePublicAuthorIdentity(context.authorUserId).then((value) => { if (active) setAuthor(value); });
     return () => { active = false; };
-  }, [context.authorUserId]);
-  const name = author?.displayName || PUBLIC_DISPLAY_NAME_FALLBACK;
+  }, [context.authorUserId, context.businessPublisher]);
+  const name = context.businessPublisher?.displayName || author?.displayName || PUBLIC_DISPLAY_NAME_FALLBACK;
   return <Link href={`/m/${encodeURIComponent(context.slug)}`} className={avatarOnly ? 'yansi-personal-source-avatar' : 'yansi-personal-source-caption'}
     aria-label={`Kaynak Yansı'ya dön: ${context.publicTitle}`} data-testid={avatarOnly ? 'yansi-personal-source-avatar' : 'yansi-personal-source-link'}>
-    {avatarOnly ? <ProfileUserAvatar displayName={name} userId={context.authorUserId} avatarUrl={author?.publicAvatarUrl ?? null}
+    {avatarOnly ? <ProfileUserAvatar displayName={name} userId={context.authorUserId} avatarUrl={context.businessPublisher?.logoUrl ?? author?.publicAvatarUrl ?? null}
       cacheBust={author?.publicAvatarRevision ?? undefined} size="sm" className="yansi-personal-source-face" /> : <>Kaynak Yansı: {context.publicTitle} · {name}</>}
   </Link>;
 }

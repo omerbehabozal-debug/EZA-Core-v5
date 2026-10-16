@@ -600,7 +600,19 @@ async def _project_discover_page(
                 public_avatar_revision=_discover_public_avatar_revision(author),
             )
         )
-    return items
+    from backend.services.business_yansi.publication import public_publisher
+    public_items=[]
+    for item in items:
+        from fastapi import HTTPException
+        try:
+            brand=await public_publisher(db,item.slug,item.journeyVersion)
+        except HTTPException as exc:
+            if exc.status_code != 404: raise
+            continue
+        if brand:
+            item=item.model_copy(update={'authorDisplayName':brand['displayName'],'publicAvatarUrl':brand['logoUrl'],'publicHonorific':None,'publisherKind':'business'})
+        public_items.append(item)
+    return public_items
 
 
 def _author_for_node(authors_by_id: dict[Any, Any], user_id: Any) -> Any | None:

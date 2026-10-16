@@ -74,7 +74,12 @@ async def _load_savable_node(
     node = await get_mirror_network_node_by_slug(db, slug)
     if node is None or not is_direct_link_accessible(node):
         raise YansiSaveNotAllowedError("not_savable")
-    public = await get_public_frozen_journey_artifact(db, slug=node.slug)
+    from fastapi import HTTPException
+    try:
+        public = await get_public_frozen_journey_artifact(db, slug=node.slug)
+    except HTTPException as exc:
+        if exc.status_code != 404: raise
+        return None
     if public is None:
         raise YansiSaveNotAllowedError("not_savable")
     return node
@@ -201,7 +206,12 @@ async def _available_item(
     node: MirrorNetworkNode,
     saved_at: datetime,
 ) -> dict[str, Any] | None:
-    public = await get_public_frozen_journey_artifact(db, slug=node.slug)
+    from fastapi import HTTPException
+    try:
+        public = await get_public_frozen_journey_artifact(db, slug=node.slug)
+    except HTTPException as exc:
+        if exc.status_code != 404: raise
+        return None
     if public is None or not is_direct_link_accessible(node):
         return None
 
@@ -228,6 +238,9 @@ async def _available_item(
             getattr(author, "public_avatar_url", None) if author else None
         ),
     }
+    brand = public.get('businessPublisher')
+    if brand:
+        item.update(authorUserId=brand['businessId'],authorDisplayName=brand['displayName'],publicHonorific=None,publicAvatarUrl=brand['logoUrl'])
     return item
 
 
