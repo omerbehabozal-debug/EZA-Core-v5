@@ -26,8 +26,9 @@ export type DesktopYansiReplayIdentity = {
 };
 
 /** Presentation and personal-chat handoff only. Frozen replay remains parent-owned. */
-export default function YansiDesktopExperience({ slug, identity, messages, replayAction, scrollRef, replaySelection, sceneImageUrl }: {
+export default function YansiDesktopExperience({ slug, identity, messages, replayAction, scrollRef, replaySelection, sceneImageUrl, mobile = false }: {
   slug: string;
+  mobile?: boolean;
   identity: DesktopYansiReplayIdentity;
   messages: ReactNode;
   replayAction: ReactNode;
@@ -82,23 +83,23 @@ export default function YansiDesktopExperience({ slug, identity, messages, repla
     }
   };
 
-  return <div className="yansi-desktop-experience saina-main" data-testid="yansi-desktop-experience" data-reading-mode={reading.mode}>
-    <SainaCinematicScene sceneImageUrl={sceneImageUrl} />
+  return <div className={`yansi-desktop-experience saina-main${mobile ? ' yansi-mobile-experience' : ''}`} data-testid="yansi-desktop-experience" data-reading-mode={reading.mode}>
+    {!mobile ? <SainaCinematicScene sceneImageUrl={sceneImageUrl} /> : null}
     <div className="saina-main-body saina-desktop-chat-layout">
       <SainaDesktopChatLayout replay scrollRef={scrollRef}
         header={<>
           <div data-testid="yansi-desktop-identity" data-yansi-author-id={identity.authorUserId} data-yansi-avatar-authority="canonical-profile">
-            <SainaHeroScene title={identity.title} displayName={identity.displayName} userId={identity.authorUserId}
+            {mobile ? <h2 className="yansi-mobile-experience-title">{identity.title}</h2> : <SainaHeroScene title={identity.title} displayName={identity.displayName} userId={identity.authorUserId}
               avatarUrl={identity.avatarUrl} avatarCacheBust={identity.avatarRevision ?? undefined}
               honorificId={identity.honorific ? resolvePublicHonorificId(identity.honorific) : null} honorificLabel={identity.honorific}
-              metaTimeLabel={identity.timeLabel} metaTypeLabel="Yansı" />
+              metaTimeLabel={identity.timeLabel} metaTypeLabel="Yansı" />}
           </div>
         </>}
         messages={<div className="yansi-public-reading" data-testid="yansi-public-reading"
           data-reading-mode={reading.mode} data-reading-spacing={reading.spacing}
           style={{ '--yansi-reading-size': `${reading.fontSize}px` } as CSSProperties}>{messages}</div>}
         action={<>{replayAction}{error ? <p role="alert" data-testid="yansi-personal-chat-error">{error}</p> : null}</>}
-        composer={<SainaComposer key={sourceKey} onSend={(message) => void continuePersonally(message)} isLoading={starting} preserveDraftOnSend />}
+        composer={<SainaComposer key={sourceKey} onSend={(message) => void continuePersonally(message)} isLoading={starting} preserveDraftOnSend placeholderText={mobile ? 'Kendi merakınla devam et...' : undefined} />}
       />
     </div>
   </div>;

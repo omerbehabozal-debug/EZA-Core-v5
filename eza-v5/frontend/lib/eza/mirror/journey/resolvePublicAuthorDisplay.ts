@@ -44,7 +44,7 @@ export async function resolvePublicAuthorIdentity(
     displayName: resolveAuthorDisplayName({ userId: id }),
     publicHonorific: 'curious',
   };
-  cache.set(id, fallback);
+  // A transient public-profile failure must not poison this author for the session.
   return fallback;
 }
 

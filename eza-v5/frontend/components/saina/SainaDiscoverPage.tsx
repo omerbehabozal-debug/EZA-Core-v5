@@ -520,6 +520,7 @@ export default function SainaDiscoverPage({ collection = false }: { collection?:
             >
               <Menu size={20} />
             </button>
+            <h1 className="saina-mobile-page-title">{collection ? 'Sayfam' : 'Keşfet'}</h1>
           </div>
         ) : null}
 

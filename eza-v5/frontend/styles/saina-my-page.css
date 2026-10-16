@@ -39,3 +39,34 @@
 @media (min-width: 900px) {
   .saina-discover-card.saina-discover-card--editorial .saina-discover-card__actions { grid-row: 3; grid-column: 2; align-self: end; justify-self: end; width: auto; }
 }
+
+/* Mobile collections: one compact header, then filters/profile and natural flow. */
+.saina-mobile-page-title { display: none; }
+@media (max-width: 899px) {
+  .saina-app-root.saina-standalone-shell .saina-discover-main { padding-top: 0; }
+  .saina-discover-main > .saina-top-bar { display: none; }
+  .saina-app-root.saina-standalone-shell .saina-discover-main > .saina-standalone-mobile-bar {
+    display: flex; flex: 0 0 auto; align-items: center; gap: 10px;
+    padding: max(8px, env(safe-area-inset-top, 0px)) 12px 6px; min-height: 52px;
+  }
+  .saina-mobile-page-title { display: block; margin: 0; font-size: 20px; line-height: 1.2; color: #F2EEE5; }
+  .saina-discover-main .saina-standalone-menu-btn { min-width: 44px; min-height: 44px; }
+  .saina-discover-main [data-testid='saina-discover-hero'] { display: none; }
+  .saina-app-root.saina-standalone-shell .saina-discover-main .saina-discover-page { padding: 8px 12px 0; }
+  .saina-discover-main .saina-discover-controls { margin-bottom: 12px; }
+  .saina-discover-main .saina-discover-modes { display: flex; gap: 4px; flex-wrap: wrap; }
+  .saina-discover-main .saina-discover-modes__btn { min-height: 44px; padding-inline: 8px; font-size: 12px; }
+  .saina-discover-list > [data-yansi-exposure-root] { width: 100%; min-width: 0; }
+  .saina-discover-main .saina-my-page__hero { margin-bottom: 16px; }
+  .saina-discover-main .saina-my-page__tabs { padding-top: 8px; }
+  .saina-discover-list { gap: 16px; }
+  .saina-discover-card.saina-discover-card--editorial { height: auto; min-height: 0; width: 100%; }
+  .saina-discover-card--editorial .saina-discover-card__visual { height: clamp(140px, 29dvh, 240px); min-height: 0; aspect-ratio: auto; }
+  .saina-discover-card--editorial .saina-discover-card__image { width: 100%; height: 100%; object-fit: cover; object-position: center; }
+  .saina-discover-card--editorial[data-scene-state='missing'] .saina-discover-card__visual,
+  .saina-discover-card--editorial[data-scene-state='error'] .saina-discover-card__visual { height: 72px; background: linear-gradient(135deg, #1b211f, #101111); }
+  .saina-discover-card--editorial .saina-discover-card__body { padding: 14px; min-width: 0; }
+  .saina-discover-card--editorial .saina-discover-card__title { font-size: 20px; line-height: 1.25; overflow-wrap: anywhere; }
+  .saina-discover-card--editorial .saina-discover-card__summary { font-size: 14px; line-height: 1.5; }
+  .saina-discover-card--editorial .saina-discover-card__cta { min-height: 44px; }
+}

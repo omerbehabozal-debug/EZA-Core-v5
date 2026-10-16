@@ -40,7 +40,6 @@ import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
 import YansiExperienceShareButton from '@/components/mirror-landing/YansiExperienceShareButton';
 import YansiSaveButton from '@/components/mirror-landing/YansiSaveButton';
 import YansiMobileAudioSheet from '@/components/mirror-landing/YansiMobileAudioSheet';
-import YansiMobileMinimalPlayer from '@/components/mirror-landing/YansiMobileMinimalPlayer';
 import { useYansiExperienceSession } from '@/components/mirror-landing/YansiExperienceSession';
 import { fetchPublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/hydratePublishedJourneysFromServer';
 import type { PublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
@@ -315,6 +314,8 @@ export default function MirrorYansiChainExperience({
 
   useEffect(() => {
     setDetailOpen(false);
+    setOverflowOpen(false);
+    setAudioSheetOpen(false);
   }, [activeSlug, depth]);
 
   useEffect(() => {
@@ -1718,6 +1719,7 @@ export default function MirrorYansiChainExperience({
                   className="yansi-mobile-public-header__menu"
                   data-testid="yansi-mobile-public-overflow-menu"
                 >
+                  {showChatReplay ? <button type="button" className="yansi-mobile-control-entry" onClick={() => { setOverflowOpen(false); setAudioSheetOpen(true); }}>Okuma ve dinleme ayarları</button> : null}
                   <YansiSaveButton
                     slug={activeNode.artifact.slug}
                     authorUserId={activeNode.artifact.authorUserId}
@@ -1774,11 +1776,10 @@ export default function MirrorYansiChainExperience({
             data-testid={`mirror-yansi-section-${activeNode.artifact.slug}`}
             className={cn(
               'flex flex-col scroll-mt-4',
-              isDesktop ? 'h-full min-h-0' : 'min-h-[100dvh]',
+              isDesktop || showChatReplay ? 'h-full min-h-0' : 'min-h-[100dvh]',
               showChatReplay && 'yansi-chat-section'
             )}
           >
-            {!isDesktop ? renderTitleBlock() : null}
 
             {showChatReplay ? (
               <div
@@ -1794,11 +1795,12 @@ export default function MirrorYansiChainExperience({
                 <MirrorFrozenReplay
                   key={`${activeNode.artifact.slug}:${activeNode.artifact.journeyVersion}`}
                   artifact={activeNode.artifact}
-                  desktopIdentity={isDesktop ? {
+                  mobilePresentation={!isDesktop}
+                  desktopIdentity={{
                     title, displayName: activeNode.authorDisplayName, authorUserId: activeNode.artifact.authorUserId,
                     avatarUrl: activeNode.authorAvatarUrl ?? null, avatarRevision: activeNode.authorAvatarRevision,
                     honorific: activeNode.authorHonorific ?? null, timeLabel: publicMetaTime ?? null,
-                  } : undefined}
+                  }}
                   desktopMetrics={isDesktop ? <YansiPublicMetricsLine slug={activeSlug} journeyVersion={presentedJourneyVersion} /> : undefined}
                   className="min-h-0 flex-1 px-3"
                   continueLabel={YANSI_OWN_CONTINUATION_CTA}
@@ -1818,29 +1820,7 @@ export default function MirrorYansiChainExperience({
               />
             )}
 
-            {/* REEL: no contextual Ayna/Audio slot. CHAT: Audio occupies Ayna-equivalent slot. */}
-            {showChatReplay && !isDesktop && experienceSession?.speechSupported ? (
-              <div
-                className="yansi-public-audio-ayna-slot"
-                data-testid="yansi-public-audio-ayna-slot"
-                data-yansi-contextual-slot="audio"
-              >
-                <YansiMobileMinimalPlayer onOpenSheet={() => setAudioSheetOpen(true)} />
-                <button
-                  type="button"
-                  className="yansi-public-audio-ayna-slot__btn"
-                  data-testid="yansi-public-audio-slot-trigger"
-                  data-active={experienceSession.audioOn ? 'true' : 'false'}
-                  data-yansi-no-swipe="true"
-                  aria-label="Sesli okuma"
-                  aria-pressed={experienceSession.audioOn}
-                  onClick={() => setAudioSheetOpen(true)}
-                >
-                  <Volume2 size={18} strokeWidth={1.6} aria-hidden />
-                </button>
-              </div>
-            ) : null}
-
+            {!isDesktop && !showChatReplay ? renderTitleBlock() : null}
             {!showChatReplay && !isDesktop ? (
             <div
               className="mt-4 flex flex-col items-center gap-2"

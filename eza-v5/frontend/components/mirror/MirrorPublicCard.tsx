@@ -86,6 +86,7 @@ export default function MirrorPublicCard({
       data-testid={articleTestId}
       data-mirror-public-card
       data-canonical-yansi-product={canonicalProduct ? 'true' : undefined}
+      data-scene-state={imageFailed ? 'error' : sceneImageUrl?.trim() ? 'available' : 'missing'}
       data-visual-only={visualOnly ? 'true' : undefined}
     >
       <div className="saina-discover-card__visual">

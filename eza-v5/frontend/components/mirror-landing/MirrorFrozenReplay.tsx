@@ -59,6 +59,7 @@ export type FrozenReplayProgressNotice = {
 export type MirrorFrozenReplayProps = {
   artifact: PublicFrozenJourneyArtifact;
   desktopIdentity?: DesktopYansiReplayIdentity;
+  mobilePresentation?: boolean;
   desktopMetrics?: ReactNode;
   className?: string;
   /** Phase 5.1 — fired once when final frozen answer completes. */
@@ -132,6 +133,7 @@ function RevealingAssistantBubble({
 export default function MirrorFrozenReplay({
   artifact,
   desktopIdentity,
+  mobilePresentation = false,
   className,
   onReplayCompleted,
   onReplayProgress,
@@ -376,11 +378,11 @@ export default function MirrorFrozenReplay({
       </div>
     </div> : null;
     const replayAction = replayFinished ? null : nextStep ? <button type="button" className="yansi-actionable-question" data-testid="mirror-frozen-replay-next-question"
-      data-step-index={nextStep.stepIndex} onClick={handleAskNext}>{nextStep.publicQuestion}</button>
+      data-step-index={nextStep.stepIndex} onClick={handleAskNext}><span>{nextStep.publicQuestion}</span>{mobilePresentation && session.completedStepCount === 0 ? <small className="yansi-question-hint">Yanıtı görmek için dokun</small> : null}</button>
       : <p role="status">Yanıt açılıyor…</p>;
     return <section className="yansi-desktop-replay" data-testid="mirror-frozen-replay" data-journey-version={pinnedVersionRef.current}
       data-yansi-rhythm={experience?.rhythm ?? 'normal'} aria-label="Yansı deneyimi">
-        <YansiDesktopExperience slug={frozen.slug} sceneImageUrl={artifact.sceneImageUrl} identity={desktopIdentity} scrollRef={scrollRootRef}
+        <YansiDesktopExperience mobile={mobilePresentation} slug={frozen.slug} sceneImageUrl={artifact.sceneImageUrl} identity={desktopIdentity} scrollRef={scrollRootRef}
           replaySelection={{ slug: frozen.slug, journeyVersion: pinnedVersionRef.current, completedStepCount: session.completedStepCount }}
         replayAction={replayAction} messages={<><MessageList messages={messages} variant="saina" autoScroll={false}
           isLoading={false} ezaVisibilityEnabled={false}

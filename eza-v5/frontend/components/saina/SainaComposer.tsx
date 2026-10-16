@@ -12,6 +12,7 @@ export type SainaComposerProps = {
   disabled?: boolean;
   /** A route handoff keeps the draft until the current surface unmounts. */
   preserveDraftOnSend?: boolean;
+  placeholderText?: string;
   /**
    * @deprecated Mobile Ayna discoverability uses the explicit composer-zone pill.
    * Kept for call-site compatibility; ignored.
@@ -24,6 +25,7 @@ export default function SainaComposer({
   isLoading,
   disabled = false,
   preserveDraftOnSend = false,
+  placeholderText,
   onOpenAyna: _onOpenAyna,
 }: SainaComposerProps) {
   void _onOpenAyna;
@@ -54,7 +56,7 @@ export default function SainaComposer({
     }
   };
 
-  const placeholder = disabled ? SAINA_COMPOSER_LIMIT_PLACEHOLDER : SAINA_COMPOSER_PLACEHOLDER;
+  const placeholder = disabled ? SAINA_COMPOSER_LIMIT_PLACEHOLDER : placeholderText ?? SAINA_COMPOSER_PLACEHOLDER;
 
   return (
     <div className="saina-composer-inner" data-testid="saina-composer">

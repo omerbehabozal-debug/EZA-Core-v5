@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useId, useRef } from 'react';
+import { YansiReadingOptions } from './YansiReadingSettings';
 import { X, Volume2 } from 'lucide-react';
 import { useModalFocusTrap } from '@/hooks/useModalFocusTrap';
 import { useYansiExperienceSession } from '@/components/mirror-landing/YansiExperienceSession';
@@ -67,7 +68,7 @@ export default function YansiMobileAudioSheet({ open, onClose }: YansiMobileAudi
         </div>
         <div className="yansi-mobile-audio-sheet-chrome">
           <h2 id={titleId} className="yansi-mobile-audio-sheet-title">
-            Yansı&apos;yı dinle
+            Deneyim ayarları
           </h2>
           <button
             type="button"
@@ -82,6 +83,7 @@ export default function YansiMobileAudioSheet({ open, onClose }: YansiMobileAudi
         </div>
 
         <div className="yansi-mobile-audio-sheet-body">
+          <section className="yansi-mobile-reading-options" aria-label="Okuma ayarları"><YansiReadingOptions /></section>
           {session.speechSupported ? (
             <button
               type="button"

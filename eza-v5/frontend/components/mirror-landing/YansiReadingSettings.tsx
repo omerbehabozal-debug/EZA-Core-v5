@@ -67,8 +67,7 @@ export default function YansiReadingSettings({ onOpen, activeIdentity }: { onOpe
   }, [open]);
 
   if (!desktop || !session) return null;
-  const { reading, setReading } = session;
-  const adjust = (value: number) => setReading({ ...reading, fontSize: Math.max(16, Math.min(24, value)) });
+  const { reading } = session;
   return <>
     <button ref={trigger} type="button" className="yansi-exp-rail__btn yansi-reading-trigger"
       data-testid="yansi-reading-trigger" data-active={open || reading.mode === 'editorial' ? 'true' : 'false'}
@@ -83,7 +82,18 @@ export default function YansiReadingSettings({ onOpen, activeIdentity }: { onOpe
         if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node) && event.relatedTarget !== trigger.current) close(false);
       }}>
       <h2 id={titleId}><BookOpen size={18} aria-hidden="true" />Okuma Ayarları</h2>
-      <fieldset><legend>Okuma biçimi</legend><div className="yansi-reading-segment">
+      <YansiReadingOptions />
+    </div>, document.body)}
+  </>;
+}
+
+/** Same session and preference contract on both surfaces. */
+export function YansiReadingOptions() {
+  const session = useYansiExperienceSession();
+  if (!session) return null;
+  const { reading, setReading } = session;
+  const adjust = (value: number) => setReading({ ...reading, fontSize: Math.max(16, Math.min(24, value)) });
+  return <>      <fieldset><legend>Okuma biçimi</legend><div className="yansi-reading-segment">
         {(['standard', 'editorial'] as const).map((mode) => <button key={mode} type="button" aria-pressed={reading.mode === mode}
           onClick={() => {
             if (reading.mode === mode) return;
@@ -107,6 +117,5 @@ export default function YansiReadingSettings({ onOpen, activeIdentity }: { onOpe
         {(['normal', 'roomy'] as const).map((spacing) => <button key={spacing} type="button" aria-pressed={reading.spacing === spacing}
           onClick={() => setReading({ ...reading, spacing })}>{spacing === 'roomy' ? 'Ferah' : 'Normal'}</button>)}
       </div></fieldset>
-    </div>, document.body)}
-  </>;
+</>;
 }
