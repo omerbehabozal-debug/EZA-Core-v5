@@ -23,6 +23,7 @@ export type SainaDiscoverCardProps = {
   /** Collection-only control. Discover cards expose the existing open action alone. */
   showSave?: boolean;
   authorUserId?: string | null;
+  presentation?: 'discover' | 'owner-publication';
   /** @deprecated Phase 8.2 — card opens /m/{slug}; limit applies at continuation/sohbet. */
   discoverLimitReached?: boolean;
   /** @deprecated Phase 8.2 */
@@ -32,6 +33,7 @@ export type SainaDiscoverCardProps = {
 export default function SainaDiscoverCard({
   item,
   showSave = false,
+  presentation = 'discover',
   authorUserId,
 }: SainaDiscoverCardProps) {
   const router = useRouter();
@@ -80,7 +82,7 @@ export default function SainaDiscoverCard({
         title={product.title}
         summary={product.summary}
         sceneImageUrl={product.sceneImageUrl}
-        className="saina-discover-card--editorial"
+        className={`saina-discover-card--editorial${presentation === 'owner-publication' ? ' saina-discover-card--owner-publication' : ''}`}
         kicker={identity}
         meta={
           canonical ? (
@@ -114,6 +116,7 @@ export default function SainaDiscoverCard({
             <span className="saina-discover-card__cta-short" aria-hidden>
               {SAINA_DISCOVER_OPEN_CTA_SHORT}
             </span>
+            <span className="saina-discover-card__cta-mobile">{presentation === 'owner-publication' ? 'Görüntüle' : 'Deneyimle'}</span>
           </button>
           {showSave ? <SainaYansiSaveControl slug={item.slug} authorUserId={authorUserId} /> : null}
           </div>

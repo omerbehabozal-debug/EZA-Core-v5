@@ -94,9 +94,9 @@ export default function SainaMyPageContent({ onRequireAuth }: { onRequireAuth: (
       <header className="saina-discover-hero saina-my-page__hero">
         <div className="saina-my-page__identity">
           <ProfileUserAvatar displayName={name} userId={account} avatarUrl={user?.public_avatar_url}
-            cacheBust={user?.public_avatar_revision} size="lg" className="saina-my-page__avatar" />
+            cacheBust={user?.public_avatar_revision} size="lg" className="saina-my-page__avatar saina-mobile-yansi-header__avatar" />
           <div className="saina-my-page__identity-copy">
-            <h1 className="saina-my-page__name saina-serif">{name}</h1>
+            <h1 className="saina-my-page__name saina-serif saina-mobile-yansi-header__name">{name}</h1>
             {account && (currentOwner?.data?.publicHonorific || user?.public_honorific) ?
               <HonorificMarker honorific={currentOwner?.data?.publicHonorific || user?.public_honorific} size="sm" /> : null}
             <p className="saina-my-page__intro">Meraklarımın izleri.</p>
@@ -133,7 +133,7 @@ export default function SainaMyPageContent({ onRequireAuth }: { onRequireAuth: (
           </div> :
           <div className="saina-discover-list">
             {tab === 'published' && currentOwner?.data ? publications.map((item) =>
-              <SainaDiscoverCard key={item.slug} item={ownerPublicationCard(item, currentOwner.data!)} showSave={false} />) :
+              <SainaDiscoverCard key={item.slug} item={ownerPublicationCard(item, currentOwner.data!)} showSave={false} presentation="owner-publication" />) :
               currentSaved?.data.map((item) => {
                 const card = savedPublicationCard(item);
                 return card ? <SainaDiscoverCard key={item.slug} item={card} authorUserId={item.authorUserId} showSave /> :

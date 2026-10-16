@@ -108,6 +108,18 @@ describe('Sayfam and existing account collections', () => {
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
+  it('marks owner cards as a mobile presentation variant while saved cards keep their author', async () => {
+    render(<SainaMyPageContent onRequireAuth={vi.fn()} />);
+    await screen.findByText('My published Yansı');
+    expect(screen.getByTestId('saina-discover-card-mine')).toHaveClass('saina-discover-card--owner-publication');
+    fireEvent.click(screen.getByTestId('saina-discover-card-cta-mine'));
+    expect(state.push).toHaveBeenCalledWith('/m/mine?journeyVersion=2');
+    fireEvent.click(screen.getByRole('tab', { name: 'Kaydettiklerim' }));
+    await screen.findByText('Other author Yansı');
+    expect(screen.getByTestId('saina-discover-card-other')).not.toHaveClass('saina-discover-card--owner-publication');
+    expect(screen.getByText('Original author')).toBeInTheDocument();
+  });
+
   it('does not invent empty content on API failure and rejects wrong owner inventory', async () => {
     vi.mocked(fetchOwnerProfileYansilar).mockResolvedValue({ ok: true, data: { userId: 'someone-else', displayName: 'Private owner', total: 1, items: [publication] } });
     render(<SainaMyPageContent onRequireAuth={vi.fn()} />);
