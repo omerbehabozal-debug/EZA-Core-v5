@@ -54,7 +54,15 @@
   padding: 24px; min-width: 0; isolation: isolate;
 }
 .saina-account-overlay--viewport { position: fixed; }
-.saina-account-backdrop { position: fixed; inset: 0; z-index: -1; background: rgba(3, 10, 12, .22); }
+.saina-account-backdrop {
+  /* Stay within the main-column portal overlay; never cover the sidebar. */
+  position: absolute; inset: 0; z-index: -1;
+  background: rgba(0, 0, 0, .48);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
+  animation: saina-account-backdrop-enter 180ms ease-out;
+}
+@keyframes saina-account-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
 .saina-account-overlay .saina-profile-menu.saina-account-panel--detail {
   position: relative; inset: auto; width: 640px; max-width: 100%;
   max-height: min(780px, calc(100dvh - 48px)); margin: 0; border-radius: 22px;
@@ -79,7 +87,8 @@
   .saina-account-panel--detail .saina-account-panel-content { padding: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .saina-account-overlay .saina-profile-menu.saina-account-panel--detail { animation: none; }
+  .saina-account-overlay .saina-profile-menu.saina-account-panel--detail,
+  .saina-account-backdrop { animation: none; }
 }
 .saina-account-panel-heading {
   display: flex;
