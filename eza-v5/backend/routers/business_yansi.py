@@ -2,7 +2,7 @@
 import uuid
 from typing import Literal
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from backend.auth.deps import get_current_user, security
@@ -10,7 +10,9 @@ from backend.core.utils.dependencies import get_db
 from backend.models.business_yansi import BusinessProfile, BusinessMember, BusinessKnowledgeVersion, BusinessYansiDraft, BusinessPublication
 from backend.models.production import User
 from backend.services.business_yansi import service as svc
+from backend.services.business_yansi import applications as apps
 from backend.services.business_yansi.publication import enabled, publisher, export_editorial_conversation, publish_draft
+from backend.security.rate_limit import rate_limit_business_application
 
 async def available():
     if not enabled(): raise HTTPException(404, 'not_found')
@@ -66,6 +68,16 @@ class Publish(Body):
     revision: int=Field(ge=1)
 class Question(Body):
     question: str=Field(min_length=1,max_length=2000)
+class ApplicationCreate(Body):
+    brandName: str=Field(min_length=1,max_length=120)
+    contactName: str=Field(min_length=1,max_length=120)
+    corporateEmail: str=Field(min_length=3,max_length=255)
+    website: str|None=Field(default=None,max_length=500)
+    companyInfo: str=Field(default='',max_length=2000)
+class ApplicationTransition(Body):
+    target: Literal['received','under_review','approved','rejected']
+    note: str=Field(default='',max_length=1000)
+    slug: str|None=Field(default=None,min_length=2,max_length=64)
 
 def record(row):
     # Management DTO only: these models contain no customer conversation text.
@@ -86,6 +98,29 @@ async def mine(db=Depends(get_db),claims=Depends(get_current_user)):
 @router.post('')
 async def provision(body:Create,db=Depends(get_db),claims=Depends(get_current_user)):
     admin=await svc.platform_admin(db,claims);return await recorded(db,await svc.create_business(db,admin,body.model_dump(mode='json')))
+
+@router.get('/applications/mine')
+async def my_applications(db=Depends(get_db),claims=Depends(get_current_user)):
+    user=await svc.actor(db,claims)
+    return {'items':[record(row) for row in await apps.list_mine(db,user.id)]}
+@router.post('/applications')
+async def submit_application(body:ApplicationCreate,request:Request,db=Depends(get_db),claims=Depends(get_current_user)):
+    await rate_limit_business_application(request)
+    user=await svc.actor(db,claims)
+    return await recorded(db,await apps.create_application(db,user.id,body.model_dump(mode='json')))
+@router.get('/applications')
+async def all_applications(db=Depends(get_db),claims=Depends(get_current_user)):
+    await svc.platform_admin(db,claims)
+    return {'items':[record(row) for row in await apps.list_all(db)]}
+@router.post('/applications/{application_id}/transition')
+async def application_transition(application_id:uuid.UUID,body:ApplicationTransition,db=Depends(get_db),claims=Depends(get_current_user)):
+    admin=await svc.platform_admin(db,claims)
+    return await recorded(db,await apps.transition_application(db,admin.id,application_id,body.target,body.note,body.slug))
+@router.get('/applications/{application_id}/events')
+async def application_events(application_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
+    admin=await svc.platform_admin(db,claims);_ = admin
+    return {'items':[record(row) for row in await apps.list_events(db,application_id)]}
+
 @router.patch('/{business_id}/verification')
 async def verification(business_id:uuid.UUID,body:Verify,db=Depends(get_db),claims=Depends(get_current_user)):
     await svc.platform_admin(db,claims);row=await db.get(BusinessProfile,business_id)

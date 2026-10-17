@@ -6,6 +6,17 @@ export type Knowledge = { id: string; item_id: string; title: string; category: 
 export type Step = { question: string; answer: string; sources: string[] };
 export type Draft = { id: string; title: string; summary: string; steps: Step[]; status: string; revision: number; conversation_id: string | null };
 export type Publication = { slug: string; journey_version: number; visibility?: string };
+export type BrandApplication = {
+  id: string;
+  brand_name: string;
+  contact_name: string;
+  corporate_email: string;
+  website: string | null;
+  company_info: string;
+  status: 'received' | 'under_review' | 'approved' | 'rejected' | string;
+  reviewer_note: string;
+  business_id: string | null;
+};
 export async function businessRequest<T>(path = '', method = 'GET', body?: unknown): Promise<T> {
   const token = getAuthToken();
   if (!token) throw new Error('Business yönetimi için giriş yapmalısın.');

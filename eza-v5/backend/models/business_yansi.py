@@ -71,3 +71,33 @@ class BusinessPublication(Timestamps, Base):
     draft_id = Column(UUID(as_uuid=True), ForeignKey('business_yansi_drafts.id'), nullable=False)
     knowledge_snapshot = Column(JSON, nullable=False)
     published_by = Column(UUID(as_uuid=True), ForeignKey('production_users.id'), nullable=False)
+
+class BusinessBrandApplication(Timestamps, Base):
+    """Applicant intake only — never grants Business membership by itself."""
+    __tablename__ = 'business_brand_applications'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    applicant_user_id = Column(UUID(as_uuid=True), ForeignKey('production_users.id'), nullable=False, index=True)
+    brand_name = Column(String(120), nullable=False)
+    brand_name_normalized = Column(String(120), nullable=False, index=True)
+    contact_name = Column(String(120), nullable=False)
+    corporate_email = Column(String(255), nullable=False)
+    website = Column(String(500))
+    company_info = Column(String(2000), nullable=False, default='')
+    status = Column(String(16), nullable=False, default='received')
+    reviewer_note = Column(String(1000), nullable=False, default='')
+    reviewed_by = Column(UUID(as_uuid=True), ForeignKey('production_users.id'))
+    reviewed_at = Column(DateTime(timezone=True))
+    business_id = Column(UUID(as_uuid=True), ForeignKey('business_profiles.id'))
+    __table_args__ = (CheckConstraint("status IN ('received','under_review','approved','rejected')", name='ck_business_application_status'),)
+
+class BusinessApplicationEvent(Base):
+    """Append-only audit for application and resulting authority changes."""
+    __tablename__ = 'business_application_events'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    application_id = Column(UUID(as_uuid=True), ForeignKey('business_brand_applications.id'), nullable=False, index=True)
+    actor_user_id = Column(UUID(as_uuid=True), ForeignKey('production_users.id'), nullable=False)
+    action = Column(String(40), nullable=False)
+    from_status = Column(String(16))
+    to_status = Column(String(16))
+    detail = Column(JSON, nullable=False, default=lambda: {})
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

@@ -224,6 +224,11 @@ OPS_CLIENT_RATE_LIMIT = 40
 OPS_CLIENT_RATE_WINDOW_SECONDS = 60
 
 
+async def rate_limit_business_application(request: Request) -> None:
+    """Brand application submit: 5 / 10 minutes per IP (abuse bound)."""
+    await rate_limit(request, limit=5, window=600, key_prefix="business_application")
+
+
 async def rate_limit_ops_client(request: Request) -> None:
     """
     Quiet rate limit for POST /api/ops/client-event.

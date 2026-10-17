@@ -18,8 +18,9 @@ from backend.core.utils.dependencies import Base
 from backend.models.production import User,Organization,OrganizationUser
 from backend.models.standalone_conversations import StandaloneConversation,StandaloneConversationMessage
 from backend.models.mirror_network import MirrorNetworkNode
-from backend.models.business_yansi import BusinessProfile,BusinessMember,BusinessKnowledgeVersion,BusinessYansiDraft,BusinessPublication
+from backend.models.business_yansi import BusinessProfile,BusinessMember,BusinessKnowledgeVersion,BusinessYansiDraft,BusinessPublication,BusinessBrandApplication,BusinessApplicationEvent
 from backend.services.business_yansi import service as svc
+from backend.services.business_yansi import applications as apps
 from backend.services.business_yansi.answers import BusinessHistory,answer,bind_business_history,NO_INFORMATION,validate_quotes
 from backend.services.business_yansi.publication import export_editorial_conversation,public_publisher,publish_draft
 from backend.routers import business_yansi as routes
@@ -28,7 +29,7 @@ from backend.routers import business_yansi as routes
 async def sample(monkeypatch):
     monkeypatch.setenv('BILIGN_BUSINESS_ENABLED','true')
     engine=create_async_engine('sqlite+aiosqlite:///:memory:')
-    tables=[User.__table__,Organization.__table__,OrganizationUser.__table__,StandaloneConversation.__table__,StandaloneConversationMessage.__table__,MirrorNetworkNode.__table__,BusinessProfile.__table__,BusinessMember.__table__,BusinessKnowledgeVersion.__table__,BusinessYansiDraft.__table__,BusinessPublication.__table__]
+    tables=[User.__table__,Organization.__table__,OrganizationUser.__table__,StandaloneConversation.__table__,StandaloneConversationMessage.__table__,MirrorNetworkNode.__table__,BusinessProfile.__table__,BusinessMember.__table__,BusinessKnowledgeVersion.__table__,BusinessYansiDraft.__table__,BusinessPublication.__table__,BusinessBrandApplication.__table__,BusinessApplicationEvent.__table__]
     async with engine.begin() as connection:await connection.run_sync(lambda c:Base.metadata.create_all(c,tables=tables))
     async with async_sessionmaker(engine,expire_on_commit=False)() as db:
         owner=User(id=uuid.uuid4(),email='owner@example.test',role='user',is_active=True)
@@ -220,6 +221,45 @@ def test_migration_postgresql_ddl_offline_only():
     sql=output.getvalue()
     assert sql.count('CREATE TABLE')==5 and 'production_organizations' in sql and 'uq_business_knowledge_version' in sql
     assert migration.down_revision=='add_guest_trial_v1'
+
+def test_application_migration_postgresql_ddl_offline_only():
+    import importlib.util,io
+    from pathlib import Path
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    spec=importlib.util.spec_from_file_location('app_migration',Path(__file__).parent.parent/'migrations/versions/add_business_applications_v1.py')
+    migration=importlib.util.module_from_spec(spec);spec.loader.exec_module(migration)
+    output=io.StringIO();context=MigrationContext.configure(dialect_name='postgresql',opts={'as_sql':True,'output_buffer':output})
+    with Operations.context(context):migration.upgrade()
+    sql=output.getvalue()
+    assert sql.count('CREATE TABLE')==2 and 'business_brand_applications' in sql and 'business_application_events' in sql
+    assert migration.down_revision=='add_business_yansi_v1'
+
+@pytest.mark.asyncio
+async def test_application_does_not_grant_membership_until_admin_approval(sample):
+    s=sample
+    applicant=s.outsider
+    row=await apps.create_application(s.db,applicant.id,{
+        'brandName':'Akdeniz Marka','contactName':'Ayşe Yetkili','corporateEmail':'brand@akdeniz.test',
+        'website':'https://akdeniz.test','companyInfo':'Turizm şirketi',
+    })
+    assert row.status=='received' and row.business_id is None
+    with pytest.raises(HTTPException) as denied:await svc.access(s.db,s.business.id,applicant.id,'viewer')
+    assert denied.value.status_code==403
+    with pytest.raises(HTTPException) as dup:await apps.create_application(s.db,applicant.id,{
+        'brandName':'Akdeniz Marka','contactName':'Ayşe','corporateEmail':'brand@akdeniz.test','companyInfo':'x',
+    })
+    assert dup.value.status_code==409
+    with pytest.raises(HTTPException):await apps.transition_application(s.db,applicant.id,row.id,'approved',slug='akdeniz')
+    reviewed=await apps.transition_application(s.db,s.admin.id,row.id,'under_review')
+    assert reviewed.status=='under_review'
+    approved=await apps.transition_application(s.db,s.admin.id,row.id,'approved',slug='akdeniz-marka',note='OK')
+    assert approved.status=='approved' and approved.business_id
+    assert await svc.access(s.db,approved.business_id,applicant.id,'owner')
+    events=await apps.list_events(s.db,row.id)
+    assert any(e.action=='status_changed' and e.to_status=='approved' for e in events)
+    assert await apps.list_mine(s.db,s.owner.id)==[]
+    assert len(await apps.list_mine(s.db,applicant.id))==1
 
 @pytest.mark.asyncio
 async def test_business_public_frozen_dto_omits_private_metadata(sample,monkeypatch):

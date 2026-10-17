@@ -608,3 +608,230 @@
     font-size: 20px;
   }
 }
+
+/* Stage 2.1 — giriş / başvuru kapısı */
+.biz-gate {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.biz-gate-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--biz-border);
+}
+
+.biz-gate-hero {
+  width: min(720px, 100%);
+  margin: 0 auto;
+  padding: 28px 18px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.biz-gate-title {
+  margin: 0;
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--biz-gold);
+}
+
+.biz-gate-lead,
+.biz-gate-note,
+.biz-muted {
+  margin: 0;
+  color: var(--biz-muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.biz-gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.biz-gate-primary,
+.biz-gate-secondary,
+.biz-gate-form button[type='submit'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--biz-gold-line);
+  text-decoration: none;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.biz-gate-primary,
+.biz-gate-form button[type='submit'] {
+  background: var(--biz-gold-soft);
+  color: var(--biz-gold);
+}
+
+.biz-gate-secondary {
+  background: transparent;
+  color: var(--biz-ink);
+}
+
+.biz-gate-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.biz-gate-card,
+.biz-gate-form {
+  margin-top: 8px;
+}
+
+.biz-gate-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--biz-muted);
+}
+
+.biz-gate-form input,
+.biz-gate-form textarea {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--biz-border);
+  background: var(--biz-petrol);
+  color: var(--biz-ink);
+}
+
+.biz-gate-apps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.biz-gate-apps li {
+  display: grid;
+  gap: 6px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--biz-border);
+}
+
+.biz-status--received,
+.biz-status--under_review,
+.biz-status--approved,
+.biz-status--rejected {
+  display: inline-flex;
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--biz-border);
+  font-size: 12px;
+}
+
+.biz-account-menu {
+  position: relative;
+}
+
+.biz-account-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--biz-border);
+  background: rgba(12, 18, 20, 0.8);
+  color: var(--biz-ink);
+  cursor: pointer;
+}
+
+.biz-account-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--biz-gold-soft);
+  color: var(--biz-gold);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.biz-account-name {
+  font-size: 13px;
+}
+
+.biz-account-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  min-width: 200px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--biz-border);
+  background: var(--biz-panel-raised);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  display: grid;
+  gap: 4px;
+}
+
+.biz-account-email {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  color: var(--biz-muted);
+  word-break: break-all;
+}
+
+.biz-account-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--biz-ink);
+  text-decoration: none;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.biz-account-item:hover {
+  background: var(--biz-gold-soft);
+}
+
+@media (max-width: 720px) {
+  .biz-gate-hero {
+    padding: 20px 14px 32px;
+  }
+
+  .biz-gate-actions {
+    flex-direction: column;
+  }
+
+  .biz-gate-primary,
+  .biz-gate-secondary {
+    width: 100%;
+  }
+
+  .biz-account-name {
+    display: none;
+  }
+}
