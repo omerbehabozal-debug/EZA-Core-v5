@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, type FormEvent } from 'react';
 import {
   businessRequest as api,
+  isBusinessApiError,
   type Business,
   type Knowledge,
   type Draft,
@@ -19,6 +20,8 @@ import Link from 'next/link';
 const tabs = ['Genel Bakış', 'Bilgi Havuzu', 'Yansı Stüdyosu', 'Yayınlar', 'Ayarlar'] as const;
 const emptySteps = (): Step[] => Array.from({ length: 8 }, () => ({ question: '', answer: '', sources: [] }));
 const LOGIN_MSG = 'Business yönetimi için giriş yapmalısın.';
+
+type CatalogState = 'idle' | 'loading' | 'ready' | 'unavailable' | 'blocked';
 
 function fields(form: HTMLFormElement) {
   return Object.fromEntries(new FormData(form).entries());
@@ -62,6 +65,9 @@ export default function SainaBusinessManager() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  /** Catalog load is separate from brand membership — never treat API-down as no-access. */
+  const [catalogState, setCatalogState] = useState<CatalogState>('idle');
+  const [serviceMessage, setServiceMessage] = useState('');
   const [editKnowledge, setEditKnowledge] = useState<Knowledge | null>(null);
   const [editDraft, setEditDraft] = useState<Draft | null>(null);
   const [steps, setSteps] = useState<Step[]>(emptySteps);
@@ -119,12 +125,17 @@ export default function SainaBusinessManager() {
       setBusiness(null);
       setError('');
       setAdmin(false);
+      setCatalogState('idle');
+      setServiceMessage('');
       return;
     }
     setError('');
+    setServiceMessage('');
+    setCatalogState('loading');
     Promise.all([loadList(), loadApplications()])
       .then(([list]) => {
         if (!active) return;
+        setCatalogState('ready');
         const rows = list.items;
         if (list.canProvision) {
           setAdminInbox(true);
@@ -143,7 +154,23 @@ export default function SainaBusinessManager() {
         }
       })
       .catch((e) => {
-        if (active) setError(e.message);
+        if (!active) return;
+        // Keep BiligN session; classify Business API failure separately from brand access.
+        setItems([]);
+        setApplications([]);
+        setSelected('');
+        setPicked(false);
+        setAdmin(false);
+        setAdminInbox(false);
+        if (isBusinessApiError(e) && e.kind === 'unavailable') {
+          setCatalogState('unavailable');
+          setServiceMessage(e.message);
+          setError('');
+          return;
+        }
+        setCatalogState('blocked');
+        setServiceMessage(isBusinessApiError(e) ? e.message : e instanceof Error ? e.message : 'İşlem tamamlanamadı.');
+        setError(isBusinessApiError(e) ? e.message : e instanceof Error ? e.message : 'İşlem tamamlanamadı.');
       });
     return () => {
       active = false;
@@ -303,6 +330,38 @@ export default function SainaBusinessManager() {
     </div>
   );
 
+  if (catalogState === 'loading') {
+    return (
+      <main className="biz-panel">
+        <SainaBusinessGate mode="loading" />
+      </main>
+    );
+  }
+
+  if (catalogState === 'unavailable' || catalogState === 'blocked') {
+    return (
+      <main className="biz-panel">
+        <SainaBusinessGate
+          mode="unavailable"
+          serviceMessage={serviceMessage || 'BiligN Business şu anda kullanıma hazırlanıyor.'}
+          serviceNote={
+            catalogState === 'unavailable'
+              ? 'Oturumun açık. Business kullanıma açıldığında aynı BiligN hesabınla devam edebilirsin.'
+              : 'BiligN oturumun korunuyor. Marka başvurusu yalnızca Business servisi yanıt verdiğinde açılır.'
+          }
+        />
+      </main>
+    );
+  }
+
+  if (catalogState !== 'ready') {
+    return (
+      <main className="biz-panel">
+        <SainaBusinessGate mode="loading" />
+      </main>
+    );
+  }
+
   if (admin && adminInbox) {
     return (
       <main className="biz-panel">
@@ -355,6 +414,7 @@ export default function SainaBusinessManager() {
     );
   }
 
+  // Application form only after a successful Business catalog response with no memberships.
   if (!items.length && !admin) {
     return (
       <main className="biz-panel">

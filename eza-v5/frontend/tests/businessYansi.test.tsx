@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { beforeEach, describe, it, expect, vi } from 'vitest';
 import SainaBusinessManager from '@/components/saina/SainaBusinessManager';
+import { BusinessApiError } from '@/lib/eza/businessYansi';
 import { parsePublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
 
 const api = vi.hoisted(() => vi.fn());
@@ -12,7 +13,10 @@ const auth = vi.hoisted(() => ({
   logout: vi.fn(),
 }));
 
-vi.mock('@/lib/eza/businessYansi', () => ({ businessRequest: api }));
+vi.mock('@/lib/eza/businessYansi', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/eza/businessYansi')>();
+  return { ...actual, businessRequest: api };
+});
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => auth }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
@@ -51,10 +55,50 @@ describe('Business management', () => {
   });
 
   it('shows backend errors and does not invent authorized content', async () => {
-    api.mockRejectedValue(new Error('business_access_denied'));
+    api.mockRejectedValue(new BusinessApiError(403, 'business_access_denied'));
     render(<SainaBusinessManager />);
-    expect(await screen.findByRole('alert')).toHaveTextContent('business_access_denied');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Bu işlem için yetkin bulunmuyor.');
+    expect(screen.queryByRole('heading', { name: 'Marka yetkisi yok' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Başvuruyu gönder' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Yansı Stüdyosu' })).not.toBeInTheDocument();
+    expect(auth.logout).not.toHaveBeenCalled();
+  });
+
+  it('treats feature-flag 404 as preparing, not no-access', async () => {
+    api.mockRejectedValue(new BusinessApiError(404, 'not_found'));
+    render(<SainaBusinessManager />);
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'BiligN Business şu anda kullanıma hazırlanıyor.'
+    );
+    expect(screen.queryByText('İşlem tamamlanamadı (404).')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Marka yetkisi yok' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: "Markanızı BiligN'e ekleyin" })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Başvuruyu gönder' })).not.toBeInTheDocument();
+    expect(auth.logout).not.toHaveBeenCalled();
+  });
+
+  it('keeps session and hides application form on network failure', async () => {
+    api.mockRejectedValue(new BusinessApiError(0, 'network_error'));
+    render(<SainaBusinessManager />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Business servisine bağlanılamadı');
+    expect(screen.queryByRole('button', { name: 'Başvuruyu gönder' })).not.toBeInTheDocument();
+    expect(auth.logout).not.toHaveBeenCalled();
+  });
+
+  it('keeps session and hides application form on 5xx', async () => {
+    api.mockRejectedValue(new BusinessApiError(503, null));
+    render(<SainaBusinessManager />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('geçici bir sorun');
+    expect(screen.queryByRole('button', { name: 'Başvuruyu gönder' })).not.toBeInTheDocument();
+    expect(auth.logout).not.toHaveBeenCalled();
+  });
+
+  it('keeps session on 401 without showing brand application form', async () => {
+    api.mockRejectedValue(new BusinessApiError(401, 'unauthorized'));
+    render(<SainaBusinessManager />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('Oturum doğrulanamadı');
+    expect(screen.queryByRole('button', { name: 'Başvuruyu gönder' })).not.toBeInTheDocument();
+    expect(auth.logout).not.toHaveBeenCalled();
   });
 
   it('provides eight sourced editorial steps to editor', async () => {

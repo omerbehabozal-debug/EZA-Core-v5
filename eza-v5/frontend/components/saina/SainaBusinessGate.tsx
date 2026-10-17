@@ -15,12 +15,15 @@ const STATUS_TR: Record<string, string> = {
 };
 
 type Props = {
-  mode: 'anonymous' | 'no-access' | 'pick';
+  mode: 'anonymous' | 'no-access' | 'pick' | 'unavailable' | 'loading';
   applications?: BrandApplication[];
   businesses?: { id: string; name: string }[];
   busy?: boolean;
   error?: string;
   notice?: string;
+  /** Shown for unavailable / blocked service states (not brand-access denial). */
+  serviceMessage?: string;
+  serviceNote?: string;
   onSubmitApplication?: (payload: {
     brandName: string;
     contactName: string;
@@ -98,6 +101,8 @@ export default function SainaBusinessGate({
   busy = false,
   error = '',
   notice = '',
+  serviceMessage = '',
+  serviceNote = '',
   onSubmitApplication,
   onSelectBusiness,
 }: Props) {
@@ -174,6 +179,25 @@ export default function SainaBusinessGate({
           {notice}
         </p>
       ) : null}
+
+      {mode === 'loading' && (
+        <div className="biz-gate-hero">
+          <p className="biz-gate-lead">Business durumu kontrol ediliyor…</p>
+        </div>
+      )}
+
+      {mode === 'unavailable' && (
+        <div className="biz-gate-hero">
+          <h1 className="biz-gate-title">BiligN Business</h1>
+          <p className="biz-gate-lead" role="alert">
+            {serviceMessage || 'BiligN Business şu anda kullanıma hazırlanıyor.'}
+          </p>
+          <p className="biz-gate-note">
+            {serviceNote ||
+              'Oturumun açık. Business kullanıma açıldığında aynı BiligN hesabınla devam edebilirsin.'}
+          </p>
+        </div>
+      )}
 
       {mode === 'pick' && (
         <div className="biz-gate-hero">

@@ -17,16 +17,103 @@ export type BrandApplication = {
   reviewer_note: string;
   business_id: string | null;
 };
+
+export type BusinessApiErrorKind =
+  | 'unauthorized'
+  | 'forbidden'
+  | 'unavailable'
+  | 'not_found'
+  | 'server'
+  | 'network'
+  | 'unknown';
+
+const MSG = {
+  unavailable: 'BiligN Business şu anda kullanıma hazırlanıyor.',
+  unauthorized: 'Oturum doğrulanamadı. BiligN hesabınla tekrar giriş yapmayı deneyebilirsin.',
+  forbidden: 'Bu işlem için yetkin bulunmuyor.',
+  server: 'Business servisinde geçici bir sorun oluştu. Biraz sonra tekrar dene.',
+  network: 'Business servisine bağlanılamadı. Bağlantını kontrol edip tekrar dene.',
+  not_found: 'İstenen kayıt bulunamadı.',
+  unknown: 'İşlem tamamlanamadı.',
+} as const;
+
+function detailCode(detail: unknown): string {
+  if (typeof detail === 'string') return detail.trim();
+  if (detail && typeof detail === 'object') {
+    const row = detail as Record<string, unknown>;
+    if (typeof row.code === 'string' && row.code.trim()) return row.code.trim();
+    if (typeof row.reason === 'string' && row.reason.trim()) return row.reason.trim();
+  }
+  return '';
+}
+
+function classify(status: number, detail: unknown): { kind: BusinessApiErrorKind; code: string; message: string } {
+  const code = detailCode(detail);
+  if (status === 0) {
+    return { kind: 'network', code: code || 'network_error', message: MSG.network };
+  }
+  if (status === 401) {
+    return { kind: 'unauthorized', code: code || 'unauthorized', message: MSG.unauthorized };
+  }
+  if (status === 403) {
+    return { kind: 'forbidden', code: code || 'forbidden', message: MSG.forbidden };
+  }
+  // Feature flag off: HTTPException(404, "not_found") → {"detail":"not_found"}
+  // Proxy/empty 404 on the Business surface is also treated as service unavailable.
+  if (status === 404 && (code === 'not_found' || code === '')) {
+    return { kind: 'unavailable', code: code || 'not_found', message: MSG.unavailable };
+  }
+  if (status === 404) {
+    return { kind: 'not_found', code: code || 'not_found', message: code || MSG.not_found };
+  }
+  if (status >= 500) {
+    return { kind: 'server', code: code || `http_${status}`, message: MSG.server };
+  }
+  if (code) {
+    return { kind: 'unknown', code, message: code };
+  }
+  return { kind: 'unknown', code: `http_${status}`, message: `${MSG.unknown} (${status}).` };
+}
+
+export class BusinessApiError extends Error {
+  readonly status: number;
+  readonly code: string;
+  readonly kind: BusinessApiErrorKind;
+
+  constructor(status: number, detail: unknown = null) {
+    const classified = classify(status, detail);
+    super(classified.message);
+    this.name = 'BusinessApiError';
+    this.status = status;
+    this.code = classified.code;
+    this.kind = classified.kind;
+  }
+}
+
+export function isBusinessApiError(error: unknown): error is BusinessApiError {
+  return error instanceof BusinessApiError;
+}
+
 export async function businessRequest<T>(path = '', method = 'GET', body?: unknown): Promise<T> {
   const token = getAuthToken();
   if (!token) throw new Error('Business yönetimi için giriş yapmalısın.');
-  const response = await fetch(getApiUrl().replace(/\/$/, '') + '/api/business-yansi' + path, {
-    method, headers: { Authorization: `Bearer ${token}`, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }), cache: 'no-store',
-  });
+  let response: Response;
+  try {
+    response = await fetch(getApiUrl().replace(/\/$/, '') + '/api/business-yansi' + path, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      cache: 'no-store',
+    });
+  } catch {
+    throw new BusinessApiError(0, 'network_error');
+  }
   if (!response.ok) {
     const data = await response.json().catch(() => null);
-    throw new Error(data?.detail?.code || data?.detail?.reason || `İşlem tamamlanamadı (${response.status}).`);
+    throw new BusinessApiError(response.status, data?.detail ?? null);
   }
   return response.json();
 }
