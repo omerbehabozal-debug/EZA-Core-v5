@@ -31,6 +31,7 @@ beforeEach(() => {
   api.mockReset();
   auth.isAuthenticated = true;
   auth.isAuthReady = true;
+  auth.user = { email: 'owner@example.test', user_id: 'u1', role: 'user' };
   api.mockImplementation(async (path = '') => {
     if (path === '') return { items: [business], canProvision: false };
     if (path === '/applications/mine') return { items: [] };
@@ -90,6 +91,77 @@ describe('Business management', () => {
     render(<SainaBusinessManager />);
     expect(await screen.findByRole('heading', { name: 'Business yetkisi yok' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Başvuruyu gönder' })).toBeVisible();
+  });
+
+  it('opens platform admin application inbox for admins', async () => {
+    auth.user = { email: 'admin@example.test', user_id: 'admin1', role: 'admin' };
+    api.mockImplementation(async (path = '') => {
+      if (path === '') return { items: [], canProvision: true };
+      if (path === '/applications/mine') return { items: [] };
+      if (path === '/applications') {
+        return {
+          items: [
+            {
+              id: 'app-1',
+              brand_name: 'Ada Marka',
+              contact_name: 'Ada',
+              corporate_email: 'ada@example.com',
+              website: null,
+              company_info: 'Detay',
+              status: 'received',
+              reviewer_note: '',
+              business_id: null,
+            },
+          ],
+        };
+      }
+      return { items: [] };
+    });
+    render(<SainaBusinessManager />);
+    expect(await screen.findByRole('heading', { name: 'Ada Marka' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'İncelemeye al' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Onayla' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Bilgi Havuzu' })).not.toBeInTheDocument();
+  });
+
+  it('shows brand picker when user has multiple businesses', async () => {
+    const second = { ...business, id: 'business-b', name: 'İkinci Marka', slug: 'ikinci' };
+    api.mockImplementation(async (path = '') => {
+      const p = String(path);
+      if (p === '') return { items: [business, second], canProvision: false };
+      if (p === '/applications/mine') return { items: [] };
+      if (p.endsWith('/overview')) {
+        const current = p.includes('business-b') ? second : business;
+        return { business: current, role: 'owner', publications: [] };
+      }
+      if (p.endsWith('/knowledge')) {
+        return {
+          items: [
+            {
+              id: p.includes('business-b') ? 'k2' : 'k1',
+              item_id: 'i1',
+              title: p.includes('business-b') ? 'İkinci Bilgi' : 'Birinci Bilgi',
+              category: '',
+              content: 'x',
+              source: 's',
+              public_allowed: false,
+              status: 'draft',
+              version: 1,
+              revision: 1,
+            },
+          ],
+        };
+      }
+      if (p.endsWith('/members') || p.endsWith('/drafts')) return { items: [] };
+      return { items: [] };
+    });
+    render(<SainaBusinessManager />);
+    expect(await screen.findByRole('heading', { name: 'Marka seçin' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'İkinci Marka' }));
+    await screen.findByRole('heading', { name: 'İkinci Marka' });
+    fireEvent.click(screen.getByRole('button', { name: 'Bilgi Havuzu' }));
+    expect(await screen.findByRole('heading', { name: /İkinci Bilgi/ })).toBeVisible();
+    expect(screen.queryByRole('heading', { name: /Birinci Bilgi/ })).not.toBeInTheDocument();
   });
 });
 

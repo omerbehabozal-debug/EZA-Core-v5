@@ -12,6 +12,7 @@ import {
 } from '@/lib/eza/businessYansi';
 import { useAuth } from '@/context/AuthContext';
 import SainaBusinessGate from '@/components/saina/SainaBusinessGate';
+import SainaBusinessAdminInbox from '@/components/saina/SainaBusinessAdminInbox';
 import { resolveSainaUserDisplayName, resolveSainaUserInitial } from '@/lib/eza/sainaIdentity';
 import Link from 'next/link';
 
@@ -49,6 +50,7 @@ export default function SainaBusinessManager() {
   const [applications, setApplications] = useState<BrandApplication[]>([]);
   const [selected, setSelected] = useState('');
   const [picked, setPicked] = useState(false);
+  const [adminInbox, setAdminInbox] = useState(false);
   const [business, setBusiness] = useState<Business | null>(null);
   const [role, setRole] = useState('viewer');
   const [knowledge, setKnowledge] = useState<Knowledge[]>([]);
@@ -78,7 +80,7 @@ export default function SainaBusinessManager() {
     const data = await api<{ items: Business[]; canProvision: boolean }>();
     setItems(data.items);
     setAdmin(data.canProvision);
-    return data.items;
+    return data;
   }
 
   async function loadApplications() {
@@ -121,17 +123,23 @@ export default function SainaBusinessManager() {
     }
     setError('');
     Promise.all([loadList(), loadApplications()])
-      .then(([rows]) => {
+      .then(([list]) => {
         if (!active) return;
+        const rows = list.items;
+        if (list.canProvision) {
+          setAdminInbox(true);
+          setSelected('');
+          setPicked(false);
+          return;
+        }
         if (rows.length === 1) {
           setSelected(rows[0].id);
           setPicked(true);
-        } else if (rows.length === 0) {
-          setSelected('');
-          setPicked(false);
+          setAdminInbox(false);
         } else {
           setSelected('');
           setPicked(false);
+          setAdminInbox(false);
         }
       })
       .catch((e) => {
@@ -143,22 +151,33 @@ export default function SainaBusinessManager() {
   }, [isAuthReady, isAuthenticated, user?.user_id]);
 
   useEffect(() => {
+    // Clear previous tenant data immediately so brand switches never flash foreign content.
     setBusiness(null);
+    setKnowledge([]);
+    setDrafts([]);
+    setPublications([]);
+    setMembers([]);
+    setAnswer('');
     setEditorialChat('');
     setEditKnowledge(null);
     setEditDraft(null);
+    setPreview(false);
     setSteps(emptySteps());
+    setTab('Genel Bakış');
     if (selected) load(selected).catch((e) => setError(e.message));
   }, [selected]);
+
+  async function refreshAdminApps() {
+    const data = await api<{ items: BrandApplication[] }>('/applications');
+    setAdminApps(data.items);
+  }
 
   useEffect(() => {
     if (!admin || !isAuthenticated) {
       setAdminApps([]);
       return;
     }
-    api<{ items: BrandApplication[] }>('/applications')
-      .then((data) => setAdminApps(data.items))
-      .catch(() => setAdminApps([]));
+    refreshAdminApps().catch(() => setAdminApps([]));
   }, [admin, isAuthenticated, applications.length]);
 
   async function run(action: () => Promise<unknown>) {
@@ -241,6 +260,83 @@ export default function SainaBusinessManager() {
     );
   }
 
+  const displayName = resolveSainaUserDisplayName(user?.email, user?.full_name, user?.public_display_name);
+  const initial = resolveSainaUserInitial(user?.email, user?.public_display_name, user?.full_name);
+  const accountMenu = (
+    <div className="biz-account-menu">
+      <button
+        type="button"
+        className="biz-account-trigger"
+        aria-expanded={menuOpen}
+        aria-haspopup="menu"
+        onClick={() => setMenuOpen((v) => !v)}
+      >
+        <span className="biz-account-avatar" aria-hidden>
+          {initial}
+        </span>
+        <span className="biz-account-name">{displayName}</span>
+      </button>
+      {menuOpen ? (
+        <div className="biz-account-dropdown" role="menu">
+          <p className="biz-account-email">{user?.email}</p>
+          <Link
+            role="menuitem"
+            href="/standalone/discover"
+            className="biz-account-item"
+            onClick={() => setMenuOpen(false)}
+          >
+            BiligN&apos;e geç
+          </Link>
+          <button
+            type="button"
+            role="menuitem"
+            className="biz-account-item"
+            onClick={() => {
+              setMenuOpen(false);
+              logout();
+            }}
+          >
+            Çıkış yap
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+
+  if (admin && adminInbox) {
+    return (
+      <main className="biz-panel">
+        <SainaBusinessAdminInbox
+          applications={adminApps}
+          businesses={items}
+          busy={busy}
+          error={error}
+          notice={notice}
+          accountMenu={accountMenu}
+          onRefresh={async () => {
+            await refreshAdminApps();
+            await loadList();
+          }}
+          onTransition={async (applicationId, body) => {
+            await run(async () => {
+              await api(`/applications/${applicationId}/transition`, 'POST', body);
+              await refreshAdminApps();
+              await loadList();
+              if (body.target === 'approved') {
+                setNotice('Başvuru onaylandı. Business hesabı oluşturuldu.');
+              }
+            });
+          }}
+          onOpenBusiness={(id) => {
+            setSelected(id);
+            setPicked(true);
+            setAdminInbox(false);
+          }}
+        />
+      </main>
+    );
+  }
+
   if (!picked && items.length > 1) {
     return (
       <main className="biz-panel">
@@ -252,6 +348,7 @@ export default function SainaBusinessManager() {
           onSelectBusiness={(id) => {
             setSelected(id);
             setPicked(true);
+            setAdminInbox(false);
           }}
         />
       </main>
@@ -279,9 +376,6 @@ export default function SainaBusinessManager() {
     );
   }
 
-  const displayName = resolveSainaUserDisplayName(user?.email, user?.full_name, user?.public_display_name);
-  const initial = resolveSainaUserInitial(user?.email, user?.public_display_name, user?.full_name);
-
   return (
     <main className="biz-panel">
       <header className="biz-panel-header">
@@ -294,60 +388,54 @@ export default function SainaBusinessManager() {
         </div>
         <div className="biz-header-actions">
           {items.length > 1 ? (
-            <label className="biz-account-label">
-              Business hesabı
-              <select
-                aria-label="Business hesabı"
-                value={selected}
-                onChange={(e) => setSelected(e.target.value)}
+            <>
+              <label className="biz-account-label">
+                Business hesabı
+                <select
+                  aria-label="Business hesabı"
+                  value={selected}
+                  onChange={(e) => setSelected(e.target.value)}
+                  disabled={busy}
+                >
+                  {items.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                className="biz-gate-secondary"
                 disabled={busy}
+                onClick={() => {
+                  setPicked(false);
+                  setSelected('');
+                  setBusiness(null);
+                  setKnowledge([]);
+                  setDrafts([]);
+                  setPublications([]);
+                }}
               >
-                {items.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                Markalar
+              </button>
+            </>
           ) : null}
-          <div className="biz-account-menu">
+          {admin ? (
             <button
               type="button"
-              className="biz-account-trigger"
-              aria-expanded={menuOpen}
-              aria-haspopup="menu"
-              onClick={() => setMenuOpen((v) => !v)}
+              className="biz-gate-secondary"
+              disabled={busy}
+              onClick={() => {
+                setAdminInbox(true);
+                setPicked(false);
+                setSelected('');
+              }}
             >
-              <span className="biz-account-avatar" aria-hidden>
-                {initial}
-              </span>
-              <span className="biz-account-name">{displayName}</span>
+              Başvurular
             </button>
-            {menuOpen ? (
-              <div className="biz-account-dropdown" role="menu">
-                <p className="biz-account-email">{user?.email}</p>
-                <Link
-                  role="menuitem"
-                  href="/standalone/discover"
-                  className="biz-account-item"
-                  onClick={() => setMenuOpen(false)}
-                >
-                  BiligN&apos;e geç
-                </Link>
-                <button
-                  type="button"
-                  role="menuitem"
-                  className="biz-account-item"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    logout();
-                  }}
-                >
-                  Çıkış yap
-                </button>
-              </div>
-            ) : null}
-          </div>
+          ) : null}
+          {accountMenu}
         </div>
       </header>
 
@@ -360,124 +448,6 @@ export default function SainaBusinessManager() {
         <p className="biz-notice" role="status">
           {notice}
         </p>
-      )}
-
-      {admin && (
-        <div className="biz-admin">
-          <details>
-            <summary>Platform yöneticisi: Business oluştur / doğrula / başvurular</summary>
-            <form
-              className="biz-form"
-              onSubmit={submit(async (data) => {
-                const row = await api<Business>('', 'POST', data);
-                setSelected(row.id);
-                setPicked(true);
-              })}
-            >
-              <input name="organizationId" placeholder="Mevcut Organization UUID" required />
-              <input name="ownerId" placeholder="Sahip kullanıcı UUID" required />
-              <input name="slug" placeholder="Benzersiz slug" required />
-              <input name="name" placeholder="Marka adı" required />
-              <button type="submit">Business oluştur</button>
-            </form>
-            <form
-              className="biz-form"
-              onSubmit={submit((data) =>
-                api(`/${data.id}/verification`, 'PATCH', {
-                  verified: data.verified === 'on',
-                  official: data.official === 'on',
-                  status: data.status,
-                })
-              )}
-            >
-              <input name="id" placeholder="Business UUID" required />
-              <label className="biz-check">
-                <input name="verified" type="checkbox" />
-                Doğrulanmış
-              </label>
-              <label className="biz-check">
-                <input name="official" type="checkbox" />
-                Resmî BiligN
-              </label>
-              <select name="status" defaultValue="active">
-                <option value="active">Aktif</option>
-                <option value="suspended">Askıda</option>
-                <option value="archived">Arşiv</option>
-              </select>
-              <button type="submit">Backend doğrulamasını güncelle</button>
-            </form>
-            {adminApps.length > 0 ? (
-              <div className="biz-card">
-                <h2 className="biz-section-title">Marka başvuruları</h2>
-                <ul className="biz-gate-apps">
-                  {adminApps.map((app) => (
-                    <li key={app.id}>
-                      <strong>{app.brand_name}</strong>
-                      <span className={statusClass(app.status)}>{app.status}</span>
-                      <span className="biz-muted">{app.corporate_email}</span>
-                      {app.status === 'received' || app.status === 'under_review' ? (
-                        <div className="biz-actions">
-                          {app.status === 'received' ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void run(async () => {
-                                  await api(`/applications/${app.id}/transition`, 'POST', {
-                                    target: 'under_review',
-                                  });
-                                  const data = await api<{ items: BrandApplication[] }>('/applications');
-                                  setAdminApps(data.items);
-                                })
-                              }
-                            >
-                              İncelemeye al
-                            </button>
-                          ) : null}
-                          <form
-                            className="biz-form"
-                            onSubmit={submit(async (data) => {
-                              await api(`/applications/${app.id}/transition`, 'POST', {
-                                target: 'approved',
-                                slug: data.slug,
-                                note: data.note || '',
-                              });
-                              const rows = await loadList();
-                              const refreshed = await api<{ items: BrandApplication[] }>('/applications');
-                              setAdminApps(refreshed.items);
-                              if (rows[0]) {
-                                setSelected(rows[0].id);
-                                setPicked(true);
-                              }
-                            })}
-                          >
-                            <input name="slug" placeholder="Onay slug" required />
-                            <input name="note" placeholder="Not (opsiyonel)" />
-                            <button type="submit">Onayla ve Business aç</button>
-                          </form>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void run(async () => {
-                                await api(`/applications/${app.id}/transition`, 'POST', {
-                                  target: 'rejected',
-                                  note: 'Reddedildi',
-                                });
-                                const data = await api<{ items: BrandApplication[] }>('/applications');
-                                setAdminApps(data.items);
-                              })
-                            }
-                          >
-                            Reddet
-                          </button>
-                        </div>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-          </details>
-        </div>
       )}
 
       <fieldset disabled={busy}>

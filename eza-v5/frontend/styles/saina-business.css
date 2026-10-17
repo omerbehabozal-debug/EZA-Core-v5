@@ -609,6 +609,88 @@
   }
 }
 
+/* Stage 2.2 — platform admin başvuru kutusu */
+.biz-admin-inbox {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.biz-admin-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 0;
+  min-height: 0;
+  flex: 1;
+}
+
+.biz-admin-list {
+  border-right: 1px solid var(--biz-border);
+  padding: 12px;
+  overflow: auto;
+}
+
+.biz-admin-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.biz-admin-list-item {
+  width: 100%;
+  display: grid;
+  gap: 6px;
+  text-align: left;
+  padding: 12px;
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--biz-border);
+  background: var(--biz-panel);
+  color: var(--biz-ink);
+  cursor: pointer;
+}
+
+.biz-admin-list-item.is-active {
+  border-color: var(--biz-gold-line);
+  background: var(--biz-gold-soft);
+}
+
+.biz-admin-detail {
+  padding: 16px 18px 28px;
+  overflow: auto;
+}
+
+.biz-admin-meta {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.biz-admin-meta dt {
+  font-size: 12px;
+  color: var(--biz-muted);
+}
+
+.biz-admin-meta dd {
+  margin: 4px 0 0;
+  color: var(--biz-ink);
+  white-space: pre-wrap;
+}
+
+@media (max-width: 720px) {
+  .biz-admin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .biz-admin-list {
+    border-right: 0;
+    border-bottom: 1px solid var(--biz-border);
+    max-height: 40vh;
+  }
+}
+
 /* Stage 2.1 — giriş / başvuru kapısı */
 .biz-gate {
   display: flex;
