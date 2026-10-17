@@ -72,25 +72,32 @@ describe('Business management', () => {
     expect(screen.queryByRole('button', { name: 'Onayla' })).not.toBeInTheDocument();
   });
 
-  it('shows login gate for anonymous users without unauthorized copy', async () => {
+  it('shows simplified BiligN welcome for anonymous users', async () => {
     auth.isAuthenticated = false;
     render(<SainaBusinessManager />);
-    expect(await screen.findByRole('link', { name: 'Business hesabına giriş yap' })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Markanızı kaydedin' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: "Markanız da BiligN'de." })).toBeVisible();
+    const continueLink = screen.getByRole('link', { name: 'BiligN hesabımla devam et' });
+    const registerLink = screen.getByRole('link', { name: 'BiligN hesabı oluştur' });
+    expect(continueLink).toHaveAttribute('href', expect.stringContaining('/platform/login'));
+    expect(continueLink).toHaveAttribute('href', expect.stringContaining(encodeURIComponent('/standalone/business')));
+    expect(registerLink).toHaveAttribute('href', expect.stringContaining('/platform/register'));
+    expect(registerLink).toHaveAttribute('href', expect.stringContaining(encodeURIComponent('/standalone/business')));
     expect(screen.queryByText('Bu hesap için Business yetkisi bulunmuyor.')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Business hesabı')).not.toBeInTheDocument();
-    expect(screen.queryByText("Keşfet'e dön")).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Markanızı BiligN\'e ekleyin' })).not.toBeInTheDocument();
   });
 
-  it('shows application intake when authenticated without memberships', async () => {
+  it('shows brand add intake when authenticated without memberships', async () => {
     api.mockImplementation(async (path = '') => {
       if (path === '') return { items: [], canProvision: false };
       if (path === '/applications/mine') return { items: [] };
       return { items: [] };
     });
     render(<SainaBusinessManager />);
-    expect(await screen.findByRole('heading', { name: 'Business yetkisi yok' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Marka yetkisi yok' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: "Markanızı BiligN'e ekleyin" })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Başvuruyu gönder' })).toBeVisible();
+    expect(screen.queryByRole('link', { name: 'BiligN hesabımla devam et' })).not.toBeInTheDocument();
   });
 
   it('opens platform admin application inbox for admins', async () => {

@@ -698,6 +698,138 @@
   min-height: 100%;
 }
 
+.biz-gate--welcome {
+  align-items: center;
+  justify-content: center;
+  padding: 28px 16px 40px;
+  background:
+    radial-gradient(ellipse 70% 50% at 50% 0%, rgba(231, 180, 91, 0.08), transparent 55%),
+    #050708;
+}
+
+.biz-welcome-card {
+  width: min(440px, 100%);
+  padding: 28px 24px 22px;
+  border-radius: 18px;
+  border: 1px solid var(--biz-border);
+  background: linear-gradient(165deg, rgba(18, 24, 28, 0.98), rgba(10, 14, 16, 0.96));
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.biz-welcome-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.biz-welcome-mark {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--biz-gold-line);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--biz-gold);
+  background: var(--biz-gold-soft);
+}
+
+.biz-welcome-brand-kicker {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--biz-gold);
+}
+
+.biz-welcome-brand-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 650;
+  color: var(--biz-ink);
+}
+
+.biz-welcome-title {
+  margin: 8px 0 0;
+  font-size: clamp(26px, 5vw, 34px);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--biz-gold);
+  font-weight: 650;
+}
+
+.biz-welcome-lead {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.45;
+  color: var(--biz-ink);
+}
+
+.biz-welcome-support {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--biz-muted);
+}
+
+.biz-welcome-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.biz-welcome-primary,
+.biz-welcome-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 550;
+  text-align: center;
+}
+
+.biz-welcome-primary {
+  border: 1px solid var(--biz-gold-line);
+  background: rgba(231, 180, 91, 0.12);
+  color: var(--biz-gold);
+}
+
+.biz-welcome-secondary {
+  border: 1px solid rgba(244, 240, 232, 0.22);
+  background: transparent;
+  color: var(--biz-ink);
+}
+
+.biz-welcome-privacy {
+  margin: 8px 0 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--biz-muted);
+}
+
+.biz-welcome-privacy-icon {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  border-radius: 50%;
+  border: 1px solid var(--biz-gold-line);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: var(--biz-gold);
+}
+
 .biz-gate-header {
   display: flex;
   align-items: center;

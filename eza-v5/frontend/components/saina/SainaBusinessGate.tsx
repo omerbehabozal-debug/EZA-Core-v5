@@ -74,6 +74,23 @@ function AccountChip() {
   );
 }
 
+function BilignBusinessMark() {
+  return (
+    <div className="biz-welcome-brand">
+      <div className="biz-welcome-mark" aria-hidden>
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.6">
+          <path d="M4 20V9l4-3 4 3 4-3 4 3v11" />
+          <path d="M8 20v-6h3v6M13 20v-8h3v8" />
+        </svg>
+      </div>
+      <div className="biz-welcome-brand-copy">
+        <p className="biz-welcome-brand-kicker">biligN</p>
+        <p className="biz-welcome-brand-title">Business</p>
+      </div>
+    </div>
+  );
+}
+
 export default function SainaBusinessGate({
   mode,
   applications = [],
@@ -85,12 +102,9 @@ export default function SainaBusinessGate({
   onSelectBusiness,
 }: Props) {
   const { user } = useAuth();
+  // Return to Business after login/register — no separate Business membership.
   const loginHref = useMemo(() => buildSainaAuthHref('/standalone/business', 'login'), []);
-  const registerHref = useMemo(
-    () => buildSainaAuthHref('/standalone/business?apply=1', 'register'),
-    []
-  );
-  const applyHref = useMemo(() => buildSainaAuthHref('/standalone/business?apply=1', 'login'), []);
+  const registerHref = useMemo(() => buildSainaAuthHref('/standalone/business', 'register'), []);
 
   async function handleApply(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -104,6 +118,35 @@ export default function SainaBusinessGate({
       companyInfo: String(data.companyInfo || ''),
     });
     e.currentTarget.reset();
+  }
+
+  if (mode === 'anonymous') {
+    return (
+      <section className="biz-gate biz-gate--welcome" aria-label="BiligN Business karşılama">
+        <div className="biz-welcome-card">
+          <BilignBusinessMark />
+          <h1 className="biz-welcome-title">Markanız da BiligN&apos;de.</h1>
+          <p className="biz-welcome-lead">Bireysel BiligN hesabınızla markanızı da yönetin.</p>
+          <p className="biz-welcome-support">
+            Ayrı bir Business üyeliğine ihtiyacınız yok. Tek hesapla hem kişisel hem kurumsal deneyime erişebilirsiniz.
+          </p>
+          <div className="biz-welcome-actions">
+            <Link className="biz-welcome-primary" href={loginHref}>
+              BiligN hesabımla devam et
+            </Link>
+            <Link className="biz-welcome-secondary" href={registerHref}>
+              BiligN hesabı oluştur
+            </Link>
+          </div>
+          <p className="biz-welcome-privacy">
+            <span className="biz-welcome-privacy-icon" aria-hidden>
+              ✓
+            </span>
+            Kişisel sohbetleriniz marka yönetiminden ayrı ve özel kalır.
+          </p>
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -132,24 +175,6 @@ export default function SainaBusinessGate({
         </p>
       ) : null}
 
-      {mode === 'anonymous' && (
-        <div className="biz-gate-hero">
-          <h1 className="biz-gate-title">Business Yansı</h1>
-          <p className="biz-gate-lead">
-            Doğrulanmış marka bilgileri ve editoryal yayınlar için BiligN Business yönetim alanı.
-          </p>
-          <div className="biz-gate-actions">
-            <Link className="biz-gate-primary" href={loginHref}>
-              Business hesabına giriş yap
-            </Link>
-            <Link className="biz-gate-secondary" href={registerHref}>
-              Markanızı kaydedin
-            </Link>
-          </div>
-          <p className="biz-gate-note">Mevcut BiligN hesabınızla giriş yapılır. Ayrı bir Business parolası yoktur.</p>
-        </div>
-      )}
-
       {mode === 'pick' && (
         <div className="biz-gate-hero">
           <h1 className="biz-gate-title">Marka seçin</h1>
@@ -168,16 +193,11 @@ export default function SainaBusinessGate({
 
       {mode === 'no-access' && (
         <div className="biz-gate-hero">
-          <h1 className="biz-gate-title">Business yetkisi yok</h1>
+          <h1 className="biz-gate-title">Marka yetkisi yok</h1>
           <p className="biz-gate-lead">
-            Bu BiligN hesabına bağlı aktif bir Business üyeliği bulunmuyor. Marka başvurusu gönderebilir veya mevcut
+            Bu BiligN hesabına bağlı aktif bir Business üyeliği bulunmuyor. Markanızı BiligN&apos;e ekleyebilir veya mevcut
             başvurularınızı izleyebilirsiniz.
           </p>
-          {!user ? (
-            <Link className="biz-gate-primary" href={applyHref}>
-              Başvuru için giriş yap
-            </Link>
-          ) : null}
 
           {applications.length > 0 && (
             <div className="biz-card biz-gate-card">
@@ -198,8 +218,10 @@ export default function SainaBusinessGate({
 
           {user && onSubmitApplication && (
             <form className="biz-form biz-gate-form" onSubmit={(e) => void handleApply(e)}>
-              <h2 className="biz-section-title">Marka başvurusu</h2>
-              <p className="biz-section-lead">Başvuru otomatik hesap veya yetki vermez. Onay yalnızca platform yöneticisindedir.</p>
+              <h2 className="biz-section-title">Markanızı BiligN&apos;e ekleyin</h2>
+              <p className="biz-section-lead">
+                Başvuru otomatik yetki vermez. Onay yalnızca platform yöneticisindedir. Ayrı bir Business üyeliği yoktur.
+              </p>
               <label>
                 Marka adı
                 <input name="brandName" required maxLength={120} disabled={busy} />
