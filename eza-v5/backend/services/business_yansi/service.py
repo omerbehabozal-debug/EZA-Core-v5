@@ -50,7 +50,7 @@ async def create_business(db, admin, data):
     business = BusinessProfile(id=org.id, owner_id=owner.id, slug=data['slug'], name=data['name'], description=data.get('description',''), logo_url=data.get('logoUrl'), verified=False, official=False)
     db.add(business); await db.flush()
     db.add(BusinessMember(business_id=org.id, user_id=owner.id, role='owner'))
-    await db.commit(); return business
+    await db.commit(); await db.refresh(business); return business
 
 async def list_knowledge(db, business_id):
     return list((await db.scalars(select(Knowledge).where(Knowledge.business_id == uid(business_id)).order_by(Knowledge.created_at.desc()))).all())
@@ -62,7 +62,7 @@ async def create_knowledge(db, business_id, user_id, data):
     await db.scalar(select(BusinessProfile).where(BusinessProfile.id==uid(business_id)).with_for_update())
     previous=await db.scalar(select(func.max(Knowledge.version)).where(Knowledge.business_id==uid(business_id),Knowledge.item_id==item_id))
     row=Knowledge(business_id=uid(business_id),item_id=item_id,version=(previous or 0)+1,title=data['title'],category=data.get('category',''),content=data['content'],source=data['source'],public_allowed=data.get('publicAllowed',False),created_by=uid(user_id),status='draft',revision=1)
-    db.add(row);await db.commit();return row
+    db.add(row);await db.commit();await db.refresh(row);return row
 
 async def transition_knowledge(db,business_id,user_id,version_id,target,revision):
     await access(db,business_id,user_id,'owner' if target in {'approved','published','archived'} else 'editor')
@@ -79,7 +79,7 @@ async def transition_knowledge(db,business_id,user_id,version_id,target,revision
         for other in others: other.status='archived';other.revision+=1
     row.status=target;row.revision+=1
     row.approved_by=uid(user_id) if target=='approved' else None if target=='draft' else row.approved_by
-    await db.commit();return row
+    await db.commit();await db.refresh(row);return row
 
 async def published_knowledge(db,business_id,snapshot=None):
     query=select(Knowledge).where(Knowledge.business_id==uid(business_id),Knowledge.status=='published',Knowledge.public_allowed.is_(True),Knowledge.approved_by.is_not(None))
@@ -106,7 +106,7 @@ async def create_draft(db,business_id,user_id,title,summary,steps):
         if not any(step['answer'] in allowed[v].content for v in step['sources']): fail('answer_not_supported_by_source',422)
     snapshot=sorted({v for step in steps for v in step['sources']})
     row=Draft(business_id=uid(business_id),created_by=uid(user_id),title=title,summary=summary,steps=steps,knowledge_snapshot=snapshot,source_hash=source_hash(steps),status='draft',revision=1)
-    db.add(row);await db.commit();return row
+    db.add(row);await db.commit();await db.refresh(row);return row
 
 async def draft_row(db,business_id,draft_id,lock=False):
     query=select(Draft).where(Draft.id==uid(draft_id),Draft.business_id==uid(business_id))
@@ -123,7 +123,7 @@ async def transition_draft(db,business_id,user_id,draft_id,target,revision):
         if len(await published_knowledge(db,business_id,row.knowledge_snapshot))!=len(row.knowledge_snapshot): fail('source_snapshot_unavailable',409)
         row.approved_by=uid(user_id)
     elif target=='draft': row.approved_by=None
-    row.status=target;row.revision+=1;await db.commit();return row
+    row.status=target;row.revision+=1;await db.commit();await db.refresh(row);return row
 
 async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,steps):
     await access(db,business_id,user_id,'editor')
@@ -139,4 +139,4 @@ async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,st
     row.title=title;row.summary=summary;row.steps=steps
     row.knowledge_snapshot=sorted({v for step in steps for v in step['sources']})
     row.source_hash=source_hash(steps);row.revision+=1
-    await db.commit();return row
+    await db.commit();await db.refresh(row);return row

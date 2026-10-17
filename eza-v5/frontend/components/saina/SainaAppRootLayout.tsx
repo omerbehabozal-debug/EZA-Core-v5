@@ -6,6 +6,7 @@ import '@/styles/saina-yansi-desktop.css';
 import '@/styles/saina-profile-panel.css';
 import '@/styles/saina-transitions.css';
 import '@/styles/yansi-reel-responsive.css';
+import '@/styles/saina-business.css';
 
 import { useCallback, useLayoutEffect, useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
@@ -62,7 +63,8 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
         'saina-page saina-app-root saina-standalone-shell',
         (view === 'discover' || view === 'my-page') && 'saina-discover-shell',
         view === 'pattern' && 'saina-pattern-shell',
-        view === 'yansi' && 'saina-yansi-shell'
+        view === 'yansi' && 'saina-yansi-shell',
+        view === 'business' && 'saina-business-shell'
       )}
       data-testid={
         view === 'chat'
@@ -71,48 +73,53 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
             ? 'saina-discover-shell'
             : view === 'yansi'
               ? 'saina-yansi-shell'
-              : 'saina-pattern-shell'
+              : view === 'business'
+                ? 'saina-business-shell'
+                : 'saina-pattern-shell'
       }
       data-saina-view={view}
     >
       <div className="saina-app-frame">
         <div className="saina-shell">
-          <div className="saina-standalone-sidebar-wrap">
-            <SainaConversationSidebar
-              conversations={chrome.conversations}
-              conversationGroups={chrome.conversationGroups}
-              activeChatId={chrome.activeChatId}
-              activeYansiIdentity={chrome.activeYansiIdentity}
-              activeSection={
-                view === 'my-page'
-                  ? 'my-page'
-                  : view === 'pattern'
-                  ? 'pattern'
-                  : view === 'discover' || view === 'yansi'
-                    ? 'discover'
-                    : 'chat'
-              }
-              onNewChat={chrome.onNewChat}
-              onSelectChat={chrome.onSelectChat}
-              onSelectYansi={chrome.onSelectYansi}
-              onDeleteChat={chrome.onDeleteChat}
-              onRenameGroup={chrome.onRenameGroup}
-              onDeleteGroup={chrome.onDeleteGroup}
-              onOpenPattern={chrome.onOpenPattern}
-              planTier={chrome.planTier}
-              onUpgrade={chrome.onUpgrade}
-              onRequestLogin={chrome.onRequestLogin}
-              mobileOpen={mobileSidebarOpen}
-              onMobileOpen={openMobileSidebar}
-              onMobileClose={() => setMobileSidebarOpen(false)}
-              showMobileChrome={!isCompactShell}
-            />
-          </div>
+          {view !== 'business' ? (
+            <div className="saina-standalone-sidebar-wrap">
+              <SainaConversationSidebar
+                conversations={chrome.conversations}
+                conversationGroups={chrome.conversationGroups}
+                activeChatId={chrome.activeChatId}
+                activeYansiIdentity={chrome.activeYansiIdentity}
+                activeSection={
+                  view === 'my-page'
+                    ? 'my-page'
+                    : view === 'pattern'
+                    ? 'pattern'
+                    : view === 'discover' || view === 'yansi'
+                      ? 'discover'
+                      : 'chat'
+                }
+                onNewChat={chrome.onNewChat}
+                onSelectChat={chrome.onSelectChat}
+                onSelectYansi={chrome.onSelectYansi}
+                onDeleteChat={chrome.onDeleteChat}
+                onRenameGroup={chrome.onRenameGroup}
+                onDeleteGroup={chrome.onDeleteGroup}
+                onOpenPattern={chrome.onOpenPattern}
+                planTier={chrome.planTier}
+                onUpgrade={chrome.onUpgrade}
+                onRequestLogin={chrome.onRequestLogin}
+                mobileOpen={mobileSidebarOpen}
+                onMobileOpen={openMobileSidebar}
+                onMobileClose={() => setMobileSidebarOpen(false)}
+                showMobileChrome={!isCompactShell}
+              />
+            </div>
+          ) : null}
 
           <div
             className={cn(
               'saina-main-col',
-              (view === 'pattern' || view === 'discover' || view === 'my-page') && 'saina-pattern-main-col'
+              (view === 'pattern' || view === 'discover' || view === 'my-page') && 'saina-pattern-main-col',
+              view === 'business' && 'saina-business-main-col'
             )}
           >
             {view === 'yansi' ? (
@@ -131,11 +138,12 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
                 'saina-canvas',
                 view === 'pattern' && 'saina-pattern-canvas-wrap',
                 (view === 'discover' || view === 'my-page') && 'saina-discover-canvas-wrap',
-                view === 'yansi' && 'saina-yansi-canvas-wrap'
+                view === 'yansi' && 'saina-yansi-canvas-wrap',
+                view === 'business' && 'saina-business-canvas-wrap'
               )}
               data-yansi-canvas-fill={view === 'yansi' ? 'true' : undefined}
             >
-              {view === 'yansi' ? null : <SainaPersistentScene />}
+              {view === 'yansi' || view === 'business' ? null : <SainaPersistentScene />}
               <SainaRouteTransition routeKey={view}>{children}</SainaRouteTransition>
             </div>
           </div>

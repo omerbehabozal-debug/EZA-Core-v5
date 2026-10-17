@@ -71,6 +71,10 @@ def record(row):
     # Management DTO only: these models contain no customer conversation text.
     result={column.name:getattr(row,column.name) for column in row.__table__.columns}
     return {key:str(v) if isinstance(v,(uuid.UUID,datetime)) else v for key,v in result.items()}
+async def recorded(db,row):
+    # AsyncSession expire_on_commit requires an explicit refresh before sync attribute reads.
+    await db.refresh(row)
+    return record(row)
 async def manager(db,claims,business_id,role='viewer'):
     user=await svc.actor(db,claims);return user,await svc.access(db,business_id,user.id,role)
 
@@ -81,13 +85,13 @@ async def mine(db=Depends(get_db),claims=Depends(get_current_user)):
     return {'items':[record(row) for row in rows],'canProvision':user.role=='admin'}
 @router.post('')
 async def provision(body:Create,db=Depends(get_db),claims=Depends(get_current_user)):
-    admin=await svc.platform_admin(db,claims);return record(await svc.create_business(db,admin,body.model_dump(mode='json')))
+    admin=await svc.platform_admin(db,claims);return await recorded(db,await svc.create_business(db,admin,body.model_dump(mode='json')))
 @router.patch('/{business_id}/verification')
 async def verification(business_id:uuid.UUID,body:Verify,db=Depends(get_db),claims=Depends(get_current_user)):
     await svc.platform_admin(db,claims);row=await db.get(BusinessProfile,business_id)
     if not row: svc.fail('business_not_found',404)
     if body.official and (not body.verified or row.slug!='bilign'):svc.fail('official_bilign_identity_required',422)
-    row.verified=body.verified;row.official=body.official;row.status=body.status;await db.commit();return record(row)
+    row.verified=body.verified;row.official=body.official;row.status=body.status;await db.commit();return await recorded(db,row)
 @router.get('/{business_id}/overview')
 async def overview(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
     user,business=await manager(db,claims,business_id)
@@ -97,7 +101,7 @@ async def overview(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_c
     return {'business':record(business),'role':(await db.get(BusinessMember,(business_id,user.id))).role,'publications':publications}
 @router.patch('/{business_id}/settings')
 async def settings(business_id:uuid.UUID,body:Settings,db=Depends(get_db),claims=Depends(get_current_user)):
-    _,row=await manager(db,claims,business_id,'owner');row.name=body.name;row.description=body.description;row.logo_url=body.logoUrl;await db.commit();return record(row)
+    _,row=await manager(db,claims,business_id,'owner');row.name=body.name;row.description=body.description;row.logo_url=body.logoUrl;await db.commit();return await recorded(db,row)
 @router.get('/{business_id}/members')
 async def members(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
     await manager(db,claims,business_id,'owner');return {'items':[record(row) for row in (await db.scalars(select(BusinessMember).where(BusinessMember.business_id==business_id))).all()]}
@@ -109,31 +113,31 @@ async def member(business_id:uuid.UUID,body:Member,db=Depends(get_db),claims=Dep
     row=await db.get(BusinessMember,(business_id,body.userId))
     if row:row.role=body.role
     else:row=BusinessMember(business_id=business_id,user_id=body.userId,role=body.role);db.add(row)
-    await db.commit();return record(row)
+    await db.commit();return await recorded(db,row)
 @router.get('/{business_id}/knowledge')
 async def knowledge(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
     await manager(db,claims,business_id);return {'items':[record(row) for row in await svc.list_knowledge(db,business_id)]}
 @router.post('/{business_id}/knowledge')
 async def add_knowledge(business_id:uuid.UUID,body:KnowledgeCreate,db=Depends(get_db),claims=Depends(get_current_user)):
-    user=await svc.actor(db,claims);return record(await svc.create_knowledge(db,business_id,user.id,body.model_dump(mode='json')))
+    user=await svc.actor(db,claims);return await recorded(db,await svc.create_knowledge(db,business_id,user.id,body.model_dump(mode='json')))
 @router.post('/{business_id}/knowledge/{version_id}/transition')
 async def knowledge_transition(business_id:uuid.UUID,version_id:uuid.UUID,body:Transition,db=Depends(get_db),claims=Depends(get_current_user)):
-    user=await svc.actor(db,claims);return record(await svc.transition_knowledge(db,business_id,user.id,version_id,body.target,body.revision))
+    user=await svc.actor(db,claims);return await recorded(db,await svc.transition_knowledge(db,business_id,user.id,version_id,body.target,body.revision))
 @router.get('/{business_id}/drafts')
 async def drafts(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
     await manager(db,claims,business_id);return {'items':[record(row) for row in (await db.scalars(select(BusinessYansiDraft).where(BusinessYansiDraft.business_id==business_id))).all()]}
 @router.post('/{business_id}/drafts')
 async def add_draft(business_id:uuid.UUID,body:DraftCreate,db=Depends(get_db),claims=Depends(get_current_user)):
-    user=await svc.actor(db,claims);return record(await svc.create_draft(db,business_id,user.id,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps]))
+    user=await svc.actor(db,claims);return await recorded(db,await svc.create_draft(db,business_id,user.id,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps]))
 @router.post('/{business_id}/drafts/{draft_id}/transition')
 async def draft_transition(business_id:uuid.UUID,draft_id:uuid.UUID,body:Transition,db=Depends(get_db),claims=Depends(get_current_user)):
-    user=await svc.actor(db,claims);return record(await svc.transition_draft(db,business_id,user.id,draft_id,body.target,body.revision))
+    user=await svc.actor(db,claims);return await recorded(db,await svc.transition_draft(db,business_id,user.id,draft_id,body.target,body.revision))
 @router.post('/{business_id}/drafts/{draft_id}/editorial-conversation')
 async def editorial(business_id:uuid.UUID,draft_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims);return {'clientConversationId':await export_editorial_conversation(db,business_id,user.id,draft_id)}
 @router.post('/{business_id}/drafts/{draft_id}/publish')
 async def publish(business_id:uuid.UUID,draft_id:uuid.UUID,body:Publish,db=Depends(get_db),claims=Depends(get_current_user)):
-    user=await svc.actor(db,claims);row=await publish_draft(db,business_id,user.id,draft_id,body.slug,body.revision);return {'slug':row.slug,'journeyVersion':row.journey_version}
+    user=await svc.actor(db,claims);row=await publish_draft(db,business_id,user.id,draft_id,body.slug,body.revision);await db.refresh(row);return {'slug':row.slug,'journeyVersion':row.journey_version}
 @router.post('/{business_id}/publications/{slug}/withdraw')
 async def withdraw(business_id:uuid.UUID,slug:str,db=Depends(get_db),claims=Depends(get_current_user)):
     await manager(db,claims,business_id,'owner')
@@ -153,7 +157,7 @@ async def public_profile(slug:str,db=Depends(get_db)):
 @router.patch('/{business_id}/drafts/{draft_id}')
 async def edit_draft(business_id:uuid.UUID,draft_id:uuid.UUID,body:DraftUpdate,db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims)
-    return record(await svc.revise_draft(db,business_id,user.id,draft_id,body.revision,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps]))
+    return await recorded(db,await svc.revise_draft(db,business_id,user.id,draft_id,body.revision,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps]))
 
 @router.delete('/{business_id}/members/{user_id}')
 async def remove_member(business_id:uuid.UUID,user_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
