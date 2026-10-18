@@ -55,6 +55,7 @@ export default function SainaBusinessAdminInbox({
 }: Props) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['id']>('all');
   const [selectedId, setSelectedId] = useState<string>('');
+  /** Narrow (≤900px): list ↔ detail stack. Wide: optional split; back clears selection. */
   const [mobileDetail, setMobileDetail] = useState(false);
   const [isNarrow, setIsNarrow] = useState(false);
   const [events, setEvents] = useState<AppEvent[]>([]);
@@ -74,14 +75,13 @@ export default function SainaBusinessAdminInbox({
     return applications.filter((a) => a.status === filter);
   }, [applications, filter]);
 
+  // Never auto-select: list and detail must show the same record, and Back must be able to close.
   const selected = useMemo(() => {
-    if (!filtered.length) return null;
-    const explicit = selectedId ? filtered.find((a) => a.id === selectedId) : null;
-    if (explicit) return explicit;
-    // Desktop split view: keep a default selection. Mobile list mode: none until tap.
-    if (!isNarrow && !mobileDetail) return filtered[0];
-    return null;
-  }, [filtered, selectedId, isNarrow, mobileDetail]);
+    if (!filtered.length || !selectedId) return null;
+    return filtered.find((a) => a.id === selectedId) || null;
+  }, [filtered, selectedId]);
+
+  const hasSelection = Boolean(selected);
 
   useEffect(() => {
     if (!selected?.id) {
@@ -118,7 +118,7 @@ export default function SainaBusinessAdminInbox({
 
   function selectApp(id: string) {
     setSelectedId(id);
-    if (isNarrow) setMobileDetail(true);
+    setMobileDetail(true);
   }
 
   function backToList() {
@@ -128,7 +128,7 @@ export default function SainaBusinessAdminInbox({
 
   return (
     <section
-      className={`biz-admin-inbox${mobileDetail ? ' is-mobile-detail' : ''}`}
+      className={`biz-admin-inbox${mobileDetail && isNarrow ? ' is-mobile-detail' : ''}${hasSelection ? ' has-selection' : ' is-list-only'}`}
       aria-label="Business başvuru yönetimi"
     >
       {!embedded ? (
@@ -182,7 +182,7 @@ export default function SainaBusinessAdminInbox({
             className={`biz-admin-filter${filter === item.id ? ' is-active' : ''}`}
             onClick={() => {
               setFilter(item.id);
-              setMobileDetail(false);
+              backToList();
             }}
           >
             {item.label}
@@ -190,7 +190,7 @@ export default function SainaBusinessAdminInbox({
         ))}
       </div>
 
-      <div className="biz-admin-layout">
+      <div className={`biz-admin-layout${hasSelection ? '' : ' is-list-only'}`}>
         <aside className="biz-admin-list" aria-label="Başvuru listesi">
           {filtered.length === 0 ? (
             <div className="padmin-empty">
@@ -199,7 +199,9 @@ export default function SainaBusinessAdminInbox({
             </div>
           ) : (
             <ul>
-              {filtered.map((app) => (
+              {filtered.map((app) => {
+                const statusLabel = applicationStatusLabel(app.status);
+                return (
                 <li key={app.id}>
                   <button
                     type="button"
@@ -210,21 +212,25 @@ export default function SainaBusinessAdminInbox({
                   >
                     <span className="biz-admin-list-top">
                       <strong className="biz-admin-ellipsis">{app.brand_name}</strong>
-                      <span className={`biz-status biz-status--${app.status}`}>
-                        {applicationStatusLabel(app.status)}
+                      <span
+                        className={`biz-status biz-status--${app.status}`}
+                        title={statusLabel}
+                      >
+                        {statusLabel}
                       </span>
                     </span>
                     <span className="biz-admin-ellipsis biz-muted">{app.corporate_email}</span>
                     <span className="biz-muted biz-admin-list-date">{formatPlatformDate(app.created_at)}</span>
                   </button>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
         </aside>
 
         <div className="biz-admin-detail">
-          {isNarrow && mobileDetail ? (
+          {hasSelection ? (
             <button type="button" className="biz-admin-back" onClick={backToList}>
               ← Listeye dön
             </button>
@@ -233,7 +239,7 @@ export default function SainaBusinessAdminInbox({
           {!selected ? (
             <div className="padmin-empty">
               <strong>Başvuru seçin</strong>
-              <p>Detayları ve işlemleri görmek için soldaki listeden bir başvuru seçin.</p>
+              <p>Detayları ve işlemleri görmek için listeden bir başvuru seçin.</p>
             </div>
           ) : (
             <article className="biz-card padmin-detail-card">
@@ -241,7 +247,10 @@ export default function SainaBusinessAdminInbox({
                 <div className="padmin-detail-head-copy">
                   <h2 className="padmin-detail-title">{selected.brand_name}</h2>
                   <p className="padmin-detail-sub">
-                    <span className={`biz-status biz-status--${selected.status}`}>
+                    <span
+                      className={`biz-status biz-status--${selected.status}`}
+                      title={applicationStatusLabel(selected.status)}
+                    >
                       {applicationStatusLabel(selected.status)}
                     </span>
                     <span className="biz-muted">{formatPlatformDate(selected.created_at)}</span>

@@ -38,11 +38,10 @@ describe('Business / Admin scroll layout', () => {
     expect(css).toMatch(/\.padmin-content\s*\{[^}]*width:\s*100%/);
   });
 
-  it('hides Listeye dön on desktop despite .biz-panel button display rule', () => {
-    expect(css).toMatch(/\.biz-panel\s+button\.biz-admin-back\s*\{[^}]*display:\s*none/);
-    expect(css).toMatch(
-      /\.biz-panel\s+\.biz-admin-inbox\.is-mobile-detail\s+button\.biz-admin-back\s*\{[^}]*display:\s*inline-flex/
-    );
+  it('keeps Listeye dön visible and supports list-only layout when closed', () => {
+    expect(css).toMatch(/\.biz-panel\s+button\.biz-admin-back\s*\{[^}]*display:\s*inline-flex/);
+    expect(css).toMatch(/\.biz-admin-layout\.is-list-only\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+    expect(css).toMatch(/\.biz-admin-list-top\s+\.biz-status\s*\{[^}]*max-width:\s*none/);
   });
 
   it('Auth visibility refresh is throttled', () => {

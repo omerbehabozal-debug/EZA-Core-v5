@@ -687,6 +687,19 @@
   align-items: stretch;
 }
 
+/* No selection: full-width list so shrinking the window does not trap the user in detail. */
+.biz-admin-layout.is-list-only {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.biz-admin-layout.is-list-only .biz-admin-detail {
+  display: none;
+}
+
+.biz-admin-layout.is-list-only .biz-admin-list {
+  border-right: 0;
+}
+
 .biz-admin-list {
   border-right: 1px solid var(--biz-border);
   padding: 12px;
@@ -745,6 +758,15 @@
   flex: 1;
 }
 
+/* Status chip must stay readable — do not ellipsize "Onaylandı" into "Onay…". */
+.biz-admin-list-top .biz-status {
+  flex: 0 0 auto;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
 .biz-admin-list-date {
   font-size: 12px;
 }
@@ -771,9 +793,10 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* Beat .biz-panel button { display: inline-flex } — hide on desktop split view. */
+/* Beat .biz-panel button { display: inline-flex } — always closable when rendered. */
 .biz-panel button.biz-admin-back {
-  display: none;
+  display: inline-flex;
+  align-items: center;
   margin-bottom: 12px;
   min-height: 40px;
   padding: 8px 12px;
@@ -826,10 +849,6 @@
     display: none;
   }
 
-  .biz-panel .biz-admin-inbox.is-mobile-detail button.biz-admin-back {
-    display: inline-flex;
-    align-items: center;
-  }
 }
 
 /* Stage 2.1 — giriş / başvuru kapısı */
@@ -1223,9 +1242,8 @@
 .padmin-panel .biz-status {
   text-transform: none;
   flex-shrink: 0;
-  max-width: 40%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  max-width: none;
+  overflow: visible;
   white-space: nowrap;
 }
 

@@ -179,9 +179,13 @@ describe('Platform Admin', () => {
     expect(screen.getByText('2')).toBeVisible();
     expect(screen.getByText('Onay bekleyen başvuru')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Marka Başvuruları' }));
+    // Detail opens only after explicit list selection (Listeye dön can close it).
+    const listRow = await screen.findByRole('button', { name: /Ada Marka/i });
+    fireEvent.click(listRow);
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Ada Marka' })).toBeVisible();
     });
+    expect(screen.getByRole('button', { name: '← Listeye dön' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'İncelemeye al' })).toBeVisible();
     expect(screen.getAllByText('Alındı').length).toBeGreaterThan(0);
   });
