@@ -45,6 +45,7 @@ export function resolveSainaUserDisplayName(
   fullName?: string | null,
   publicDisplayName?: string | null
 ): string {
+  // Authoritative BiligN avatar/profile name first; full_name is legacy seed only.
   const chosen = (publicDisplayName || fullName || '').trim();
   if (chosen) return chosen;
   // Phase 8.5 — never transform email local-part into a display name.
@@ -62,6 +63,29 @@ export function resolveSainaUserInitial(
   if (chosen) return chosen.charAt(0).toUpperCase();
   if (email?.trim()) return '·';
   return '·';
+}
+
+type AuthDisplayUser = {
+  email?: string | null;
+  full_name?: string | null;
+  public_display_name?: string | null;
+} | null | undefined;
+
+/** Prefer AuthContext public_display_name for all BiligN chrome (Business / Admin / personal). */
+export function resolveAuthUserDisplayName(user: AuthDisplayUser): string {
+  return resolveSainaUserDisplayName(
+    user?.email,
+    user?.full_name,
+    user?.public_display_name
+  );
+}
+
+export function resolveAuthUserInitial(user: AuthDisplayUser): string {
+  return resolveSainaUserInitial(
+    user?.email,
+    user?.public_display_name,
+    user?.full_name
+  );
 }
 
 import { resolveSainaAccountLabel } from '@/lib/eza/plan/sainaAccountTiers';

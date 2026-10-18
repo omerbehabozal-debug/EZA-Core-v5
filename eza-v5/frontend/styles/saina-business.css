@@ -11,20 +11,59 @@
   background: linear-gradient(165deg, #0a1014 0%, #07090b 48%, #0b1210 100%);
 }
 
+/*
+ * Business / Platform Admin scroll architecture
+ * ---------------------------------------------
+ * Standalone chat shell locks .saina-shell / .saina-canvas to 100dvh with
+ * overflow:hidden (scene framing). Route transition also uses flex:1 +
+ * overflow:hidden. For business+admin:
+ *   1) Canvas is the sole vertical scrollport
+ *   2) Route transition + panels are content-sized (flex: 0 0 auto)
+ *   3) Never set min-height:% alone on flex children that can shrink —
+ *      that disables the flex min-size:auto content floor and clips forms
+ */
+.saina-app-root.saina-business-shell .saina-shell,
+.saina-app-root.saina-business-shell .saina-main-col {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.saina-app-root.saina-business-shell .saina-canvas.saina-business-canvas-wrap,
+.saina-business-canvas-wrap {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+  flex: 1 1 auto;
+  align-items: stretch;
+}
+
+/* Defeat .saina-route-transition { flex:1; overflow:hidden } from transitions.css */
+.saina-app-root.saina-business-shell .saina-route-transition {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+
 .saina-business-main-col {
   background: transparent;
 }
 
-.saina-business-canvas-wrap {
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
+.saina-app-root.saina-business-shell .saina-business-canvas-wrap > *,
 .saina-business-canvas-wrap > * {
   position: relative;
   z-index: 1;
+  flex: 0 0 auto;
+  height: auto;
   min-height: 100%;
   width: 100%;
+  max-width: 100%;
+  overflow: visible;
 }
 
 .biz-panel {
@@ -42,9 +81,14 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  /* Content-sized: do not shrink under flex parents (see scroll architecture). */
+  flex: 0 0 auto;
   min-height: 100%;
+  height: auto;
   width: 100%;
+  max-width: 100%;
   color: var(--biz-ink);
+  overflow: visible;
   overflow-wrap: anywhere;
 }
 
@@ -150,8 +194,12 @@
 .biz-body {
   display: grid;
   grid-template-columns: var(--biz-nav-w) minmax(0, 1fr);
-  min-height: 0;
-  flex: 1;
+  align-items: start;
+  /* Content-sized rows: avoid minmax(0,1fr) traps that clip under overflow:hidden ancestors. */
+  flex: 0 0 auto;
+  min-height: auto;
+  width: 100%;
+  max-width: 100%;
 }
 
 .biz-nav {
@@ -192,8 +240,9 @@
 
 .biz-work {
   min-width: 0;
-  padding: 18px 22px 28px;
-  overflow: auto;
+  max-width: 100%;
+  padding: 18px 22px 40px;
+  overflow: visible;
 }
 
 .biz-section-title {
@@ -619,22 +668,34 @@
 
 .biz-admin-layout {
   display: grid;
-  grid-template-columns: minmax(300px, 360px) minmax(0, 1fr);
+  /* Desktop: ~30% list / ~70% detail, fill available width (no dead right gutter). */
+  grid-template-columns: minmax(240px, 30%) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 0;
-  min-height: 0;
-  flex: 1;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  /* Fixed dual-pane viewport; list/detail own vertical scroll (not page grow). */
+  flex: 0 0 auto;
+  height: min(72vh, 760px);
+  max-height: min(72vh, 760px);
+  min-height: 420px;
   border: 1px solid var(--biz-border);
   border-radius: 16px;
   overflow: hidden;
   background: rgba(8, 12, 14, 0.45);
+  align-items: stretch;
 }
 
 .biz-admin-list {
   border-right: 1px solid var(--biz-border);
   padding: 12px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   min-width: 0;
+  min-height: 0;
   background: rgba(6, 10, 12, 0.55);
+  -webkit-overflow-scrolling: touch;
 }
 
 .biz-admin-list ul {
@@ -703,8 +764,11 @@
 
 .biz-admin-detail {
   padding: 18px 20px 28px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   min-width: 0;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
 }
 
 .biz-admin-back {
@@ -739,10 +803,18 @@
 @media (max-width: 900px) {
   .biz-admin-layout {
     grid-template-columns: 1fr;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
   }
 
   .biz-admin-list {
     border-right: 0;
+    overflow: visible;
+  }
+
+  .biz-admin-detail {
+    overflow: visible;
   }
 
   .biz-admin-inbox:not(.is-mobile-detail) .biz-admin-detail {
@@ -763,7 +835,10 @@
 .biz-gate {
   display: flex;
   flex-direction: column;
+  flex: 0 0 auto;
   min-height: 100%;
+  height: auto;
+  overflow: visible;
 }
 
 .biz-gate--welcome {
@@ -1051,6 +1126,19 @@
   color: var(--biz-gold);
   font-size: 12px;
   font-weight: 600;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.biz-account-avatar--photo {
+  background: transparent;
+  padding: 0;
+}
+
+.biz-account-avatar--photo .bilign-profile-avatar,
+.biz-account-avatar--photo .bilign-profile-avatar img {
+  width: 28px;
+  height: 28px;
 }
 
 .biz-account-name {
@@ -1120,7 +1208,10 @@
 
 /* Platform Admin console — premium shell */
 .padmin-panel {
+  flex: 0 0 auto;
   min-height: 100%;
+  height: auto;
+  overflow: visible;
   overflow-wrap: normal;
   word-break: normal;
   background:
@@ -1192,8 +1283,12 @@
 .padmin-shell {
   display: grid;
   grid-template-columns: 228px minmax(0, 1fr);
-  min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  min-height: 100%;
+  height: auto;
   position: relative;
+  align-items: start;
 }
 
 .padmin-shell-loading,
@@ -1212,8 +1307,12 @@
   background: rgba(7, 11, 13, 0.96);
   position: sticky;
   top: 0;
-  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: auto;
   z-index: 20;
+  align-self: start;
 }
 
 .padmin-sidebar-brand {
@@ -1286,8 +1385,10 @@
 
 .padmin-main {
   min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 
 .padmin-topbar {
@@ -1357,9 +1458,18 @@
 }
 
 .padmin-content {
-  padding: 24px 28px 48px;
+  padding: 24px 28px 56px;
   min-width: 0;
-  width: min(1120px, 100%);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.padmin-content > .padmin-section,
+.padmin-content > .biz-admin-inbox {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .padmin-section {

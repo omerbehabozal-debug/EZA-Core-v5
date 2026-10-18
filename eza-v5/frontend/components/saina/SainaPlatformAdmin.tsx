@@ -16,7 +16,8 @@ import {
   type PlatformUserRow,
 } from '@/lib/eza/businessYansi';
 import SainaBusinessAdminInbox from '@/components/saina/SainaBusinessAdminInbox';
-import { resolveSainaUserDisplayName, resolveSainaUserInitial } from '@/lib/eza/sainaIdentity';
+import { resolveAuthUserDisplayName } from '@/lib/eza/sainaIdentity';
+import SainaAuthAccountMark from '@/components/saina/SainaAuthAccountMark';
 import {
   SAINA_BUSINESS_ROUTE,
   SAINA_DISCOVER_ROUTE,
@@ -75,8 +76,7 @@ export default function SainaPlatformAdmin() {
   const [system, setSystem] = useState<PlatformSystemStatus | null>(null);
   const [systemLoading, setSystemLoading] = useState(false);
 
-  const displayName = resolveSainaUserDisplayName(user?.email, user?.full_name, user?.public_display_name);
-  const initial = resolveSainaUserInitial(user?.email, user?.public_display_name, user?.full_name);
+  const displayName = resolveAuthUserDisplayName(user);
   const sectionTitle = NAV.find((n) => n.id === section)?.label || 'Platform Yönetimi';
 
   async function run(action: () => Promise<void>) {
@@ -354,9 +354,7 @@ export default function SainaPlatformAdmin() {
               </div>
             </div>
             <div className="padmin-account">
-              <span className="biz-account-avatar" aria-hidden>
-                {initial}
-              </span>
+              <SainaAuthAccountMark user={user} />
               <div className="padmin-account-copy">
                 <strong>{displayName}</strong>
                 <span className="biz-muted biz-admin-ellipsis">{user?.email}</span>

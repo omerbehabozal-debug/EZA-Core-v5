@@ -216,6 +216,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     sessionResult.session.public_display_name !== undefined
                       ? sessionResult.session.public_display_name
                       : user.public_display_name,
+                  // Keep legacy full_name aligned with authoritative public profile name.
+                  full_name:
+                    sessionResult.session.public_display_name !== undefined &&
+                    sessionResult.session.public_display_name
+                      ? sessionResult.session.public_display_name
+                      : user.full_name,
                   public_honorific:
                     sessionResult.session.public_honorific !== undefined
                       ? sessionResult.session.public_honorific
@@ -282,6 +288,127 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     guestMergeRanRef.current = true;
     bindGuestConversationTree(authState.token, authState.user);
   }, [isAuthReady, authState.token, authState.user?.user_id]);
+
+  // Cross-tab + focus sync: BiligN / Business / Admin share one AuthContext identity.
+  // Profile name/avatar writes update localStorage; other tabs pick up via storage.
+  // Visibility revalidates /me so a long-lived panel reflects server truth after rename.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !isAuthReady) return;
+
+    let refreshInFlight = false;
+    let lastRefreshAt = 0;
+    const REFRESH_MIN_INTERVAL_MS = 8000;
+
+    const applyStoredUser = () => {
+      try {
+        const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+        const userStr = localStorage.getItem(USER_STORAGE_KEY);
+        if (!token || !userStr) {
+          setAuthState({ token: null, user: null, role: null });
+          setMemoryAuthToken(null);
+          return;
+        }
+        const user = JSON.parse(userStr) as UserInfo;
+        if (!user?.user_id) return;
+        setMemoryAuthToken(token);
+        setAuthState({
+          token,
+          user,
+          role: (user.role as UserRole) || null,
+        });
+      } catch {
+        /* ignore malformed cross-tab payloads */
+      }
+    };
+
+    const softRefreshFromServer = async () => {
+      const now = Date.now();
+      if (refreshInFlight || now - lastRefreshAt < REFRESH_MIN_INTERVAL_MS) return;
+      const token = localStorage.getItem(TOKEN_STORAGE_KEY);
+      const userStr = localStorage.getItem(USER_STORAGE_KEY);
+      if (!token || !userStr) return;
+      let user: UserInfo;
+      try {
+        user = JSON.parse(userStr) as UserInfo;
+      } catch {
+        return;
+      }
+      if (!user?.user_id) return;
+      refreshInFlight = true;
+      try {
+        const result = await validateAuthSession();
+        if (result.status !== 'valid') return;
+        const nextUser = mergeAvatarAuthorityFields(
+          {
+            ...user,
+            user_id: result.session.user_id,
+            email: result.session.email || user.email,
+            role: result.session.role || user.role,
+            public_display_name:
+              result.session.public_display_name !== undefined
+                ? result.session.public_display_name
+                : user.public_display_name,
+            full_name:
+              result.session.public_display_name !== undefined &&
+              result.session.public_display_name
+                ? result.session.public_display_name
+                : user.full_name,
+            public_honorific:
+              result.session.public_honorific !== undefined
+                ? result.session.public_honorific
+                : user.public_honorific,
+            capabilities:
+              result.session.capabilities !== undefined
+                ? result.session.capabilities
+                : user.capabilities,
+          },
+          {
+            public_avatar_url: result.session.public_avatar_url,
+            public_avatar_revision: result.session.public_avatar_revision,
+          }
+        );
+        const unchanged =
+          nextUser.public_display_name === user.public_display_name &&
+          nextUser.public_avatar_url === user.public_avatar_url &&
+          nextUser.public_avatar_revision === user.public_avatar_revision &&
+          nextUser.public_honorific === user.public_honorific &&
+          nextUser.email === user.email &&
+          nextUser.role === user.role;
+        lastRefreshAt = Date.now();
+        if (unchanged) return;
+        persistAuth(token, nextUser);
+        setAuthState({
+          token,
+          user: nextUser,
+          role: (nextUser.role as UserRole) || null,
+        });
+      } finally {
+        refreshInFlight = false;
+      }
+    };
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== USER_STORAGE_KEY && event.key !== TOKEN_STORAGE_KEY) return;
+      applyStoredUser();
+    };
+
+    let visibilityTimer: number | null = null;
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (visibilityTimer != null) window.clearTimeout(visibilityTimer);
+      visibilityTimer = window.setTimeout(() => {
+        void softRefreshFromServer();
+      }, 400);
+    };
+
+    window.addEventListener('storage', onStorage);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      document.removeEventListener('visibilitychange', onVisibility);
+      if (visibilityTimer != null) window.clearTimeout(visibilityTimer);
+    };
+  }, [isAuthReady]);
 
   const setAuth = (token: string, user: UserInfo) => {
     const newState = {

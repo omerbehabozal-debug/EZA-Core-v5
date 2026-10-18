@@ -4,10 +4,11 @@ import { useMemo, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { buildSainaAuthHref } from '@/lib/eza/sainaIdentity';
-import { resolveSainaUserDisplayName, resolveSainaUserInitial } from '@/lib/eza/sainaIdentity';
+import { resolveAuthUserDisplayName } from '@/lib/eza/sainaIdentity';
 import type { BrandApplication } from '@/lib/eza/businessYansi';
 import { SAINA_BUSINESS_ROUTE, SAINA_PLATFORM_ADMIN_ROUTE } from '@/lib/eza/sainaRoutes';
 import { hasBilignPlatformAdmin } from '@/lib/eza/userCapabilities';
+import SainaAuthAccountMark from '@/components/saina/SainaAuthAccountMark';
 
 const STATUS_TR: Record<string, string> = {
   received: 'Alındı',
@@ -39,8 +40,7 @@ type Props = {
 function AccountChip() {
   const { user, logout, isAuthenticated } = useAuth();
   const [open, setOpen] = useState(false);
-  const name = resolveSainaUserDisplayName(user?.email, user?.full_name, user?.public_display_name);
-  const initial = resolveSainaUserInitial(user?.email, user?.public_display_name, user?.full_name);
+  const name = resolveAuthUserDisplayName(user);
   if (!isAuthenticated || !user) return null;
   return (
     <div className="biz-account-menu">
@@ -51,9 +51,7 @@ function AccountChip() {
         aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
       >
-        <span className="biz-account-avatar" aria-hidden>
-          {initial}
-        </span>
+        <SainaAuthAccountMark user={user} />
         <span className="biz-account-name">{name}</span>
       </button>
       {open && (

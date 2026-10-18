@@ -13,8 +13,9 @@ import {
 } from '@/lib/eza/businessYansi';
 import { useAuth } from '@/context/AuthContext';
 import SainaBusinessGate from '@/components/saina/SainaBusinessGate';
-import { resolveSainaUserDisplayName, resolveSainaUserInitial } from '@/lib/eza/sainaIdentity';
+import { resolveAuthUserDisplayName } from '@/lib/eza/sainaIdentity';
 import { SAINA_PLATFORM_ADMIN_ROUTE } from '@/lib/eza/sainaRoutes';
+import SainaAuthAccountMark from '@/components/saina/SainaAuthAccountMark';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
@@ -272,8 +273,7 @@ export default function SainaBusinessManager() {
     );
   }
 
-  const displayName = resolveSainaUserDisplayName(user?.email, user?.full_name, user?.public_display_name);
-  const initial = resolveSainaUserInitial(user?.email, user?.public_display_name, user?.full_name);
+  const displayName = resolveAuthUserDisplayName(user);
   const accountMenu = (
     <div className="biz-account-menu">
       <button
@@ -283,9 +283,7 @@ export default function SainaBusinessManager() {
         aria-haspopup="menu"
         onClick={() => setMenuOpen((v) => !v)}
       >
-        <span className="biz-account-avatar" aria-hidden>
-          {initial}
-        </span>
+        <SainaAuthAccountMark user={user} />
         <span className="biz-account-name">{displayName}</span>
       </button>
       {menuOpen ? (
