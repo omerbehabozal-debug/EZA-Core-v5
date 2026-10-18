@@ -38,6 +38,13 @@ describe('Business / Admin scroll layout', () => {
     expect(css).toMatch(/\.padmin-content\s*\{[^}]*width:\s*100%/);
   });
 
+  it('hides Listeye dön on desktop despite .biz-panel button display rule', () => {
+    expect(css).toMatch(/\.biz-panel\s+button\.biz-admin-back\s*\{[^}]*display:\s*none/);
+    expect(css).toMatch(
+      /\.biz-panel\s+\.biz-admin-inbox\.is-mobile-detail\s+button\.biz-admin-back\s*\{[^}]*display:\s*inline-flex/
+    );
+  });
+
   it('Auth visibility refresh is throttled', () => {
     const auth = readFileSync(join(process.cwd(), 'context/AuthContext.tsx'), 'utf8');
     expect(auth).toContain('REFRESH_MIN_INTERVAL_MS');

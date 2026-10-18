@@ -56,8 +56,18 @@ export default function SainaBusinessAdminInbox({
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['id']>('all');
   const [selectedId, setSelectedId] = useState<string>('');
   const [mobileDetail, setMobileDetail] = useState(false);
+  const [isNarrow, setIsNarrow] = useState(false);
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [eventsError, setEventsError] = useState('');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 900px)');
+    const sync = () => setIsNarrow(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
 
   const filtered = useMemo(() => {
     if (filter === 'all') return applications;
@@ -66,8 +76,12 @@ export default function SainaBusinessAdminInbox({
 
   const selected = useMemo(() => {
     if (!filtered.length) return null;
-    return filtered.find((a) => a.id === selectedId) || filtered[0];
-  }, [filtered, selectedId]);
+    const explicit = selectedId ? filtered.find((a) => a.id === selectedId) : null;
+    if (explicit) return explicit;
+    // Desktop split view: keep a default selection. Mobile list mode: none until tap.
+    if (!isNarrow && !mobileDetail) return filtered[0];
+    return null;
+  }, [filtered, selectedId, isNarrow, mobileDetail]);
 
   useEffect(() => {
     if (!selected?.id) {
@@ -104,7 +118,12 @@ export default function SainaBusinessAdminInbox({
 
   function selectApp(id: string) {
     setSelectedId(id);
-    setMobileDetail(true);
+    if (isNarrow) setMobileDetail(true);
+  }
+
+  function backToList() {
+    setMobileDetail(false);
+    setSelectedId('');
   }
 
   return (
@@ -205,13 +224,11 @@ export default function SainaBusinessAdminInbox({
         </aside>
 
         <div className="biz-admin-detail">
-          <button
-            type="button"
-            className="biz-admin-back"
-            onClick={() => setMobileDetail(false)}
-          >
-            ← Listeye dön
-          </button>
+          {isNarrow && mobileDetail ? (
+            <button type="button" className="biz-admin-back" onClick={backToList}>
+              ← Listeye dön
+            </button>
+          ) : null}
 
           {!selected ? (
             <div className="padmin-empty">

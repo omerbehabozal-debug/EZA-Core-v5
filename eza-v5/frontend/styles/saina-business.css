@@ -771,7 +771,8 @@
   -webkit-overflow-scrolling: touch;
 }
 
-.biz-admin-back {
+/* Beat .biz-panel button { display: inline-flex } — hide on desktop split view. */
+.biz-panel button.biz-admin-back {
   display: none;
   margin-bottom: 12px;
   min-height: 40px;
@@ -825,7 +826,7 @@
     display: none;
   }
 
-  .biz-admin-inbox.is-mobile-detail .biz-admin-back {
+  .biz-panel .biz-admin-inbox.is-mobile-detail button.biz-admin-back {
     display: inline-flex;
     align-items: center;
   }
