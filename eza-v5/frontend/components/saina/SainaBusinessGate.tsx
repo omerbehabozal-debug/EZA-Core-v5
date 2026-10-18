@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { buildSainaAuthHref } from '@/lib/eza/sainaIdentity';
 import { resolveSainaUserDisplayName, resolveSainaUserInitial } from '@/lib/eza/sainaIdentity';
 import type { BrandApplication } from '@/lib/eza/businessYansi';
+import { SAINA_BUSINESS_ROUTE, SAINA_PLATFORM_ADMIN_ROUTE } from '@/lib/eza/sainaRoutes';
 
 const STATUS_TR: Record<string, string> = {
   received: 'Alındı',
@@ -57,6 +58,19 @@ function AccountChip() {
       {open && (
         <div className="biz-account-dropdown" role="menu">
           <p className="biz-account-email">{user.email}</p>
+          {user?.role === 'admin' ? (
+            <Link
+              role="menuitem"
+              href={SAINA_PLATFORM_ADMIN_ROUTE}
+              className="biz-account-item"
+              onClick={() => setOpen(false)}
+            >
+              Platform Yönetimi
+            </Link>
+          ) : null}
+          <Link role="menuitem" href={SAINA_BUSINESS_ROUTE} className="biz-account-item" onClick={() => setOpen(false)}>
+            Business Yönetimi
+          </Link>
           <Link role="menuitem" href="/standalone/discover" className="biz-account-item" onClick={() => setOpen(false)}>
             BiligN&apos;e geç
           </Link>

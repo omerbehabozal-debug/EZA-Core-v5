@@ -64,7 +64,7 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
         (view === 'discover' || view === 'my-page') && 'saina-discover-shell',
         view === 'pattern' && 'saina-pattern-shell',
         view === 'yansi' && 'saina-yansi-shell',
-        view === 'business' && 'saina-business-shell'
+        (view === 'business' || view === 'admin') && 'saina-business-shell'
       )}
       data-testid={
         view === 'chat'
@@ -73,7 +73,7 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
             ? 'saina-discover-shell'
             : view === 'yansi'
               ? 'saina-yansi-shell'
-              : view === 'business'
+              : view === 'business' || view === 'admin'
                 ? 'saina-business-shell'
                 : 'saina-pattern-shell'
       }
@@ -81,7 +81,7 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
     >
       <div className="saina-app-frame">
         <div className="saina-shell">
-          {view !== 'business' ? (
+          {view !== 'business' && view !== 'admin' ? (
             <div className="saina-standalone-sidebar-wrap">
               <SainaConversationSidebar
                 conversations={chrome.conversations}
@@ -119,7 +119,7 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
             className={cn(
               'saina-main-col',
               (view === 'pattern' || view === 'discover' || view === 'my-page') && 'saina-pattern-main-col',
-              view === 'business' && 'saina-business-main-col'
+              (view === 'business' || view === 'admin') && 'saina-business-main-col'
             )}
           >
             {view === 'yansi' ? (
@@ -139,11 +139,11 @@ export default function SainaAppRootLayout({ children }: SainaAppRootLayoutProps
                 view === 'pattern' && 'saina-pattern-canvas-wrap',
                 (view === 'discover' || view === 'my-page') && 'saina-discover-canvas-wrap',
                 view === 'yansi' && 'saina-yansi-canvas-wrap',
-                view === 'business' && 'saina-business-canvas-wrap'
+                (view === 'business' || view === 'admin') && 'saina-business-canvas-wrap'
               )}
               data-yansi-canvas-fill={view === 'yansi' ? 'true' : undefined}
             >
-              {view === 'yansi' || view === 'business' ? null : <SainaPersistentScene />}
+              {view === 'yansi' || view === 'business' || view === 'admin' ? null : <SainaPersistentScene />}
               <SainaRouteTransition routeKey={view}>{children}</SainaRouteTransition>
             </div>
           </div>

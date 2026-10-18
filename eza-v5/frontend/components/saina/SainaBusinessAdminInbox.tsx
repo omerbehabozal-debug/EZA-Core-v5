@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, type FormEvent, type ReactNode } from 'react';
-import type { BrandApplication, Business } from '@/lib/eza/businessYansi';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { businessRequest as api, type BrandApplication, type Business } from '@/lib/eza/businessYansi';
 
 const STATUS_TR: Record<string, string> = {
   received: 'Alındı',
@@ -10,12 +10,30 @@ const STATUS_TR: Record<string, string> = {
   rejected: 'Reddedildi',
 };
 
+const FILTERS = [
+  { id: 'all', label: 'Tümü' },
+  { id: 'received', label: 'Yeni' },
+  { id: 'under_review', label: 'İncelemede' },
+  { id: 'approved', label: 'Onaylandı' },
+  { id: 'rejected', label: 'Reddedildi' },
+] as const;
+
+type AppEvent = {
+  id: string;
+  action: string;
+  from_status: string | null;
+  to_status: string | null;
+  created_at?: string;
+  actor_user_id: string;
+};
+
 type Props = {
   applications: BrandApplication[];
   businesses?: Business[];
   busy?: boolean;
   error?: string;
   notice?: string;
+  embedded?: boolean;
   onRefresh: () => Promise<void>;
   onTransition: (
     applicationId: string,
@@ -31,13 +49,45 @@ export default function SainaBusinessAdminInbox({
   busy = false,
   error = '',
   notice = '',
+  embedded = false,
   onRefresh,
   onTransition,
   onOpenBusiness,
   accountMenu,
 }: Props) {
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]['id']>('all');
   const [selectedId, setSelectedId] = useState<string>('');
-  const selected = applications.find((a) => a.id === selectedId) || applications[0] || null;
+  const [events, setEvents] = useState<AppEvent[]>([]);
+  const [eventsError, setEventsError] = useState('');
+
+  const filtered = useMemo(() => {
+    if (filter === 'all') return applications;
+    return applications.filter((a) => a.status === filter);
+  }, [applications, filter]);
+
+  const selected = filtered.find((a) => a.id === selectedId) || filtered[0] || null;
+
+  useEffect(() => {
+    if (!selected?.id) {
+      setEvents([]);
+      return;
+    }
+    let active = true;
+    setEventsError('');
+    api<{ items: AppEvent[] }>(`/applications/${selected.id}/events`)
+      .then((data) => {
+        if (active) setEvents(data.items || []);
+      })
+      .catch((e) => {
+        if (active) {
+          setEvents([]);
+          setEventsError(e instanceof Error ? e.message : 'Başvuru geçmişi alınamadı.');
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [selected?.id]);
 
   async function approve(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -52,23 +102,31 @@ export default function SainaBusinessAdminInbox({
 
   return (
     <section className="biz-admin-inbox" aria-label="Business başvuru yönetimi">
-      <header className="biz-panel-header">
-        <div className="biz-brand-block">
-          <div className="biz-brand-mark" aria-hidden>
-            A
+      {!embedded ? (
+        <header className="biz-panel-header">
+          <div className="biz-brand-block">
+            <div className="biz-brand-mark" aria-hidden>
+              A
+            </div>
+            <div className="biz-brand-copy">
+              <p className="biz-brand-kicker">Platform admin</p>
+              <p className="biz-brand-title">Marka başvuruları</p>
+            </div>
           </div>
-          <div className="biz-brand-copy">
-            <p className="biz-brand-kicker">Platform admin</p>
-            <p className="biz-brand-title">Marka başvuruları</p>
+          <div className="biz-header-actions">
+            <button type="button" className="biz-gate-secondary" disabled={busy} onClick={() => void onRefresh()}>
+              Yenile
+            </button>
+            {accountMenu}
           </div>
-        </div>
-        <div className="biz-header-actions">
+        </header>
+      ) : (
+        <div className="biz-admin-toolbar">
           <button type="button" className="biz-gate-secondary" disabled={busy} onClick={() => void onRefresh()}>
             Yenile
           </button>
-          {accountMenu}
         </div>
-      </header>
+      )}
 
       {error ? (
         <p className="biz-alert" role="alert">
@@ -81,13 +139,28 @@ export default function SainaBusinessAdminInbox({
         </p>
       ) : null}
 
+      <div className="biz-admin-filters" role="tablist" aria-label="Başvuru filtreleri">
+        {FILTERS.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            role="tab"
+            aria-selected={filter === item.id}
+            className={`biz-admin-filter${filter === item.id ? ' is-active' : ''}`}
+            onClick={() => setFilter(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
       <div className="biz-admin-layout">
         <aside className="biz-admin-list" aria-label="Başvuru listesi">
-          {applications.length === 0 ? (
-            <p className="biz-empty">Bekleyen veya geçmiş başvuru yok.</p>
+          {filtered.length === 0 ? (
+            <p className="biz-empty">Bu filtrede başvuru yok.</p>
           ) : (
             <ul>
-              {applications.map((app) => (
+              {filtered.map((app) => (
                 <li key={app.id}>
                   <button
                     type="button"
@@ -101,6 +174,7 @@ export default function SainaBusinessAdminInbox({
                       {STATUS_TR[app.status] || app.status}
                     </span>
                     <span className="biz-muted">{app.corporate_email}</span>
+                    {app.created_at ? <span className="biz-muted">{app.created_at}</span> : null}
                   </button>
                 </li>
               ))}
@@ -137,6 +211,12 @@ export default function SainaBusinessAdminInbox({
                   <dt>Şirket bilgileri</dt>
                   <dd>{selected.company_info || '—'}</dd>
                 </div>
+                {selected.applicant_user_id ? (
+                  <div>
+                    <dt>Başvuran kullanıcı</dt>
+                    <dd>{selected.applicant_user_id}</dd>
+                  </div>
+                ) : null}
                 {selected.reviewer_note ? (
                   <div>
                     <dt>Yönetici notu</dt>
@@ -182,7 +262,14 @@ export default function SainaBusinessAdminInbox({
                   </p>
                   <label>
                     Benzersiz slug
-                    <input name="slug" required minLength={2} maxLength={64} pattern="[a-z0-9]+(?:-[a-z0-9]+)*" disabled={busy} />
+                    <input
+                      name="slug"
+                      required
+                      minLength={2}
+                      maxLength={64}
+                      pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                      disabled={busy}
+                    />
                   </label>
                   <label>
                     Not (opsiyonel)
@@ -204,6 +291,27 @@ export default function SainaBusinessAdminInbox({
                   Business panelini aç
                 </button>
               ) : null}
+
+              <div className="biz-admin-events">
+                <h2 className="biz-section-title">Başvuru geçmişi</h2>
+                {eventsError ? (
+                  <p className="biz-muted">{eventsError}</p>
+                ) : events.length === 0 ? (
+                  <p className="biz-muted">Kayıtlı olay yok.</p>
+                ) : (
+                  <ul>
+                    {events.map((ev) => (
+                      <li key={ev.id}>
+                        <strong>{ev.action}</strong>
+                        <span className="biz-muted">
+                          {ev.from_status || '—'} → {ev.to_status || '—'}
+                        </span>
+                        {ev.created_at ? <span className="biz-muted">{ev.created_at}</span> : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </article>
           )}
 
@@ -213,7 +321,12 @@ export default function SainaBusinessAdminInbox({
               <ul className="biz-gate-list">
                 {businesses.map((b) => (
                   <li key={b.id}>
-                    <button type="button" className="biz-gate-secondary" disabled={busy} onClick={() => onOpenBusiness(b.id)}>
+                    <button
+                      type="button"
+                      className="biz-gate-secondary"
+                      disabled={busy}
+                      onClick={() => onOpenBusiness(b.id)}
+                    >
                       {b.name}
                     </button>
                   </li>

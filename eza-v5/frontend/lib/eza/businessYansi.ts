@@ -16,6 +16,69 @@ export type BrandApplication = {
   status: 'received' | 'under_review' | 'approved' | 'rejected' | string;
   reviewer_note: string;
   business_id: string | null;
+  created_at?: string;
+  applicant_user_id?: string;
+};
+
+export type PlatformOverview = {
+  business_enabled: boolean;
+  totals: {
+    businesses: number;
+    verified_businesses: number;
+    pending_applications: number;
+    public_publications: number;
+  };
+  recent_applications: BrandApplication[];
+  recent_events: {
+    id: string;
+    application_id: string;
+    actor_user_id: string;
+    action: string;
+    from_status: string | null;
+    to_status: string | null;
+    created_at?: string;
+  }[];
+};
+
+export type PlatformBusinessRow = Business & {
+  owner_email: string | null;
+  owner_id: string;
+  publication_count: number;
+  member_count: number;
+  created_at?: string;
+};
+
+export type PlatformUserRow = {
+  user_id: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+  public_display_name: string | null;
+  created_at: string | null;
+  memberships: {
+    business_id: string;
+    business_name: string;
+    business_slug: string;
+    role: string;
+  }[];
+};
+
+export type PlatformPublicationRow = {
+  slug: string;
+  journey_version: number;
+  business_id: string;
+  business_name: string;
+  business_slug: string;
+  visibility: string;
+  created_at: string | null;
+  draft_id: string;
+  published_by: string;
+};
+
+export type PlatformSystemStatus = {
+  business_enabled: boolean;
+  pending_applications: number;
+  features: Record<string, boolean>;
 };
 
 export type BusinessApiErrorKind =

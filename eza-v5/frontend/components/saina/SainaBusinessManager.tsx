@@ -13,9 +13,10 @@ import {
 } from '@/lib/eza/businessYansi';
 import { useAuth } from '@/context/AuthContext';
 import SainaBusinessGate from '@/components/saina/SainaBusinessGate';
-import SainaBusinessAdminInbox from '@/components/saina/SainaBusinessAdminInbox';
 import { resolveSainaUserDisplayName, resolveSainaUserInitial } from '@/lib/eza/sainaIdentity';
+import { SAINA_PLATFORM_ADMIN_ROUTE } from '@/lib/eza/sainaRoutes';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 const tabs = ['Genel Bakış', 'Bilgi Havuzu', 'Yansı Stüdyosu', 'Yayınlar', 'Ayarlar'] as const;
 const emptySteps = (): Step[] => Array.from({ length: 8 }, () => ({ question: '', answer: '', sources: [] }));
@@ -49,11 +50,11 @@ function BrandMark({ name, logoUrl, size = 'nav' }: { name: string; logoUrl?: st
 
 export default function SainaBusinessManager() {
   const { isAuthenticated, isAuthReady, user, logout } = useAuth();
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<Business[]>([]);
   const [applications, setApplications] = useState<BrandApplication[]>([]);
   const [selected, setSelected] = useState('');
   const [picked, setPicked] = useState(false);
-  const [adminInbox, setAdminInbox] = useState(false);
   const [business, setBusiness] = useState<Business | null>(null);
   const [role, setRole] = useState('viewer');
   const [knowledge, setKnowledge] = useState<Knowledge[]>([]);
@@ -61,7 +62,6 @@ export default function SainaBusinessManager() {
   const [publications, setPublications] = useState<Publication[]>([]);
   const [tab, setTab] = useState<(typeof tabs)[number]>('Genel Bakış');
   const [admin, setAdmin] = useState(false);
-  const [adminApps, setAdminApps] = useState<BrandApplication[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -137,20 +137,19 @@ export default function SainaBusinessManager() {
         if (!active) return;
         setCatalogState('ready');
         const rows = list.items;
-        if (list.canProvision) {
-          setAdminInbox(true);
-          setSelected('');
-          setPicked(false);
+        setAdmin(Boolean(list.canProvision));
+        const requested = searchParams?.get('business') || '';
+        if (requested && rows.some((row) => row.id === requested)) {
+          setSelected(requested);
+          setPicked(true);
           return;
         }
         if (rows.length === 1) {
           setSelected(rows[0].id);
           setPicked(true);
-          setAdminInbox(false);
         } else {
           setSelected('');
           setPicked(false);
-          setAdminInbox(false);
         }
       })
       .catch((e) => {
@@ -161,7 +160,6 @@ export default function SainaBusinessManager() {
         setSelected('');
         setPicked(false);
         setAdmin(false);
-        setAdminInbox(false);
         if (isBusinessApiError(e) && e.kind === 'unavailable') {
           setCatalogState('unavailable');
           setServiceMessage(e.message);
@@ -193,19 +191,6 @@ export default function SainaBusinessManager() {
     setTab('Genel Bakış');
     if (selected) load(selected).catch((e) => setError(e.message));
   }, [selected]);
-
-  async function refreshAdminApps() {
-    const data = await api<{ items: BrandApplication[] }>('/applications');
-    setAdminApps(data.items);
-  }
-
-  useEffect(() => {
-    if (!admin || !isAuthenticated) {
-      setAdminApps([]);
-      return;
-    }
-    refreshAdminApps().catch(() => setAdminApps([]));
-  }, [admin, isAuthenticated, applications.length]);
 
   async function run(action: () => Promise<unknown>) {
     if (busy) return;
@@ -306,6 +291,16 @@ export default function SainaBusinessManager() {
       {menuOpen ? (
         <div className="biz-account-dropdown" role="menu">
           <p className="biz-account-email">{user?.email}</p>
+          {admin ? (
+            <Link
+              role="menuitem"
+              href={SAINA_PLATFORM_ADMIN_ROUTE}
+              className="biz-account-item"
+              onClick={() => setMenuOpen(false)}
+            >
+              Platform Yönetimi
+            </Link>
+          ) : null}
           <Link
             role="menuitem"
             href="/standalone/discover"
@@ -362,36 +357,22 @@ export default function SainaBusinessManager() {
     );
   }
 
-  if (admin && adminInbox) {
+  if (admin && !items.length) {
     return (
       <main className="biz-panel">
-        <SainaBusinessAdminInbox
-          applications={adminApps}
-          businesses={items}
-          busy={busy}
-          error={error}
-          notice={notice}
-          accountMenu={accountMenu}
-          onRefresh={async () => {
-            await refreshAdminApps();
-            await loadList();
-          }}
-          onTransition={async (applicationId, body) => {
-            await run(async () => {
-              await api(`/applications/${applicationId}/transition`, 'POST', body);
-              await refreshAdminApps();
-              await loadList();
-              if (body.target === 'approved') {
-                setNotice('Başvuru onaylandı. Business hesabı oluşturuldu.');
-              }
-            });
-          }}
-          onOpenBusiness={(id) => {
-            setSelected(id);
-            setPicked(true);
-            setAdminInbox(false);
-          }}
-        />
+        <section className="biz-gate-hero">
+          <h1 className="biz-gate-title">Platform yöneticisi</h1>
+          <p className="biz-gate-lead">
+            Marka başvuruları ve platform işlemleri Platform Yönetimi panelindedir. Bu hesapta henüz bir Business
+            üyeliği yok.
+          </p>
+          <div className="biz-welcome-actions">
+            <Link className="biz-welcome-primary" href={SAINA_PLATFORM_ADMIN_ROUTE}>
+              Platform Yönetimi
+            </Link>
+            <div className="biz-header-actions">{accountMenu}</div>
+          </div>
+        </section>
       </main>
     );
   }
@@ -407,7 +388,6 @@ export default function SainaBusinessManager() {
           onSelectBusiness={(id) => {
             setSelected(id);
             setPicked(true);
-            setAdminInbox(false);
           }}
         />
       </main>
@@ -482,18 +462,9 @@ export default function SainaBusinessManager() {
             </>
           ) : null}
           {admin ? (
-            <button
-              type="button"
-              className="biz-gate-secondary"
-              disabled={busy}
-              onClick={() => {
-                setAdminInbox(true);
-                setPicked(false);
-                setSelected('');
-              }}
-            >
-              Başvurular
-            </button>
+            <Link className="biz-gate-secondary" href={SAINA_PLATFORM_ADMIN_ROUTE}>
+              Platform Yönetimi
+            </Link>
           ) : null}
           {accountMenu}
         </div>

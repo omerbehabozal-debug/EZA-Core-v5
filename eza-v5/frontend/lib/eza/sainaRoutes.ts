@@ -7,9 +7,10 @@ export const SAINA_MY_PAGE_ROUTE = '/standalone/sayfam';
 export const SAINA_NEW_CHAT_PARAM = 'new';
 export const SAINA_NEW_CHAT_ROUTE = `/standalone?${SAINA_NEW_CHAT_PARAM}=1`;
 
-export type SainaAppView = 'chat' | 'pattern' | 'discover' | 'yansi' | 'my-page' | 'business';
+export type SainaAppView = 'chat' | 'pattern' | 'discover' | 'yansi' | 'my-page' | 'business' | 'admin';
 
 export const SAINA_BUSINESS_ROUTE = '/standalone/business';
+export const SAINA_PLATFORM_ADMIN_ROUTE = '/standalone/admin';
 
 export function isPublicYansiExperiencePath(pathname: string | null): boolean {
   if (!pathname) return false;
@@ -26,8 +27,11 @@ export function resolveSainaAppView(pathname: string | null): SainaAppView | nul
   if (pathname === SAINA_DISCOVER_ROUTE || pathname.startsWith(`${SAINA_DISCOVER_ROUTE}/`)) {
     return 'discover';
   }
-  // Management console only — public brand pages keep their own light shell.
+  // Management consoles only — public brand pages keep their own light shell.
   if (pathname === SAINA_BUSINESS_ROUTE) return 'business';
+  if (pathname === SAINA_PLATFORM_ADMIN_ROUTE || pathname.startsWith(`${SAINA_PLATFORM_ADMIN_ROUTE}/`)) {
+    return 'admin';
+  }
   if (pathname === '/standalone') return 'chat';
   if (pathname === MIRROR_PATTERN_ROUTE || pathname.startsWith(`${MIRROR_PATTERN_ROUTE}/`)) {
     return 'pattern';

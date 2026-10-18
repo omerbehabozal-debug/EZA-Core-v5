@@ -262,6 +262,20 @@ async def test_application_does_not_grant_membership_until_admin_approval(sample
     assert len(await apps.list_mine(s.db,applicant.id))==1
 
 @pytest.mark.asyncio
+async def test_platform_admin_overview_uses_real_counts(sample):
+    from backend.services.business_yansi import platform_admin as padmin
+    s=sample
+    data=await padmin.overview(s.db)
+    assert data['business_enabled'] is True or data['business_enabled'] is False
+    assert data['totals']['businesses'] >= 1
+    assert 'pending_applications' in data['totals']
+    assert 'public_publications' in data['totals']
+    users=await padmin.search_users(s.db,s.admin.email.split('@')[0][:3] or 'a')
+    assert any(u['email']==s.admin.email for u in users)
+    with pytest.raises(HTTPException):
+        await padmin.search_users(s.db,'x')
+
+@pytest.mark.asyncio
 async def test_business_public_frozen_dto_omits_private_metadata(sample,monkeypatch):
     from backend.services.mirror_network import frozen_journey_artifact as frozen
     from backend.core.schemas.mirror_network import PublicFrozenJourneyArtifact

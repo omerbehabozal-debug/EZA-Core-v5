@@ -20,6 +20,7 @@ import {
   buildSainaAuthHref,
   resolveSainaUserDisplayName,
 } from '@/lib/eza/sainaIdentity';
+import { SAINA_BUSINESS_ROUTE, SAINA_PLATFORM_ADMIN_ROUTE } from '@/lib/eza/sainaRoutes';
 import { useSainaAuthReturnUrl } from '@/hooks/useSainaAuthReturnUrl';
 import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
 import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
@@ -765,6 +766,30 @@ export default function SainaProfileMenu({
             <button type="button" className="saina-profile-menu-item" data-testid="saina-profile-nav-profile" onClick={() => setSection('profile')}><User size={17} aria-hidden /><span>Profilimi düzenle</span><ChevronRight size={14} aria-hidden /></button>
             <button type="button" className="saina-profile-menu-item" data-testid="saina-profile-nav-settings" onClick={() => setSection('settings')}><Settings size={17} aria-hidden /><span>Ayarlar</span><ChevronRight size={14} aria-hidden /></button>
             <button type="button" className="saina-profile-menu-item" data-testid="saina-profile-nav-plan" onClick={() => setSection('plan')}><CreditCard size={17} aria-hidden /><span>{planTier === 'premium' ? 'Premium planım' : 'Planım'}</span><ChevronRight size={14} aria-hidden /></button>
+            {!isGuest ? (
+              <Link
+                href={SAINA_BUSINESS_ROUTE}
+                className="saina-profile-menu-item"
+                data-testid="saina-profile-nav-business"
+                onClick={close}
+              >
+                <Settings size={17} aria-hidden />
+                <span>Business Yönetimi</span>
+                <ChevronRight size={14} aria-hidden />
+              </Link>
+            ) : null}
+            {!isGuest && user?.role === 'admin' ? (
+              <Link
+                href={SAINA_PLATFORM_ADMIN_ROUTE}
+                className="saina-profile-menu-item"
+                data-testid="saina-profile-nav-platform-admin"
+                onClick={close}
+              >
+                <Settings size={17} aria-hidden />
+                <span>Platform Yönetimi</span>
+                <ChevronRight size={14} aria-hidden />
+              </Link>
+            ) : null}
             {!isGuest ? <>              <button
                 type="button"
                 className="saina-profile-menu-item saina-profile-menu-logout"

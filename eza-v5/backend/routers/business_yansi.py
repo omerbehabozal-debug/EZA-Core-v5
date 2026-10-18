@@ -11,6 +11,7 @@ from backend.models.business_yansi import BusinessProfile, BusinessMember, Busin
 from backend.models.production import User
 from backend.services.business_yansi import service as svc
 from backend.services.business_yansi import applications as apps
+from backend.services.business_yansi import platform_admin as padmin
 from backend.services.business_yansi.publication import enabled, publisher, export_editorial_conversation, publish_draft
 from backend.security.rate_limit import rate_limit_business_application
 
@@ -120,6 +121,80 @@ async def application_transition(application_id:uuid.UUID,body:ApplicationTransi
 async def application_events(application_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
     admin=await svc.platform_admin(db,claims);_ = admin
     return {'items':[record(row) for row in await apps.list_events(db,application_id)]}
+
+@router.get('/admin/overview')
+async def admin_overview(db=Depends(get_db),claims=Depends(get_current_user)):
+    await svc.platform_admin(db,claims)
+    data=await padmin.overview(db)
+    return {
+        'business_enabled':data['business_enabled'],
+        'totals':data['totals'],
+        'recent_applications':[record(row) for row in data['recent_applications']],
+        'recent_events':[record(row) for row in data['recent_events']],
+    }
+
+@router.get('/admin/businesses')
+async def admin_businesses(db=Depends(get_db),claims=Depends(get_current_user)):
+    await svc.platform_admin(db,claims)
+    rows=await padmin.list_businesses(db)
+    return {
+        'items':[
+            {
+                **record(item['business']),
+                'owner_email':item['owner_email'],
+                'owner_id':item['owner_id'],
+                'publication_count':item['publication_count'],
+                'member_count':item['member_count'],
+            }
+            for item in rows
+        ]
+    }
+
+@router.get('/admin/businesses/{business_id}')
+async def admin_business_detail(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
+    await svc.platform_admin(db,claims)
+    data=await padmin.business_detail(db,business_id)
+    return {
+        'business':record(data['business']),
+        'owner_email':data['owner_email'],
+        'members':data['members'],
+        'knowledge_versions':[record(row) for row in data['knowledge_versions']],
+        'drafts':[record(row) for row in data['drafts']],
+        'publications':[{**record(item['row']),'visibility':item['visibility']} for item in data['publications']],
+    }
+
+@router.get('/admin/users')
+async def admin_users(q:str='',limit:int=20,db=Depends(get_db),claims=Depends(get_current_user)):
+    await svc.platform_admin(db,claims)
+    rows=await padmin.search_users(db,q,limit)
+    return {
+        'items':[
+            {
+                **row,
+                'created_at':str(row['created_at']) if row.get('created_at') is not None else None,
+            }
+            for row in rows
+        ]
+    }
+
+@router.get('/admin/publications')
+async def admin_publications(limit:int=50,db=Depends(get_db),claims=Depends(get_current_user)):
+    await svc.platform_admin(db,claims)
+    rows=await padmin.list_publications(db,limit)
+    return {
+        'items':[
+            {
+                **row,
+                'created_at':str(row['created_at']) if row.get('created_at') is not None else None,
+            }
+            for row in rows
+        ]
+    }
+
+@router.get('/admin/system')
+async def admin_system(db=Depends(get_db),claims=Depends(get_current_user)):
+    await svc.platform_admin(db,claims)
+    return await padmin.system_status(db)
 
 @router.patch('/{business_id}/verification')
 async def verification(business_id:uuid.UUID,body:Verify,db=Depends(get_db),claims=Depends(get_current_user)):

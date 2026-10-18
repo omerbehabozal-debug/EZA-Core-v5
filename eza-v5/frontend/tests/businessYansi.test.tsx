@@ -18,7 +18,10 @@ vi.mock('@/lib/eza/businessYansi', async (importOriginal) => {
   return { ...actual, businessRequest: api };
 });
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => auth }));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 const business = {
   id: 'business-a',
@@ -144,34 +147,19 @@ describe('Business management', () => {
     expect(screen.queryByRole('link', { name: 'BiligN hesabımla devam et' })).not.toBeInTheDocument();
   });
 
-  it('opens platform admin application inbox for admins', async () => {
+  it('routes platform admins without memberships to Platform Yönetimi', async () => {
     auth.user = { email: 'admin@example.test', user_id: 'admin1', role: 'admin' };
     api.mockImplementation(async (path = '') => {
       if (path === '') return { items: [], canProvision: true };
       if (path === '/applications/mine') return { items: [] };
-      if (path === '/applications') {
-        return {
-          items: [
-            {
-              id: 'app-1',
-              brand_name: 'Ada Marka',
-              contact_name: 'Ada',
-              corporate_email: 'ada@example.com',
-              website: null,
-              company_info: 'Detay',
-              status: 'received',
-              reviewer_note: '',
-              business_id: null,
-            },
-          ],
-        };
-      }
       return { items: [] };
     });
     render(<SainaBusinessManager />);
-    expect(await screen.findByRole('heading', { name: 'Ada Marka' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'İncelemeye al' })).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Onayla' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Platform yöneticisi' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Platform Yönetimi' })).toHaveAttribute(
+      'href',
+      '/standalone/admin'
+    );
     expect(screen.queryByRole('button', { name: 'Bilgi Havuzu' })).not.toBeInTheDocument();
   });
 

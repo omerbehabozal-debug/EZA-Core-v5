@@ -1049,3 +1049,245 @@
     display: none;
   }
 }
+
+/* Platform Admin console */
+.padmin-panel {
+  min-height: 100%;
+}
+
+.padmin-header {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.padmin-nav-toggle {
+  display: none;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--biz-border);
+  background: transparent;
+  color: var(--biz-ink);
+}
+
+.padmin-account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.padmin-account-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-right: 4px;
+}
+
+.padmin-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 0;
+  min-height: calc(100vh - 72px);
+}
+
+.padmin-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 12px;
+  border-right: 1px solid var(--biz-border);
+  background: rgba(8, 12, 14, 0.55);
+}
+
+.padmin-nav-item {
+  text-align: left;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--biz-muted);
+  cursor: pointer;
+}
+
+.padmin-nav-item.is-active,
+.padmin-nav-item:hover {
+  background: var(--biz-gold-soft);
+  color: var(--biz-gold);
+}
+
+.padmin-content {
+  padding: 20px 18px 40px;
+  min-width: 0;
+}
+
+.padmin-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 18px 0 22px;
+}
+
+.padmin-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  padding: 16px;
+  border-radius: 14px;
+  border: 1px solid var(--biz-border);
+  background: rgba(14, 18, 20, 0.9);
+  color: var(--biz-ink);
+  cursor: pointer;
+}
+
+.padmin-stat strong {
+  font-size: 28px;
+  color: var(--biz-gold);
+}
+
+.padmin-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.padmin-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.padmin-list button {
+  width: 100%;
+  text-align: left;
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.padmin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--biz-border);
+  border-radius: 14px;
+}
+
+.padmin-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+.padmin-table th,
+.padmin-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--biz-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.padmin-table th {
+  color: var(--biz-muted);
+  font-weight: 550;
+  font-size: 13px;
+}
+
+.padmin-linkish {
+  border: 0;
+  background: transparent;
+  color: var(--biz-gold);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
+.padmin-search {
+  max-width: 480px;
+  margin-bottom: 16px;
+}
+
+.biz-admin-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.biz-admin-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.biz-admin-filter {
+  min-height: 36px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--biz-border);
+  background: transparent;
+  color: var(--biz-muted);
+  cursor: pointer;
+}
+
+.biz-admin-filter.is-active {
+  border-color: var(--biz-gold-line);
+  color: var(--biz-gold);
+  background: var(--biz-gold-soft);
+}
+
+.biz-admin-events {
+  margin-top: 18px;
+}
+
+.biz-admin-events ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+@media (max-width: 960px) {
+  .padmin-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .padmin-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .padmin-nav {
+    display: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--biz-border);
+  }
+
+  .padmin-layout.is-nav-open .padmin-nav {
+    display: flex;
+  }
+
+  .padmin-stat-grid,
+  .padmin-split {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .padmin-stat-grid,
+  .padmin-split {
+    grid-template-columns: 1fr;
+  }
+
+  .padmin-account-copy {
+    display: none;
+  }
+}
