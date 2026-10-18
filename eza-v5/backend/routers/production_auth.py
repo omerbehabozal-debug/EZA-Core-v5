@@ -77,6 +77,8 @@ class AuthMeResponse(BaseModel):
     public_avatar_revision: int = 0
     # Public honorific id (curious | bilgin). Not a plan/role. Owner session only.
     public_honorific: str
+    # Product-scoped capabilities (e.g. bilign.platform_admin). Independent of EZA role.
+    capabilities: list[str] = []
 
 
 class PublicIdentityUpdateRequest(BaseModel):
@@ -165,6 +167,9 @@ async def get_auth_me(
         )
     chosen = row.get("public_display_name")
     from backend.services.mirror_network.public_identity import normalize_public_honorific
+    from backend.services.user_capabilities import list_active_capabilities
+
+    capabilities = await list_active_capabilities(db, row["id"])
 
     return AuthMeResponse(
         user_id=str(row["id"]),
@@ -180,6 +185,7 @@ async def get_auth_me(
         public_avatar_url=normalize_profile_avatar_public_locator(row.get("public_avatar_url")),
         public_avatar_revision=int(row.get("public_avatar_revision") or 0),
         public_honorific=normalize_public_honorific(None),
+        capabilities=capabilities,
     )
 
 

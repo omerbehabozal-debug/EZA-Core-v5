@@ -7,6 +7,7 @@ import { buildSainaAuthHref } from '@/lib/eza/sainaIdentity';
 import { resolveSainaUserDisplayName, resolveSainaUserInitial } from '@/lib/eza/sainaIdentity';
 import type { BrandApplication } from '@/lib/eza/businessYansi';
 import { SAINA_BUSINESS_ROUTE, SAINA_PLATFORM_ADMIN_ROUTE } from '@/lib/eza/sainaRoutes';
+import { hasBilignPlatformAdmin } from '@/lib/eza/userCapabilities';
 
 const STATUS_TR: Record<string, string> = {
   received: 'Alındı',
@@ -58,7 +59,7 @@ function AccountChip() {
       {open && (
         <div className="biz-account-dropdown" role="menu">
           <p className="biz-account-email">{user.email}</p>
-          {user?.role === 'admin' ? (
+          {hasBilignPlatformAdmin(user) ? (
             <Link
               role="menuitem"
               href={SAINA_PLATFORM_ADMIN_ROUTE}

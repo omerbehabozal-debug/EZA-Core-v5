@@ -21,6 +21,7 @@ import {
   resolveSainaUserDisplayName,
 } from '@/lib/eza/sainaIdentity';
 import { SAINA_BUSINESS_ROUTE, SAINA_PLATFORM_ADMIN_ROUTE } from '@/lib/eza/sainaRoutes';
+import { hasBilignPlatformAdmin } from '@/lib/eza/userCapabilities';
 import { useSainaAuthReturnUrl } from '@/hooks/useSainaAuthReturnUrl';
 import HonorificMarker from '@/components/mirror/ayna/HonorificMarker';
 import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
@@ -778,7 +779,7 @@ export default function SainaProfileMenu({
                 <ChevronRight size={14} aria-hidden />
               </Link>
             ) : null}
-            {!isGuest && user?.role === 'admin' ? (
+            {!isGuest && hasBilignPlatformAdmin(user) ? (
               <Link
                 href={SAINA_PLATFORM_ADMIN_ROUTE}
                 className="saina-profile-menu-item"

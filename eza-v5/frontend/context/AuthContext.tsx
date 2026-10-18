@@ -57,6 +57,8 @@ interface UserInfo {
   public_avatar_revision?: number;
   /** Public honorific id: curious | bilgin. Never a plan or role. */
   public_honorific?: string | null;
+  /** Product-scoped capabilities from /me (hint; backend enforces). */
+  capabilities?: string[];
 }
 
 interface AuthState {
@@ -218,6 +220,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     sessionResult.session.public_honorific !== undefined
                       ? sessionResult.session.public_honorific
                       : user.public_honorific,
+                  capabilities:
+                    sessionResult.session.capabilities !== undefined
+                      ? sessionResult.session.capabilities
+                      : user.capabilities,
                 },
                 {
                   public_avatar_url: sessionResult.session.public_avatar_url,

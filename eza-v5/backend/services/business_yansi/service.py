@@ -28,9 +28,18 @@ async def actor(db, claims):
     if not row or not row.is_active: fail('inactive_account', 401)
     return row
 async def platform_admin(db, claims):
+    """BiligN platform admin — capability bilign.platform_admin only (not EZA role=admin)."""
+    from backend.services import user_capabilities as caps
+
     row = await actor(db, claims)
-    if row.role != 'admin': fail('platform_admin_required')
+    if not await caps.has_capability(db, row.id, caps.BILIGN_PLATFORM_ADMIN):
+        fail('platform_admin_required')
     return row
+
+async def can_provision(db, user) -> bool:
+    from backend.services import user_capabilities as caps
+
+    return await caps.has_capability(db, user.id, caps.BILIGN_PLATFORM_ADMIN)
 async def access(db, business_id, user_id, minimum='viewer'):
     business = await db.get(BusinessProfile, uid(business_id))
     membership = await db.get(BusinessMember, (uid(business_id), uid(user_id)))

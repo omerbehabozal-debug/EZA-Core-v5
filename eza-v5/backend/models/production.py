@@ -46,6 +46,37 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    capabilities = relationship(
+        "backend.models.production.UserCapability",
+        back_populates="user",
+        foreign_keys="UserCapability.user_id",
+        cascade="all, delete-orphan",
+    )
+
+
+class UserCapability(Base):
+    """Product-scoped capability grants with revoke history (not EZA role)."""
+
+    __tablename__ = "user_capabilities"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("production_users.id"),
+        nullable=False,
+        index=True,
+    )
+    capability = Column(String(64), nullable=False, index=True)
+    granted_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    granted_by = Column(UUID(as_uuid=True), ForeignKey("production_users.id"), nullable=True)
+    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    revoked_by = Column(UUID(as_uuid=True), ForeignKey("production_users.id"), nullable=True)
+
+    user = relationship(
+        "backend.models.production.User",
+        back_populates="capabilities",
+        foreign_keys=[user_id],
+    )
 
 
 def production_users_safe_load():

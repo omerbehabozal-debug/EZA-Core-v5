@@ -1,7 +1,7 @@
 """Platform-admin read models for BiligN Business console. No customer chat content."""
 from __future__ import annotations
 
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.models.business_yansi import (
@@ -149,19 +149,33 @@ async def business_detail(db: AsyncSession, business_id) -> dict:
 
 
 async def search_users(db: AsyncSession, q: str, limit: int = 20) -> list[dict]:
+    """Search only BiligN-related users (membership, application, owner, or BiligN capability)."""
+    from backend.models.production import UserCapability
+    from backend.services.user_capabilities import BILIGN_PLATFORM_ADMIN
+
     query = (q or '').strip()
     if len(query) < 2:
         svc.fail('search_query_too_short', 422)
     limit = max(1, min(int(limit or 20), 50))
     pattern = f'%{query.lower()}%'
+    bilign_related = union(
+        select(BusinessMember.user_id),
+        select(BusinessBrandApplication.applicant_user_id),
+        select(BusinessProfile.owner_id),
+        select(UserCapability.user_id).where(
+            UserCapability.capability == BILIGN_PLATFORM_ADMIN,
+            UserCapability.revoked_at.is_(None),
+        ),
+    )
     rows = (
         await db.scalars(
             select(User)
             .where(
+                User.id.in_(bilign_related),
                 or_(
                     func.lower(User.email).like(pattern),
                     func.lower(func.coalesce(User.public_display_name, '')).like(pattern),
-                )
+                ),
             )
             .order_by(User.created_at.desc())
             .limit(limit)

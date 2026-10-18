@@ -79,6 +79,9 @@ class ApplicationTransition(Body):
     target: Literal['received','under_review','approved','rejected']
     note: str=Field(default='',max_length=1000)
     slug: str|None=Field(default=None,min_length=2,max_length=64)
+class CapabilityGrant(Body):
+    userId: uuid.UUID
+    capability: Literal['bilign.platform_admin']='bilign.platform_admin'
 
 def record(row):
     # Management DTO only: these models contain no customer conversation text.
@@ -95,7 +98,7 @@ async def manager(db,claims,business_id,role='viewer'):
 async def mine(db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims)
     rows=await db.scalars(select(BusinessProfile).join(BusinessMember,BusinessMember.business_id==BusinessProfile.id).where(BusinessMember.user_id==user.id))
-    return {'items':[record(row) for row in rows],'canProvision':user.role=='admin'}
+    return {'items':[record(row) for row in rows],'canProvision':await svc.can_provision(db,user)}
 @router.post('')
 async def provision(body:Create,db=Depends(get_db),claims=Depends(get_current_user)):
     admin=await svc.platform_admin(db,claims);return await recorded(db,await svc.create_business(db,admin,body.model_dump(mode='json')))
@@ -195,6 +198,20 @@ async def admin_publications(limit:int=50,db=Depends(get_db),claims=Depends(get_
 async def admin_system(db=Depends(get_db),claims=Depends(get_current_user)):
     await svc.platform_admin(db,claims)
     return await padmin.system_status(db)
+
+@router.post('/admin/capabilities/grant')
+async def admin_capability_grant(body:CapabilityGrant,db=Depends(get_db),claims=Depends(get_current_user)):
+    from backend.services import user_capabilities as caps
+    admin=await svc.platform_admin(db,claims)
+    row=await caps.grant_capability(db,target_user_id=body.userId,capability=body.capability,actor_user_id=admin.id)
+    return {'user_id':str(row.user_id),'capability':row.capability,'granted_at':str(row.granted_at),'revoked_at':None}
+
+@router.post('/admin/capabilities/revoke')
+async def admin_capability_revoke(body:CapabilityGrant,db=Depends(get_db),claims=Depends(get_current_user)):
+    from backend.services import user_capabilities as caps
+    admin=await svc.platform_admin(db,claims)
+    row=await caps.revoke_capability(db,target_user_id=body.userId,capability=body.capability,actor_user_id=admin.id)
+    return {'user_id':str(row.user_id),'capability':row.capability,'granted_at':str(row.granted_at),'revoked_at':str(row.revoked_at) if row.revoked_at else None}
 
 @router.patch('/{business_id}/verification')
 async def verification(business_id:uuid.UUID,body:Verify,db=Depends(get_db),claims=Depends(get_current_user)):

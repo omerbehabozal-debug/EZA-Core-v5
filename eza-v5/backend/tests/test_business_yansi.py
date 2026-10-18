@@ -15,7 +15,7 @@ from fastapi import HTTPException,FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import create_async_engine,async_sessionmaker
 from backend.core.utils.dependencies import Base
-from backend.models.production import User,Organization,OrganizationUser
+from backend.models.production import User,Organization,OrganizationUser,UserCapability
 from backend.models.standalone_conversations import StandaloneConversation,StandaloneConversationMessage
 from backend.models.mirror_network import MirrorNetworkNode
 from backend.models.business_yansi import BusinessProfile,BusinessMember,BusinessKnowledgeVersion,BusinessYansiDraft,BusinessPublication,BusinessBrandApplication,BusinessApplicationEvent
@@ -23,27 +23,31 @@ from backend.services.business_yansi import service as svc
 from backend.services.business_yansi import applications as apps
 from backend.services.business_yansi.answers import BusinessHistory,answer,bind_business_history,NO_INFORMATION,validate_quotes
 from backend.services.business_yansi.publication import export_editorial_conversation,public_publisher,publish_draft
+from backend.services import user_capabilities as caps
 from backend.routers import business_yansi as routes
 
 @pytest_asyncio.fixture
 async def sample(monkeypatch):
     monkeypatch.setenv('BILIGN_BUSINESS_ENABLED','true')
     engine=create_async_engine('sqlite+aiosqlite:///:memory:')
-    tables=[User.__table__,Organization.__table__,OrganizationUser.__table__,StandaloneConversation.__table__,StandaloneConversationMessage.__table__,MirrorNetworkNode.__table__,BusinessProfile.__table__,BusinessMember.__table__,BusinessKnowledgeVersion.__table__,BusinessYansiDraft.__table__,BusinessPublication.__table__,BusinessBrandApplication.__table__,BusinessApplicationEvent.__table__]
+    tables=[User.__table__,UserCapability.__table__,Organization.__table__,OrganizationUser.__table__,StandaloneConversation.__table__,StandaloneConversationMessage.__table__,MirrorNetworkNode.__table__,BusinessProfile.__table__,BusinessMember.__table__,BusinessKnowledgeVersion.__table__,BusinessYansiDraft.__table__,BusinessPublication.__table__,BusinessBrandApplication.__table__,BusinessApplicationEvent.__table__]
     async with engine.begin() as connection:await connection.run_sync(lambda c:Base.metadata.create_all(c,tables=tables))
     async with async_sessionmaker(engine,expire_on_commit=False)() as db:
         owner=User(id=uuid.uuid4(),email='owner@example.test',role='user',is_active=True)
         outsider=User(id=uuid.uuid4(),email='other@example.test',role='org_admin',is_active=True)
         editor=User(id=uuid.uuid4(),email='editor@example.test',role='user',is_active=True)
         viewer=User(id=uuid.uuid4(),email='viewer@example.test',role='user',is_active=True)
-        admin=User(id=uuid.uuid4(),email='admin@example.test',role='admin',is_active=True)
+        # EZA admin role alone must NOT grant BiligN platform admin.
+        eza_admin=User(id=uuid.uuid4(),email='eza-admin@example.test',role='admin',is_active=True)
+        bilign_admin=User(id=uuid.uuid4(),email='bilign-admin@example.test',role='user',is_active=True)
         org=Organization(id=uuid.uuid4(),name='BiligN',status='active')
         org2=Organization(id=uuid.uuid4(),name='Other',status='active')
-        db.add_all([owner,outsider,editor,viewer,admin,org,org2]);await db.commit()
-        business=await svc.create_business(db,admin,{'organizationId':str(org.id),'ownerId':str(owner.id),'slug':'bilign','name':'BiligN'})
+        db.add_all([owner,outsider,editor,viewer,eza_admin,bilign_admin,org,org2]);await db.commit()
+        await caps.bootstrap_grant_for_ops(db,target_user_id=bilign_admin.id)
+        business=await svc.create_business(db,bilign_admin,{'organizationId':str(org.id),'ownerId':str(owner.id),'slug':'bilign','name':'BiligN'})
         business.verified=True;business.official=True
         db.add_all([BusinessMember(business_id=business.id,user_id=editor.id,role='editor'),BusinessMember(business_id=business.id,user_id=viewer.id,role='viewer'),OrganizationUser(org_id=org.id,user_id=outsider.id,role='org_admin')]);await db.commit()
-        yield SimpleNamespace(db=db,owner=owner,outsider=outsider,editor=editor,viewer=viewer,admin=admin,business=business,other=org2)
+        yield SimpleNamespace(db=db,owner=owner,outsider=outsider,editor=editor,viewer=viewer,admin=bilign_admin,eza_admin=eza_admin,business=business,other=org2)
     await engine.dispose()
 
 async def source(s,content='Yansı yayımlanmış bir sohbet deneyimidir.',**kwargs):
@@ -59,7 +63,14 @@ async def test_roles_and_no_corporate_escalation(sample):
         assert e.value.status_code==403
     assert await svc.access(s.db,s.business.id,s.editor.id,'editor')
     with pytest.raises(HTTPException):await svc.platform_admin(s.db,{'user_id':str(s.outsider.id),'role':'admin'})
-    assert (await svc.platform_admin(s.db,{'user_id':str(s.admin.id)})).id==s.admin.id
+    # JWT/EZA role=admin alone is insufficient for BiligN platform admin.
+    with pytest.raises(HTTPException) as eza_denied:
+        await svc.platform_admin(s.db,{'user_id':str(s.eza_admin.id),'role':'admin'})
+    assert eza_denied.value.status_code==403
+    assert (await svc.platform_admin(s.db,{'user_id':str(s.admin.id),'role':'user'})).id==s.admin.id
+    assert await svc.can_provision(s.db,s.admin) is True
+    assert await svc.can_provision(s.db,s.eza_admin) is False
+    assert await svc.can_provision(s.db,s.owner) is False
 
 @pytest.mark.asyncio
 async def test_tenant_and_status_isolation(sample):

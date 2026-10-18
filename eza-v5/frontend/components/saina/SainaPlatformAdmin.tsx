@@ -90,6 +90,7 @@ export default function SainaPlatformAdmin() {
       setDenied(true);
       return;
     }
+    // Backend canProvision / platform_admin is authoritative (not JWT role=admin).
     setUnavailable('');
     loadCore().catch((e) => {
       if (isBusinessApiError(e) && e.kind === 'unavailable') {

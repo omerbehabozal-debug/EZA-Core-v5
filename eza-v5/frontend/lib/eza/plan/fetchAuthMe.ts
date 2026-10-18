@@ -27,6 +27,8 @@ export type AuthMeResponse = {
   public_avatar_url?: string | null;
   public_avatar_revision?: number;
   public_honorific?: string | null;
+  /** Product-scoped capabilities (e.g. bilign.platform_admin). Not EZA role. */
+  capabilities?: string[];
 };
 
 /** Lightweight session proof — does not require mirror_plan for validity. */
@@ -39,6 +41,7 @@ export type AuthSessionValidation = {
   public_avatar_url?: string | null;
   public_avatar_revision?: number;
   public_honorific?: string | null;
+  capabilities?: string[];
 };
 
 export type AuthSessionValidationResult =
@@ -55,6 +58,7 @@ export type AuthUserProfileSeed = {
   public_avatar_url?: string | null;
   public_avatar_revision?: number;
   public_honorific?: string | null;
+  capabilities?: string[];
 };
 
 function authMeRequestOptions() {
@@ -83,6 +87,8 @@ export function mergeAuthSessionIntoUser(
       session.public_honorific !== undefined
         ? session.public_honorific
         : base.public_honorific,
+    capabilities:
+      session.capabilities !== undefined ? session.capabilities : base.capabilities,
   };
   return mergeAvatarAuthorityFields(merged, {
     public_avatar_url: session.public_avatar_url,
@@ -111,6 +117,7 @@ export async function fetchAuthMe(): Promise<AuthMeResponse | null> {
   const avatarRaw = res.public_avatar_url ?? res.data?.public_avatar_url ?? null;
   const revisionRaw = res.public_avatar_revision ?? res.data?.public_avatar_revision;
   const honorificRaw = res.public_honorific ?? res.data?.public_honorific ?? null;
+  const capsRaw = res.capabilities ?? res.data?.capabilities;
   return {
     user_id: res.user_id ?? res.data?.user_id ?? '',
     email: res.email ?? res.data?.email ?? '',
@@ -127,6 +134,9 @@ export async function fetchAuthMe(): Promise<AuthMeResponse | null> {
       typeof honorificRaw === 'string' && honorificRaw.trim()
         ? honorificRaw.trim()
         : null,
+    capabilities: Array.isArray(capsRaw)
+      ? capsRaw.filter((c): c is string => typeof c === 'string')
+      : [],
   };
 }
 
@@ -316,6 +326,10 @@ export async function validateAuthSession(): Promise<AuthSessionValidationResult
     typeof honorificRaw === 'string' && honorificRaw.trim()
       ? honorificRaw.trim()
       : null;
+  const capsRaw = res.capabilities ?? res.data?.capabilities;
+  const capabilities = Array.isArray(capsRaw)
+    ? capsRaw.filter((c): c is string => typeof c === 'string')
+    : [];
   return {
     status: 'valid',
     session: {
@@ -327,6 +341,7 @@ export async function validateAuthSession(): Promise<AuthSessionValidationResult
       public_avatar_url,
       public_avatar_revision,
       public_honorific,
+      capabilities,
     },
   };
 }
