@@ -143,7 +143,10 @@ class ModelRouter:
         """
         provider, actual_model = self._get_provider_from_model_id(model_id)
         timeout_seconds = timeout or self.timeout
-        max_retries = retries or self.max_retries
+        # Zero explicitly disables retries; keep the existing default of two.
+        if type(retries) is not int or retries < 0:
+            raise ValueError("retries must be a non-negative integer")
+        max_retries = retries
         
         # Check if model is available (has API key)
         if not self.is_model_available(model_id):

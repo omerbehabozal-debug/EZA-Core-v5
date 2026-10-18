@@ -304,3 +304,8 @@ async def preview_answer(business_id:uuid.UUID,body:Question,db=Depends(get_db),
     rows=svc.rank_sources(body.question,await svc.published_knowledge(db,business_id))
     sources=[{'id':str(r.id),'title':r.title,'text':r.content,'source':r.source,'version':r.version} for r in rows]
     return await answer(body.question,BusinessHistory([],business_id,sources))
+
+
+# Child routes inherit the Business feature gate; existing endpoints are unchanged.
+from backend.routers.business_studio import router as studio_router
+router.include_router(studio_router)
