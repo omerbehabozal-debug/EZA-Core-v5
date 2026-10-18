@@ -2,13 +2,11 @@
 
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { businessRequest as api, type BrandApplication, type Business } from '@/lib/eza/businessYansi';
-
-const STATUS_TR: Record<string, string> = {
-  received: 'Alındı',
-  under_review: 'İncelemede',
-  approved: 'Onaylandı',
-  rejected: 'Reddedildi',
-};
+import {
+  applicationActionLabel,
+  applicationStatusLabel,
+  formatPlatformDate,
+} from '@/lib/eza/platformAdminUi';
 
 const FILTERS = [
   { id: 'all', label: 'Tümü' },
@@ -57,6 +55,7 @@ export default function SainaBusinessAdminInbox({
 }: Props) {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['id']>('all');
   const [selectedId, setSelectedId] = useState<string>('');
+  const [mobileDetail, setMobileDetail] = useState(false);
   const [events, setEvents] = useState<AppEvent[]>([]);
   const [eventsError, setEventsError] = useState('');
 
@@ -65,7 +64,10 @@ export default function SainaBusinessAdminInbox({
     return applications.filter((a) => a.status === filter);
   }, [applications, filter]);
 
-  const selected = filtered.find((a) => a.id === selectedId) || filtered[0] || null;
+  const selected = useMemo(() => {
+    if (!filtered.length) return null;
+    return filtered.find((a) => a.id === selectedId) || filtered[0];
+  }, [filtered, selectedId]);
 
   useEffect(() => {
     if (!selected?.id) {
@@ -100,8 +102,16 @@ export default function SainaBusinessAdminInbox({
     });
   }
 
+  function selectApp(id: string) {
+    setSelectedId(id);
+    setMobileDetail(true);
+  }
+
   return (
-    <section className="biz-admin-inbox" aria-label="Business başvuru yönetimi">
+    <section
+      className={`biz-admin-inbox${mobileDetail ? ' is-mobile-detail' : ''}`}
+      aria-label="Business başvuru yönetimi"
+    >
       {!embedded ? (
         <header className="biz-panel-header">
           <div className="biz-brand-block">
@@ -121,7 +131,11 @@ export default function SainaBusinessAdminInbox({
           </div>
         </header>
       ) : (
-        <div className="biz-admin-toolbar">
+        <div className="padmin-section-head">
+          <div>
+            <h1 className="padmin-page-title">Marka Başvuruları</h1>
+            <p className="padmin-page-lead">Onay ve red işlemleri mevcut başvuru akışını kullanır.</p>
+          </div>
           <button type="button" className="biz-gate-secondary" disabled={busy} onClick={() => void onRefresh()}>
             Yenile
           </button>
@@ -147,7 +161,10 @@ export default function SainaBusinessAdminInbox({
             role="tab"
             aria-selected={filter === item.id}
             className={`biz-admin-filter${filter === item.id ? ' is-active' : ''}`}
-            onClick={() => setFilter(item.id)}
+            onClick={() => {
+              setFilter(item.id);
+              setMobileDetail(false);
+            }}
           >
             {item.label}
           </button>
@@ -157,7 +174,10 @@ export default function SainaBusinessAdminInbox({
       <div className="biz-admin-layout">
         <aside className="biz-admin-list" aria-label="Başvuru listesi">
           {filtered.length === 0 ? (
-            <p className="biz-empty">Bu filtrede başvuru yok.</p>
+            <div className="padmin-empty">
+              <strong>Başvuru yok</strong>
+              <p>Bu filtrede gösterilecek marka başvurusu bulunmuyor.</p>
+            </div>
           ) : (
             <ul>
               {filtered.map((app) => (
@@ -166,15 +186,17 @@ export default function SainaBusinessAdminInbox({
                     type="button"
                     className={`biz-admin-list-item${selected?.id === app.id ? ' is-active' : ''}`}
                     aria-current={selected?.id === app.id ? 'true' : undefined}
-                    onClick={() => setSelectedId(app.id)}
+                    onClick={() => selectApp(app.id)}
                     disabled={busy}
                   >
-                    <strong>{app.brand_name}</strong>
-                    <span className={`biz-status biz-status--${app.status}`}>
-                      {STATUS_TR[app.status] || app.status}
+                    <span className="biz-admin-list-top">
+                      <strong className="biz-admin-ellipsis">{app.brand_name}</strong>
+                      <span className={`biz-status biz-status--${app.status}`}>
+                        {applicationStatusLabel(app.status)}
+                      </span>
                     </span>
-                    <span className="biz-muted">{app.corporate_email}</span>
-                    {app.created_at ? <span className="biz-muted">{app.created_at}</span> : null}
+                    <span className="biz-admin-ellipsis biz-muted">{app.corporate_email}</span>
+                    <span className="biz-muted biz-admin-list-date">{formatPlatformDate(app.created_at)}</span>
                   </button>
                 </li>
               ))}
@@ -183,17 +205,33 @@ export default function SainaBusinessAdminInbox({
         </aside>
 
         <div className="biz-admin-detail">
+          <button
+            type="button"
+            className="biz-admin-back"
+            onClick={() => setMobileDetail(false)}
+          >
+            ← Listeye dön
+          </button>
+
           {!selected ? (
-            <p className="biz-section-lead">İncelemek için bir başvuru seçin.</p>
+            <div className="padmin-empty">
+              <strong>Başvuru seçin</strong>
+              <p>Detayları ve işlemleri görmek için soldaki listeden bir başvuru seçin.</p>
+            </div>
           ) : (
-            <article className="biz-card">
-              <h1 className="biz-section-title">{selected.brand_name}</h1>
-              <p className="biz-section-lead">
-                Durum:{' '}
-                <span className={`biz-status biz-status--${selected.status}`}>
-                  {STATUS_TR[selected.status] || selected.status}
-                </span>
-              </p>
+            <article className="biz-card padmin-detail-card">
+              <header className="padmin-detail-head">
+                <div className="padmin-detail-head-copy">
+                  <h2 className="padmin-detail-title">{selected.brand_name}</h2>
+                  <p className="padmin-detail-sub">
+                    <span className={`biz-status biz-status--${selected.status}`}>
+                      {applicationStatusLabel(selected.status)}
+                    </span>
+                    <span className="biz-muted">{formatPlatformDate(selected.created_at)}</span>
+                  </p>
+                </div>
+              </header>
+
               <dl className="biz-admin-meta">
                 <div>
                   <dt>Yetkili kişi</dt>
@@ -201,32 +239,20 @@ export default function SainaBusinessAdminInbox({
                 </div>
                 <div>
                   <dt>Kurumsal e-posta</dt>
-                  <dd>{selected.corporate_email}</dd>
+                  <dd className="biz-admin-break">{selected.corporate_email}</dd>
                 </div>
                 <div>
                   <dt>Web sitesi</dt>
-                  <dd>{selected.website || '—'}</dd>
+                  <dd className="biz-admin-break">{selected.website || '—'}</dd>
                 </div>
                 <div>
                   <dt>Şirket bilgileri</dt>
                   <dd>{selected.company_info || '—'}</dd>
                 </div>
-                {selected.applicant_user_id ? (
-                  <div>
-                    <dt>Başvuran kullanıcı</dt>
-                    <dd>{selected.applicant_user_id}</dd>
-                  </div>
-                ) : null}
                 {selected.reviewer_note ? (
                   <div>
                     <dt>Yönetici notu</dt>
                     <dd>{selected.reviewer_note}</dd>
-                  </div>
-                ) : null}
-                {selected.business_id ? (
-                  <div>
-                    <dt>Business ID</dt>
-                    <dd>{selected.business_id}</dd>
                   </div>
                 ) : null}
               </dl>
@@ -255,8 +281,8 @@ export default function SainaBusinessAdminInbox({
               </div>
 
               {(selected.status === 'received' || selected.status === 'under_review') && (
-                <form className="biz-form biz-gate-form" onSubmit={(e) => void approve(e)}>
-                  <h2 className="biz-section-title">Onayla ve Business aç</h2>
+                <form className="biz-form biz-gate-form padmin-approve-form" onSubmit={(e) => void approve(e)}>
+                  <h3 className="biz-section-title">Onayla ve Business aç</h3>
                   <p className="biz-section-lead">
                     Onay Organization, Business profili ve başvuru sahibine owner üyeliği oluşturur.
                   </p>
@@ -293,31 +319,35 @@ export default function SainaBusinessAdminInbox({
               ) : null}
 
               <div className="biz-admin-events">
-                <h2 className="biz-section-title">Başvuru geçmişi</h2>
+                <h3 className="biz-section-title">Başvuru geçmişi</h3>
                 {eventsError ? (
                   <p className="biz-muted">{eventsError}</p>
                 ) : events.length === 0 ? (
                   <p className="biz-muted">Kayıtlı olay yok.</p>
                 ) : (
-                  <ul>
+                  <ol className="padmin-timeline">
                     {events.map((ev) => (
                       <li key={ev.id}>
-                        <strong>{ev.action}</strong>
-                        <span className="biz-muted">
-                          {ev.from_status || '—'} → {ev.to_status || '—'}
-                        </span>
-                        {ev.created_at ? <span className="biz-muted">{ev.created_at}</span> : null}
+                        <span className="padmin-timeline-dot" aria-hidden />
+                        <div className="padmin-timeline-body">
+                          <strong>{applicationActionLabel(ev.action)}</strong>
+                          <span className="biz-muted">
+                            {applicationStatusLabel(ev.from_status || '') || '—'} →{' '}
+                            {applicationStatusLabel(ev.to_status || '') || '—'}
+                          </span>
+                          <time className="biz-muted">{formatPlatformDate(ev.created_at)}</time>
+                        </div>
                       </li>
                     ))}
-                  </ul>
+                  </ol>
                 )}
               </div>
             </article>
           )}
 
           {businesses.length > 0 && onOpenBusiness ? (
-            <div className="biz-card" style={{ marginTop: 16 }}>
-              <h2 className="biz-section-title">Üye olduğunuz Business hesapları</h2>
+            <div className="biz-card padmin-membership-card">
+              <h3 className="biz-section-title">Üye olduğunuz Business hesapları</h3>
               <ul className="biz-gate-list">
                 {businesses.map((b) => (
                   <li key={b.id}>

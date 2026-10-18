@@ -11,6 +11,8 @@ export type SainaAppView = 'chat' | 'pattern' | 'discover' | 'yansi' | 'my-page'
 
 export const SAINA_BUSINESS_ROUTE = '/standalone/business';
 export const SAINA_PLATFORM_ADMIN_ROUTE = '/standalone/admin';
+/** Dedicated Platform Admin sign-in (same auth backend; capability checked on /admin). */
+export const SAINA_PLATFORM_ADMIN_LOGIN_ROUTE = '/standalone/admin/login';
 
 export function isPublicYansiExperiencePath(pathname: string | null): boolean {
   if (!pathname) return false;

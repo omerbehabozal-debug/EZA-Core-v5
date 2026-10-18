@@ -147,7 +147,7 @@ describe('Business management', () => {
     expect(screen.queryByRole('link', { name: 'BiligN hesabımla devam et' })).not.toBeInTheDocument();
   });
 
-  it('routes platform admins without memberships to Platform Yönetimi', async () => {
+  it('keeps platform admins without memberships on Business onboarding', async () => {
     auth.user = { email: 'admin@example.test', user_id: 'admin1', role: 'admin' };
     api.mockImplementation(async (path = '') => {
       if (path === '') return { items: [], canProvision: true };
@@ -155,12 +155,13 @@ describe('Business management', () => {
       return { items: [] };
     });
     render(<SainaBusinessManager />);
-    expect(await screen.findByRole('heading', { name: 'Platform yöneticisi' })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Platform Yönetimi' })).toHaveAttribute(
-      'href',
-      '/standalone/admin'
-    );
-    expect(screen.queryByRole('button', { name: 'Bilgi Havuzu' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Marka yetkisi yok' })).toBeVisible();
+    expect(screen.getByRole('heading', { name: "Markanızı BiligN'e ekleyin" })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Başvuruyu gönder' })).toBeVisible();
+    // Optional Platform Yönetimi link may appear in account menu only after opening it —
+    // primary CTA must not force /standalone/admin.
+    expect(screen.queryByRole('heading', { name: 'Platform yöneticisi' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Platform Yönetimi' })).not.toBeInTheDocument();
   });
 
   it('shows brand picker when user has multiple businesses', async () => {

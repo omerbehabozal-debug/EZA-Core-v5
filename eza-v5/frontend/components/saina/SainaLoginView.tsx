@@ -26,11 +26,21 @@ import SainaSocialAuthButtons from '@/components/saina/SainaSocialAuthButtons';
 type SainaLoginViewProps = {
   returnPath: string | null;
   showRegisteredMessage?: boolean;
+  /** Override default BiligN login title (e.g. Platform Yönetimi). */
+  title?: string;
+  subtitle?: string;
+  /** Hide register CTA (admin console entry). */
+  hideRegister?: boolean;
+  footerNote?: string;
 };
 
 export default function SainaLoginView({
   returnPath,
   showRegisteredMessage = false,
+  title,
+  subtitle,
+  hideRegister = false,
+  footerNote,
 }: SainaLoginViewProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -125,7 +135,7 @@ export default function SainaLoginView({
   };
 
   return (
-    <SainaAuthShell title={SAINA_AUTH_LOGIN_TITLE}>
+    <SainaAuthShell title={title || SAINA_AUTH_LOGIN_TITLE} subtitle={subtitle}>
       {showRegisteredMessage ? (
         <p className="saina-auth-error" style={{ borderColor: 'rgba(231,180,91,0.22)', background: 'rgba(231,180,91,0.08)', color: 'rgba(246,244,239,0.88)' }}>
           Hesabın hazır. Giriş yapabilirsin.
@@ -178,10 +188,18 @@ export default function SainaLoginView({
         </button>
       </form>
 
-      <p className="saina-auth-page__footer" style={{ marginTop: '1rem' }}>
-        {SAINA_AUTH_NO_ACCOUNT}{' '}
-        <SainaAuthLink href={registerHref}>{SAINA_AUTH_REGISTER_SUBMIT}</SainaAuthLink>
-      </p>
+      {hideRegister ? (
+        footerNote ? (
+          <p className="saina-auth-page__footer" style={{ marginTop: '1rem' }}>
+            {footerNote}
+          </p>
+        ) : null
+      ) : (
+        <p className="saina-auth-page__footer" style={{ marginTop: '1rem' }}>
+          {SAINA_AUTH_NO_ACCOUNT}{' '}
+          <SainaAuthLink href={registerHref}>{SAINA_AUTH_REGISTER_SUBMIT}</SainaAuthLink>
+        </p>
+      )}
     </SainaAuthShell>
   );
 }

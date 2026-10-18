@@ -357,26 +357,8 @@ export default function SainaBusinessManager() {
     );
   }
 
-  if (admin && !items.length) {
-    return (
-      <main className="biz-panel">
-        <section className="biz-gate-hero">
-          <h1 className="biz-gate-title">Platform yöneticisi</h1>
-          <p className="biz-gate-lead">
-            Marka başvuruları ve platform işlemleri Platform Yönetimi panelindedir. Bu hesapta henüz bir Business
-            üyeliği yok.
-          </p>
-          <div className="biz-welcome-actions">
-            <Link className="biz-welcome-primary" href={SAINA_PLATFORM_ADMIN_ROUTE}>
-              Platform Yönetimi
-            </Link>
-            <div className="biz-header-actions">{accountMenu}</div>
-          </div>
-        </section>
-      </main>
-    );
-  }
-
+  // Platform admin capability must not replace Business membership. Admins without a brand
+  // stay on Business onboarding (application form), same as non-admins.
   if (!picked && items.length > 1) {
     return (
       <main className="biz-panel">
@@ -395,7 +377,7 @@ export default function SainaBusinessManager() {
   }
 
   // Application form only after a successful Business catalog response with no memberships.
-  if (!items.length && !admin) {
+  if (!items.length) {
     return (
       <main className="biz-panel">
         <SainaBusinessGate
