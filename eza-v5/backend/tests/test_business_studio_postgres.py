@@ -187,7 +187,6 @@ async def test_real_pg_migration_and_parallel_admission():
             generation_id = row.id
 
         # Stage 2: two independent requests for the same job make one provider call.
-        import os
         from types import SimpleNamespace
         from unittest.mock import AsyncMock, patch
         from backend.services.business_yansi import studio_execution, studio_generation
