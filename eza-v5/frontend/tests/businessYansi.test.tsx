@@ -114,12 +114,21 @@ describe('Business management', () => {
     render(<SainaBusinessManager />);
     await screen.findByText('BiligN', { selector: 'h2' });
     fireEvent.click(screen.getByRole('button', { name: 'Yansı Stüdyosu' }));
+    expect(screen.getByTestId('biz-yansi-workspace')).toBeInTheDocument();
     expect(screen.getByTestId('biz-yansi-studio')).toHaveAttribute('data-phase', 'sources');
     expect(screen.getByTestId('biz-studio-step-rail')).toBeInTheDocument();
     expect(screen.getByTestId('biz-studio-no-sources')).toBeInTheDocument();
     expect(screen.getByTestId('biz-studio-goto-knowledge')).toBeInTheDocument();
     expect(screen.queryByTestId('biz-studio-manual-form')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Onayla' })).not.toBeInTheDocument();
+    const engineToggle = screen.getByTestId('biz-engine-toggle');
+    expect(engineToggle).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByTestId('biz-engine-form')).not.toBeInTheDocument();
+    fireEvent.click(engineToggle);
+    expect(screen.getByTestId('biz-engine-form')).toBeInTheDocument();
+    expect(engineToggle).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(engineToggle);
+    expect(screen.queryByTestId('biz-engine-form')).not.toBeInTheDocument();
   });
 
   it('shows simplified BiligN welcome for anonymous users', async () => {

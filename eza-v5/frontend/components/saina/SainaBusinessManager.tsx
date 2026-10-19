@@ -71,7 +71,9 @@ export default function SainaBusinessManager() {
   const [editKnowledge, setEditKnowledge] = useState<Knowledge | null>(null);
   const [editDraft, setEditDraft] = useState<Draft | null>(null);
   const [editorialChat, setEditorialChat] = useState('');
-  const [answer, setAnswer] = useState('');  const [members, setMembers] = useState<{ user_id: string; role: string }[]>([]);
+  const [answer, setAnswer] = useState('');
+  const [engineOpen, setEngineOpen] = useState(false);
+  const [members, setMembers] = useState<{ user_id: string; role: string }[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
@@ -612,7 +614,7 @@ export default function SainaBusinessManager() {
               )}
 
               {tab === 'Yansı Stüdyosu' && (
-                <section>
+                <section className="biz-yansi-workspace" data-testid="biz-yansi-workspace">
                   <BusinessYansiStudio
                     key={editDraft?.id || `studio-${selected}`}
                     businessId={selected}
@@ -627,108 +629,124 @@ export default function SainaBusinessManager() {
                       setNotice('Taslak kaydedildi. İncelemeye gönderme owner onayını atlamaz.');
                     }}
                   />
-                  <h2 className="biz-section-title" style={{ marginTop: '2rem' }}>
-                    Taslaklar
-                  </h2>
-                  <p className="biz-section-lead">
-                    İnceleme, onay ve yayın mevcut Business kurallarıyla ilerler. AI üretim owner onayını atlamaz.
-                  </p>
-                  {!drafts.length && <p className="biz-empty">Henüz Yansı taslağı yok.</p>}
-                  {drafts.map((d) => (
-                    <article className="biz-card" key={d.id}>
-                      <div className="biz-card-head">
-                        <h3>{d.title}</h3>
-                        <span className={statusClass(d.status)}>{d.status}</span>
-                      </div>
-                      <p className="biz-card-meta">revision {d.revision}</p>
-                      <details>
-                        <summary>Soru-cevap önizlemesi</summary>
-                        {d.steps.map((s, i) => (
-                          <div key={i}>
-                            <strong>
-                              {i + 1}. {s.question}
-                            </strong>
-                            <p className="biz-copy">{s.answer}</p>
-                          </div>
-                        ))}
-                      </details>
-                      {editor && d.status === 'draft' && !d.conversation_id && (
-                        <div className="biz-actions">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditDraft(d);
-                            }}
-                          >
-                            Taslağı düzenle
-                          </button>
-                        </div>
-                      )}
-                      {actions('drafts', d)}
-                      {editor && d.status === 'approved' && (
-                        <div className="biz-actions">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void run(async () => {
-                                const result = await api<{ clientConversationId: string }>(
-                                  `${base}/drafts/${d.id}/editorial-conversation`,
-                                  'POST'
-                                );
-                                setEditorialChat(result.clientConversationId);
-                                setNotice(
-                                  `Editoryal sohbet hazır: ${result.clientConversationId}. Sohbet arşivinden açıp mevcut Ayna akışıyla özel Yansı oluştur; ardından slug ile yayın onayı ver.`
-                                );
-                              })
-                            }
-                          >
-                            Mevcut Ayna akışına hazırla
-                          </button>
-                        </div>
-                      )}
-                      {role === 'owner' && d.status === 'approved' && (
-                        <form
-                          className="biz-form"
-                          onSubmit={submit((data) =>
-                            api(`${base}/drafts/${d.id}/publish`, 'POST', {
-                              slug: data.slug,
-                              revision: d.revision,
-                            })
-                          )}
-                        >
-                          <input name="slug" placeholder="Özel sealed Yansı slug" required />
-                          <button type="submit" className="biz-btn-primary">
-                            Onaylı Business Yansı&apos;yı yayımla
-                          </button>
-                        </form>
-                      )}
-                    </article>
-                  ))}
-                  {editorialChat && (
-                    <p>
-                      <a href={`/standalone?chat=${encodeURIComponent(editorialChat)}`}>
-                        Ayna için editoryal sohbeti aç
-                      </a>
+                  <div className="biz-yansi-workspace-block">
+                    <h2 className="biz-section-title">Taslaklar</h2>
+                    <p className="biz-section-lead">
+                      İnceleme, onay ve yayın mevcut Business kurallarıyla ilerler. AI üretim owner onayını atlamaz.
                     </p>
-                  )}
-                  {editor && (
-                    <form
-                      className="biz-form"
-                      onSubmit={submit(async (data) => {
-                        const result = await api<{ assistant_answer: string }>(`${base}/preview-answer`, 'POST', {
-                          question: data.question,
-                        });
-                        setAnswer(result.assistant_answer);
-                      })}
-                    >
-                      <h3>Bilgi motorunu dene</h3>
-                      <p className="biz-section-lead" style={{ marginBottom: 0 }}>
-                        Mevcut mesaj kotası uygulanır.
+                    {!drafts.length && <p className="biz-empty">Henüz Yansı taslağı yok.</p>}
+                    {drafts.map((d) => (
+                      <article className="biz-card" key={d.id}>
+                        <div className="biz-card-head">
+                          <h3>{d.title}</h3>
+                          <span className={statusClass(d.status)}>{d.status}</span>
+                        </div>
+                        <p className="biz-card-meta">revision {d.revision}</p>
+                        <details>
+                          <summary>Soru-cevap önizlemesi</summary>
+                          {d.steps.map((s, i) => (
+                            <div key={i}>
+                              <strong>
+                                {i + 1}. {s.question}
+                              </strong>
+                              <p className="biz-copy">{s.answer}</p>
+                            </div>
+                          ))}
+                        </details>
+                        {editor && d.status === 'draft' && !d.conversation_id && (
+                          <div className="biz-actions">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditDraft(d);
+                              }}
+                            >
+                              Taslağı düzenle
+                            </button>
+                          </div>
+                        )}
+                        {actions('drafts', d)}
+                        {editor && d.status === 'approved' && (
+                          <div className="biz-actions">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void run(async () => {
+                                  const result = await api<{ clientConversationId: string }>(
+                                    `${base}/drafts/${d.id}/editorial-conversation`,
+                                    'POST'
+                                  );
+                                  setEditorialChat(result.clientConversationId);
+                                  setNotice(
+                                    `Editoryal sohbet hazır: ${result.clientConversationId}. Sohbet arşivinden açıp mevcut Ayna akışıyla özel Yansı oluştur; ardından slug ile yayın onayı ver.`
+                                  );
+                                })
+                              }
+                            >
+                              Mevcut Ayna akışına hazırla
+                            </button>
+                          </div>
+                        )}
+                        {role === 'owner' && d.status === 'approved' && (
+                          <form
+                            className="biz-form"
+                            onSubmit={submit((data) =>
+                              api(`${base}/drafts/${d.id}/publish`, 'POST', {
+                                slug: data.slug,
+                                revision: d.revision,
+                              })
+                            )}
+                          >
+                            <input name="slug" placeholder="Özel sealed Yansı slug" required />
+                            <button type="submit" className="biz-btn-primary">
+                              Onaylı Business Yansı&apos;yı yayımla
+                            </button>
+                          </form>
+                        )}
+                      </article>
+                    ))}
+                    {editorialChat && (
+                      <p>
+                        <a href={`/standalone?chat=${encodeURIComponent(editorialChat)}`}>
+                          Ayna için editoryal sohbeti aç
+                        </a>
                       </p>
-                      <input name="question" placeholder="Sorun" required />
-                      <button type="submit">Cevabı önizle</button>
-                      {answer && <p className="biz-copy">{answer}</p>}
-                    </form>
+                    )}
+                  </div>
+                  {editor && (
+                    <div className="biz-engine-panel" data-testid="biz-engine-panel">
+                      <button
+                        type="button"
+                        className="biz-engine-toggle"
+                        aria-expanded={engineOpen}
+                        data-testid="biz-engine-toggle"
+                        onClick={() => setEngineOpen((open) => !open)}
+                      >
+                        <span>Bilgi motorunu test et</span>
+                        <span className="biz-engine-toggle-hint" aria-hidden>
+                          {engineOpen ? '−' : '+'}
+                        </span>
+                      </button>
+                      {engineOpen ? (
+                        <form
+                          className="biz-form biz-engine-form"
+                          data-testid="biz-engine-form"
+                          onSubmit={submit(async (data) => {
+                            const result = await api<{ assistant_answer: string }>(`${base}/preview-answer`, 'POST', {
+                              question: data.question,
+                            });
+                            setAnswer(result.assistant_answer);
+                          })}
+                        >
+                          <p className="biz-section-lead" style={{ marginBottom: 0 }}>
+                            Mevcut mesaj kotası uygulanır. Bu alan Yansı oluşturma akışından bağımsızdır.
+                          </p>
+                          <input name="question" placeholder="Sorun" required />
+                          <button type="submit">Cevabı önizle</button>
+                          {answer && <p className="biz-copy">{answer}</p>}
+                        </form>
+                      ) : null}
+                    </div>
                   )}
                 </section>
               )}

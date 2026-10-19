@@ -1915,14 +1915,70 @@
   }
 }
 
+/* —— Yansı Stüdyosu workspace (studio + drafts + optional engine) —— */
+.biz-yansi-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  width: 100%;
+  max-width: min(100%, 1100px);
+}
+
+.biz-yansi-workspace-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.biz-engine-panel {
+  border-top: 1px solid var(--biz-border);
+  padding-top: 0.85rem;
+  margin-top: 0.25rem;
+}
+
+.biz-engine-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid var(--biz-border);
+  background: rgba(8, 12, 14, 0.55);
+  color: var(--biz-muted);
+  font: inherit;
+  font-size: 0.92rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.biz-engine-toggle:hover,
+.biz-engine-toggle[aria-expanded='true'] {
+  color: var(--biz-ink);
+  border-color: var(--biz-gold-line);
+}
+
+.biz-engine-toggle-hint {
+  color: var(--biz-gold);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.biz-engine-form {
+  margin-top: 0.75rem;
+  opacity: 0.96;
+}
+
 /* —— AI Yansı Stüdyosu (stepped UX) —— */
 .biz-studio {
   display: flex;
   flex-direction: column;
   gap: 1.1rem;
-  max-width: min(100%, 980px);
   width: 100%;
-  margin-inline: auto;
+  max-width: none;
+  margin-inline: 0;
 }
 
 .biz-studio-hero {
