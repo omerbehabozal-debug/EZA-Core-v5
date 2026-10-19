@@ -601,16 +601,26 @@ async def _project_discover_page(
             )
         )
     from backend.services.business_yansi.publication import public_publisher
-    public_items=[]
+    from fastapi import HTTPException
+
+    public_items = []
     for item in items:
-        from fastapi import HTTPException
+        brand = None
         try:
-            brand=await public_publisher(db,item.slug,item.journeyVersion)
+            brand = await public_publisher(db, item.slug, item.journeyVersion)
         except HTTPException as exc:
-            if exc.status_code != 404: raise
-            continue
+            # No business publication — keep personal/author Discover card.
+            if exc.status_code != 404:
+                raise
         if brand:
-            item=item.model_copy(update={'authorDisplayName':brand['displayName'],'publicAvatarUrl':brand['logoUrl'],'publicHonorific':None,'publisherKind':'business'})
+            item = item.model_copy(
+                update={
+                    "authorDisplayName": brand["displayName"],
+                    "publicAvatarUrl": brand["logoUrl"],
+                    "publicHonorific": None,
+                    "publisherKind": "business",
+                }
+            )
         public_items.append(item)
     return public_items
 

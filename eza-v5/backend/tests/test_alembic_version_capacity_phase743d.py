@@ -306,6 +306,10 @@ def _ensure_stub_fk_parents(database_url: str) -> None:
 
     Phase 8.8G-5.3.1 ALTERs conversation_groups (created before phase42), so
     the stamped path also needs a minimal pre-G5.3.1 conversation_groups stub.
+
+    Business Yansı (add_business_yansi_v1) FKs business_profiles.id →
+    production_organizations.id, which is not created by the phase42→head
+    graph before that revision.
     """
     engine = create_engine(database_url)
     with engine.begin() as connection:
@@ -313,6 +317,15 @@ def _ensure_stub_fk_parents(database_url: str) -> None:
             text(
                 """
                 CREATE TABLE IF NOT EXISTS production_users (
+                    id UUID PRIMARY KEY
+                )
+                """
+            )
+        )
+        connection.execute(
+            text(
+                """
+                CREATE TABLE IF NOT EXISTS production_organizations (
                     id UUID PRIMARY KEY
                 )
                 """

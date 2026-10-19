@@ -668,7 +668,7 @@ describe('SainaStandaloneShell (Sprint B.2E plan card)', () => {
     'keeps one account entry and trusts the current auth identity over stale shell tier %s', (tier) => {
       render(<SainaStandaloneShell {...shellProps} planTier={tier} />);
       expect(screen.getAllByTestId('saina-profile-menu-trigger')).toHaveLength(1);
-      expect(screen.getByTestId('saina-profile-menu-trigger')).toHaveTextContent('biligN Guest');
+      expect(screen.getByTestId('saina-profile-menu-trigger')).toHaveTextContent('Misafir');
       expect(screen.getByTestId('saina-profile-menu-trigger')).toHaveTextContent('Giriş yap / Kayıt ol');
       expect(screen.queryByTestId('saina-plan-card')).toBeNull();
       expect(screen.queryByText('biligN Premium ✦')).toBeNull();
