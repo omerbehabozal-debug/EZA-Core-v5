@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI Yansı Stüdyosu — Stage 3 preview</title>
+  <link rel="stylesheet" href="../../styles/saina-business.css" />
+  <style>
+    body { margin: 0; background: #050708; font-family: "Segoe UI", Georgia, serif; }
+    .frame { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
+  </style>
+</head>
+<body>
+  <div class="biz-panel frame">
+    <div class="biz-studio" data-testid="biz-yansi-studio">
+      <div class="biz-studio-hero">
+        <p class="biz-studio-eyebrow">AI Yansı Stüdyosu</p>
+        <h2 class="biz-section-title">Kaynaklardan sohbet üret</h2>
+        <p class="biz-section-lead">Yalnızca yayımlanmış Bilgi Havuzu kayıtları kullanılır.</p>
+        <ol class="biz-studio-steps-rail">
+          <li data-active="true">Kaynaklar</li>
+          <li data-active="true">Konu</li>
+          <li data-active="true">Sohbet</li>
+          <li data-active="false">Önizle / düzenle</li>
+        </ol>
+      </div>
+      <section class="biz-studio-panel">
+        <h3 class="biz-studio-panel-title">1. Kaynakları seç</h3>
+        <ul class="biz-studio-source-list">
+          <li><label class="biz-studio-source is-selected"><input type="checkbox" checked disabled /><span><strong>Menü hikâyesi</strong><em>ürün · v2</em><small>Marka kitabı</small></span></label></li>
+          <li><label class="biz-studio-source"><input type="checkbox" disabled /><span><strong>Misafir karşılama</strong><em>hizmet · v1</em><small>Operasyon notu</small></span></label></li>
+        </ul>
+      </section>
+      <div class="biz-studio-topic-grid">
+        <article class="biz-studio-topic-card is-selected">
+          <h4>Zeytinyağlı gelenek</h4>
+          <p>Dolma ve misafirlik hikâyesi üzerinden samimi bir sohbet.</p>
+          <p class="biz-studio-topic-source">Kaynaklı öneri · Menü hikâyesi</p>
+          <button class="biz-btn-primary" type="button">Sekiz soruluk sohbet oluştur</button>
+        </article>
+        <article class="biz-studio-topic-card">
+          <h4>Sofra ritüeli</h4>
+          <p>Paylaşım kültürü ve yavaş yemek.</p>
+          <p class="biz-studio-topic-source">2 kaynak pasajı</p>
+          <button class="biz-btn-primary" type="button">Sekiz soruluk sohbet oluştur</button>
+        </article>
+      </div>
+      <div class="biz-studio-status biz-studio-status--live">
+        <div class="biz-studio-status-row">
+          <span class="biz-studio-status-phase">Sohbet üretimi</span>
+          <span class="biz-studio-status-pill">Üretiliyor</span>
+        </div>
+        <p class="biz-studio-status-msg">Üretim sürüyor. Bu işlem ücretli olabilir; lütfen bekleyin ve tekrar tıklamayın.</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

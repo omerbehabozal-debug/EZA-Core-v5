@@ -7,7 +7,6 @@ import {
   type Business,
   type Knowledge,
   type Draft,
-  type Step,
   type Publication,
   type BrandApplication,
 } from '@/lib/eza/businessYansi';
@@ -16,11 +15,11 @@ import SainaBusinessGate from '@/components/saina/SainaBusinessGate';
 import { resolveAuthUserDisplayName } from '@/lib/eza/sainaIdentity';
 import { SAINA_PLATFORM_ADMIN_ROUTE } from '@/lib/eza/sainaRoutes';
 import SainaAuthAccountMark from '@/components/saina/SainaAuthAccountMark';
+import BusinessYansiStudio from '@/components/saina/business-studio/BusinessYansiStudio';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
 const tabs = ['Genel Bakış', 'Bilgi Havuzu', 'Yansı Stüdyosu', 'Yayınlar', 'Ayarlar'] as const;
-const emptySteps = (): Step[] => Array.from({ length: 8 }, () => ({ question: '', answer: '', sources: [] }));
 const LOGIN_MSG = 'Business yönetimi için giriş yapmalısın.';
 
 type CatalogState = 'idle' | 'loading' | 'ready' | 'unavailable' | 'blocked';
@@ -71,11 +70,8 @@ export default function SainaBusinessManager() {
   const [serviceMessage, setServiceMessage] = useState('');
   const [editKnowledge, setEditKnowledge] = useState<Knowledge | null>(null);
   const [editDraft, setEditDraft] = useState<Draft | null>(null);
-  const [steps, setSteps] = useState<Step[]>(emptySteps);
   const [editorialChat, setEditorialChat] = useState('');
-  const [preview, setPreview] = useState(false);
-  const [answer, setAnswer] = useState('');
-  const [members, setMembers] = useState<{ user_id: string; role: string }[]>([]);
+  const [answer, setAnswer] = useState('');  const [members, setMembers] = useState<{ user_id: string; role: string }[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
@@ -187,8 +183,6 @@ export default function SainaBusinessManager() {
     setEditorialChat('');
     setEditKnowledge(null);
     setEditDraft(null);
-    setPreview(false);
-    setSteps(emptySteps());
     setTab('Genel Bakış');
     if (selected) load(selected).catch((e) => setError(e.message));
   }, [selected]);
@@ -619,118 +613,25 @@ export default function SainaBusinessManager() {
 
               {tab === 'Yansı Stüdyosu' && (
                 <section>
-                  <h2 className="biz-section-title">Yansı Stüdyosu</h2>
+                  <BusinessYansiStudio
+                    key={editDraft?.id || `studio-${selected}`}
+                    businessId={selected}
+                    knowledge={knowledge}
+                    canEdit={editor}
+                    editDraft={editDraft}
+                    onClearEdit={() => setEditDraft(null)}
+                    onDraftSaved={async () => {
+                      setEditDraft(null);
+                      if (selected) await load(selected);
+                      setNotice('Taslak kaydedildi. İncelemeye gönderme owner onayını atlamaz.');
+                    }}
+                  />
+                  <h2 className="biz-section-title" style={{ marginTop: '2rem' }}>
+                    Taslaklar
+                  </h2>
                   <p className="biz-section-lead">
-                    Cevaplar yayımlanmış kaynaklardan birebir alıntı olmalı. Yayınlama ayrıca owner onayı ve mevcut
-                    Ayna/sealed Yansı doğrulamasını gerektirir.
+                    İnceleme, onay ve yayın mevcut Business kurallarıyla ilerler. AI üretim owner onayını atlamaz.
                   </p>
-                  {editor && (
-                    <form
-                      className="biz-form"
-                      key={editDraft?.id || 'new'}
-                      onSubmit={submit(async (data) => {
-                        await api(`${base}/drafts${editDraft ? '/' + editDraft.id : ''}`, editDraft ? 'PATCH' : 'POST', {
-                          title: data.title,
-                          summary: data.summary,
-                          steps,
-                          ...(editDraft ? { revision: editDraft.revision } : {}),
-                        });
-                        setEditDraft(null);
-                        setSteps(emptySteps());
-                      })}
-                    >
-                      <label>
-                        Başlık
-                        <input
-                          name="title"
-                          aria-label="Yansı başlığı"
-                          placeholder="Yansı başlığı"
-                          defaultValue={editDraft?.title}
-                          required
-                        />
-                      </label>
-                      <label>
-                        Özet
-                        <textarea name="summary" placeholder="Özet" defaultValue={editDraft?.summary} />
-                      </label>
-                      <div className="biz-step-grid">
-                        {steps.map((s, i) => (
-                          <div className="biz-step" key={i}>
-                            <h3>{i + 1}. adım</h3>
-                            <label>
-                              Soru
-                              <input
-                                aria-label={`${i + 1}. soru`}
-                                value={s.question}
-                                onChange={(e) =>
-                                  setSteps((old) =>
-                                    old.map((v, j) => (j === i ? { ...v, question: e.target.value } : v))
-                                  )
-                                }
-                                required
-                              />
-                            </label>
-                            <label>
-                              Cevap
-                              <textarea
-                                aria-label={`${i + 1}. cevap`}
-                                value={s.answer}
-                                maxLength={4000}
-                                onChange={(e) =>
-                                  setSteps((old) =>
-                                    old.map((v, j) => (j === i ? { ...v, answer: e.target.value } : v))
-                                  )
-                                }
-                                required
-                              />
-                            </label>
-                            <label>
-                              Kaynak
-                              <select
-                                aria-label={`${i + 1}. kaynak`}
-                                value={s.sources[0] || ''}
-                                onChange={(e) =>
-                                  setSteps((old) =>
-                                    old.map((v, j) => (j === i ? { ...v, sources: [e.target.value] } : v))
-                                  )
-                                }
-                                required
-                              >
-                                <option value="">Yayımlanmış kaynak seç</option>
-                                {knowledge
-                                  .filter((k) => k.status === 'published' && k.public_allowed)
-                                  .map((k) => (
-                                    <option key={k.id} value={k.id}>
-                                      {k.title} v{k.version}
-                                    </option>
-                                  ))}
-                              </select>
-                            </label>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="biz-actions">
-                        <button type="button" onClick={() => setPreview(!preview)}>
-                          Önizleme
-                        </button>
-                        <button type="submit" className="biz-btn-primary">
-                          Taslağı kaydet
-                        </button>
-                      </div>
-                      {preview && (
-                        <article className="biz-card">
-                          {steps.map((s, i) => (
-                            <div key={i}>
-                              <strong>
-                                {i + 1}. {s.question}
-                              </strong>
-                              <p className="biz-copy">{s.answer}</p>
-                            </div>
-                          ))}
-                        </article>
-                      )}
-                    </form>
-                  )}
                   {!drafts.length && <p className="biz-empty">Henüz Yansı taslağı yok.</p>}
                   {drafts.map((d) => (
                     <article className="biz-card" key={d.id}>
@@ -756,7 +657,6 @@ export default function SainaBusinessManager() {
                             type="button"
                             onClick={() => {
                               setEditDraft(d);
-                              setSteps(d.steps);
                             }}
                           >
                             Taslağı düzenle
