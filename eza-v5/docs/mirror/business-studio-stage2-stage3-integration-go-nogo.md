@@ -43,7 +43,21 @@ Frontend `businessStudio.ts` matches Stage 2 `business_studio.py`:
 | Offline strict JSON Schema (enums + `additionalProperties:false` + required props) | **PASS** (`strict_problems_count 0`, dynamic enums present) |
 | Recommended release models | `openai/gpt-4o`, `openai/gpt-4.1-mini`, or dated `gpt-4o-2024-08-06` |
 | `gpt-4o-mini` | OK for mock QA; Stage 2 docs mark it deprecated for release |
-| Paid enum-schema provider smoke | **NOT RUN** — awaiting explicit permission |
+| Paid enum-schema provider smoke (`openai/gpt-4.1-mini`, cap **$0.02**) | **PASS** — see below |
+
+### Paid smoke (authorized 2026-10-19)
+
+Synthetic sources only; no production DB/API/Business account.
+
+| Metric | Value |
+|--------|--------|
+| Model | `openai/gpt-4.1-mini` @ $0.40 / $1.60 per 1M in/out |
+| Calls | 2 (topics strict+enum, draft strict+enum) |
+| Tokens | 3751 in + 625 out |
+| Cost | **$0.0025004** (under $0.02) |
+| Topics | 2 validated via `validate_topics` |
+| Draft | 8 steps, exact source passage match via `validate_draft` / offsets |
+| Artifact | `backend/data/studio_paid_enum_schema_smoke_summary.json` |
 
 ## E2E Business flow
 
@@ -51,7 +65,8 @@ Frontend `businessStudio.ts` matches Stage 2 `business_studio.py`:
 |-------|--------|
 | Backend generation suite (mock provider) | 84 Studio unit+generation + broader 110 with Business |
 | Frontend Studio honesty/flow | 7/7 |
-| Live FE↔BE with real OpenAI | **Deferred** (needs paid permission + local flags) |
+| Live FE↔BE with real OpenAI | Provider+validator smoke **PASS**; full local UI+API loop with flags still optional pre-prod |
+| Paid enum-schema smoke | **PASS** ($0.0025004) |
 
 With flags off, UI correctly shows unavailable / blocked — never fake completed topics.
 
@@ -75,12 +90,12 @@ With flags off, UI correctly shows unavailable / blocked — never fake complete
 | Scope | Verdict |
 |-------|---------|
 | Integrate Stage 2+3 on feature branch / merge to main **code-only** | **GO** |
-| Production migration / deploy / flag ON | **NO-GO** |
-| Paid provider release smoke | **NO-GO until permission + configured model/prices** |
+| Paid provider enum-schema smoke | **PASS** |
+| Production migration / deploy / flag ON | **NO-GO** (Alembic reconcile + explicit flag approval still required) |
 
 ## Remaining risks
 
 1. Production Alembic still lags (editorial/guest missing; Business schema ahead of stamp) — reconcile before Studio DDL.
-2. Release model must be explicitly chosen; do not ship on deprecated mini without re-check.
-3. Dynamic enum schema verified offline + mocks; one paid provider probe still recommended before flag ON.
+2. Configure release `BILIGN_STUDIO_MODEL=openai/gpt-4.1-mini` (or newer) + `BILIGN_STUDIO_PRICES_JSON` explicitly before flag ON.
+3. Paid smoke did not exercise HTTP/Business auth path or draft DB persistence — those remain covered by mock+PG suites.
 4. No unattended expired-job sweeper (Stage 2 design) — ops follow-up.
