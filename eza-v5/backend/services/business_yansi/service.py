@@ -119,6 +119,27 @@ async def transition_knowledge(db,business_id,user_id,version_id,target,revision
     row.approved_by=uid(user_id) if target=='approved' else None if target=='draft' else row.approved_by
     await db.commit();await db.refresh(row);return row
 
+async def delete_knowledge(db, business_id, user_id, version_id, revision):
+    """Soft-delete one knowledge version by id (archive). Other titles/items untouched."""
+    await access(db, business_id, user_id, 'editor')
+    await db.scalar(select(BusinessProfile).where(BusinessProfile.id == uid(business_id)).with_for_update())
+    row = await db.scalar(
+        select(Knowledge)
+        .where(Knowledge.id == uid(version_id), Knowledge.business_id == uid(business_id))
+        .with_for_update()
+    )
+    if not row:
+        fail('knowledge_not_found', 404)
+    if row.revision != revision:
+        fail('revision_conflict', 409)
+    if row.status == 'archived':
+        return row
+    row.status = 'archived'
+    row.revision += 1
+    await db.commit()
+    await db.refresh(row)
+    return row
+
 async def published_knowledge(db,business_id,snapshot=None,*,fresh=False):
     query=select(Knowledge).where(Knowledge.business_id==uid(business_id),Knowledge.status=='published',Knowledge.public_allowed.is_(True),Knowledge.approved_by.is_not(None))
     if snapshot is not None: query=query.where(Knowledge.id.in_([uid(v) for v in snapshot]))

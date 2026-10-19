@@ -100,6 +100,35 @@ async def test_review_revision_and_versioning(sample):
     assert e.value.status_code==409
 
 @pytest.mark.asyncio
+async def test_delete_knowledge_soft_archives_by_version_id(sample):
+    s=sample
+    first=await source(s,title='BiligN Nedir?',content='Birinci kayıt içeriği')
+    second=await source(s,title='BiligN Nedir?',content='İkinci kayıt içeriği')
+    assert first.item_id!=second.item_id
+    assert {x.id for x in await svc.published_knowledge(s.db,s.business.id)}=={first.id,second.id}
+    first_revision=first.revision
+    deleted=await svc.delete_knowledge(s.db,s.business.id,s.editor.id,first.id,first_revision)
+    assert deleted.status=='archived' and deleted.revision==first_revision+1
+    await s.db.refresh(second)
+    assert second.status=='published'
+    published=await svc.published_knowledge(s.db,s.business.id)
+    assert [x.id for x in published]==[second.id]
+    # Idempotent soft-delete: already archived row is returned without revision bump side effects on others.
+    again=await svc.delete_knowledge(s.db,s.business.id,s.editor.id,first.id,deleted.revision)
+    assert again.status=='archived' and again.id==first.id
+    with pytest.raises(HTTPException) as denied:
+        await svc.delete_knowledge(s.db,s.business.id,s.viewer.id,second.id,second.revision)
+    assert denied.value.status_code==403
+    with pytest.raises(HTTPException) as conflict:
+        await svc.delete_knowledge(s.db,s.business.id,s.editor.id,second.id,999)
+    assert conflict.value.status_code==409
+    # Existing draft snapshot integrity: create draft from remaining source still works.
+    steps=[{'question':f'Yansı nedir {i}?','answer':second.content,'sources':[str(second.id)]} for i in range(8)]
+    draft=await svc.create_draft(s.db,s.business.id,s.editor.id,'Kaynaklı taslak','',steps)
+    assert draft.status=='draft' and str(second.id) in draft.knowledge_snapshot
+    assert str(first.id) not in draft.knowledge_snapshot
+
+@pytest.mark.asyncio
 async def test_sensitive_source_not_published(sample):
     s=sample
     with pytest.raises(HTTPException):await source(s,content='SECRET_PRIVATE_CONTACT must never appear')

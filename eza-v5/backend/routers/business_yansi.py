@@ -53,6 +53,7 @@ class KnowledgeCreate(Body):
     publicAllowed: bool=False
 class Transition(Body):
     target: Literal['draft','review','approved','published','archived']
+class KnowledgeDelete(Body):
     revision: int=Field(ge=1)
 class Step(Body):
     question: str=Field(min_length=1,max_length=1000)
@@ -250,6 +251,11 @@ async def add_knowledge(business_id:uuid.UUID,body:KnowledgeCreate,db=Depends(ge
 @router.post('/{business_id}/knowledge/{version_id}/transition')
 async def knowledge_transition(business_id:uuid.UUID,version_id:uuid.UUID,body:Transition,db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims);return await recorded(db,await svc.transition_knowledge(db,business_id,user.id,version_id,body.target,body.revision))
+@router.delete('/{business_id}/knowledge/{version_id}')
+async def remove_knowledge(business_id:uuid.UUID,version_id:uuid.UUID,body:KnowledgeDelete,db=Depends(get_db),claims=Depends(get_current_user)):
+    """Soft-delete a single knowledge version by id (archived). Does not touch other rows."""
+    user=await svc.actor(db,claims)
+    return await recorded(db,await svc.delete_knowledge(db,business_id,user.id,version_id,body.revision))
 @router.get('/{business_id}/drafts')
 async def drafts(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
     await manager(db,claims,business_id);return {'items':[record(row) for row in (await db.scalars(select(BusinessYansiDraft).where(BusinessYansiDraft.business_id==business_id))).all()]}

@@ -16,6 +16,7 @@ import { resolveAuthUserDisplayName } from '@/lib/eza/sainaIdentity';
 import { SAINA_PLATFORM_ADMIN_ROUTE } from '@/lib/eza/sainaRoutes';
 import SainaAuthAccountMark from '@/components/saina/SainaAuthAccountMark';
 import BusinessYansiStudio from '@/components/saina/business-studio/BusinessYansiStudio';
+import BusinessKnowledgePool from '@/components/saina/business-studio/BusinessKnowledgePool';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
@@ -68,10 +69,7 @@ export default function SainaBusinessManager() {
   /** Catalog load is separate from brand membership — never treat API-down as no-access. */
   const [catalogState, setCatalogState] = useState<CatalogState>('idle');
   const [serviceMessage, setServiceMessage] = useState('');
-  const [editKnowledge, setEditKnowledge] = useState<Knowledge | null>(null);
-  const [knowledgeFormOpen, setKnowledgeFormOpen] = useState(false);
-  const [knowledgeFormKey, setKnowledgeFormKey] = useState(0);
-  const [knowledgeDirty, setKnowledgeDirty] = useState(false);
+  const [knowledgeUi, setKnowledgeUi] = useState({ formOpen: false, dirty: false });
   const [editDraft, setEditDraft] = useState<Draft | null>(null);
   const [editorialChat, setEditorialChat] = useState('');
   const [answer, setAnswer] = useState('');
@@ -186,59 +184,22 @@ export default function SainaBusinessManager() {
     setMembers([]);
     setAnswer('');
     setEditorialChat('');
-    setEditKnowledge(null);
-    setKnowledgeFormOpen(false);
-    setKnowledgeDirty(false);
-    setKnowledgeFormKey((k) => k + 1);
+    setKnowledgeUi({ formOpen: false, dirty: false });
     setEditDraft(null);
     setTab('Genel Bakış');
     if (selected) load(selected).catch((e) => setError(e.message));
   }, [selected]);
 
-  function confirmDiscardKnowledge(): boolean {
-    if (!knowledgeDirty) return true;
-    return window.confirm('Kaydedilmemiş değişiklikler var. Çıkmak istiyor musunuz?');
-  }
-
-  function resetKnowledgeFormState() {
-    setEditKnowledge(null);
-    setKnowledgeFormOpen(false);
-    setKnowledgeDirty(false);
-    setKnowledgeFormKey((k) => k + 1);
-  }
-
-  function closeKnowledgeForm() {
-    if (!confirmDiscardKnowledge()) return;
-    resetKnowledgeFormState();
-  }
-
-  function openNewKnowledge() {
-    if (!confirmDiscardKnowledge()) return;
-    setEditKnowledge(null);
-    setKnowledgeDirty(false);
-    setKnowledgeFormKey((k) => k + 1);
-    setKnowledgeFormOpen(true);
-  }
-
-  function openEditKnowledge(row: Knowledge) {
-    if (knowledgeFormOpen && editKnowledge?.id === row.id && !knowledgeDirty) return;
-    if (!confirmDiscardKnowledge()) return;
-    setEditKnowledge(row);
-    setKnowledgeDirty(false);
-    setKnowledgeFormKey((k) => k + 1);
-    setKnowledgeFormOpen(true);
-  }
-
   function goToTab(next: (typeof tabs)[number]) {
-    if (tab === 'Bilgi Havuzu' && knowledgeFormOpen && knowledgeDirty && next !== 'Bilgi Havuzu') {
-      if (!confirmDiscardKnowledge()) return;
-      resetKnowledgeFormState();
+    if (tab === 'Bilgi Havuzu' && knowledgeUi.formOpen && knowledgeUi.dirty && next !== 'Bilgi Havuzu') {
+      if (!window.confirm('Kaydedilmemiş değişiklikler var. Çıkmak istiyor musunuz?')) return;
+      setKnowledgeUi({ formOpen: false, dirty: false });
     }
     setTab(next);
   }
 
   async function run(action: () => Promise<unknown>) {
-    if (busy) return;
+    if (busy) throw new Error('İşlem devam ediyor.');
     setBusy(true);
     setError('');
     setNotice('');
@@ -248,6 +209,7 @@ export default function SainaBusinessManager() {
       await loadList();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'İşlem tamamlanamadı.');
+      throw e;
     } finally {
       setBusy(false);
     }
@@ -289,8 +251,9 @@ export default function SainaBusinessManager() {
     );
   }
 
-  const activeKnowledge = knowledge.filter((k) => k.status !== 'archived');
-  const usableKnowledgeCount = activeKnowledge.filter((k) => k.status === 'published' && k.public_allowed).length;
+  const usableKnowledgeCount = knowledge.filter(
+    (k) => k.status === 'published' && k.public_allowed
+  ).length;
 
   if (!isAuthReady) {
     return (
@@ -561,169 +524,31 @@ export default function SainaBusinessManager() {
               )}
 
               {tab === 'Bilgi Havuzu' && (
-                <section className="biz-knowledge-workspace" data-testid="biz-knowledge-workspace">
-                  <header className="biz-knowledge-head">
-                    <div className="biz-knowledge-head-copy">
-                      <h2 className="biz-section-title">Bilgi Havuzu</h2>
-                      <p className="biz-section-lead">
-                        Marka bilgilerini kaydedin ve güncel tutun. Bu kayıt Yansı yayını oluşturmaz; Stüdyo ve bilgi
-                        motoru, kullanıcıya açıklanmasına izin verilen kayıtlardan yararlanır.
-                      </p>
-                    </div>
-                    {editor ? (
-                      knowledgeFormOpen ? (
-                        <button
-                          type="button"
-                          className="biz-knowledge-secondary"
-                          data-testid="biz-knowledge-back-list"
-                          onClick={closeKnowledgeForm}
-                        >
-                          Listeye dön
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          className="biz-btn-primary biz-knowledge-new"
-                          data-testid="biz-knowledge-new"
-                          onClick={openNewKnowledge}
-                        >
-                          + Yeni bilgi
-                        </button>
-                      )
-                    ) : null}
-                  </header>
-
-                  {editor && knowledgeFormOpen ? (
-                    <form
-                      className="biz-form biz-knowledge-form"
-                      key={`knowledge-form-${knowledgeFormKey}`}
-                      data-testid="biz-knowledge-form"
-                      data-mode={editKnowledge ? 'edit' : 'create'}
-                      onInput={() => setKnowledgeDirty(true)}
-                      onChange={() => setKnowledgeDirty(true)}
-                      onSubmit={submit(async (data) => {
-                        const editing = editKnowledge;
-                        await api(`${base}/knowledge`, 'POST', {
-                          ...data,
-                          publicAllowed: data.publicAllowed === 'on',
-                          ...(editing ? { itemId: editing.item_id } : {}),
-                        });
-                        setEditKnowledge(null);
-                        setKnowledgeFormOpen(false);
-                        setKnowledgeDirty(false);
-                        setKnowledgeFormKey((k) => k + 1);
-                        setNotice(editing ? 'Bilgi güncellendi.' : 'Bilgi kaydedildi.');
-                      })}
-                    >
-                      <h3>{editKnowledge ? 'Bilgiyi güncelle' : 'Yeni bilgi'}</h3>
-                      <label>
-                        Başlık
-                        <input
-                          name="title"
-                          aria-label="Bilgi başlığı"
-                          placeholder="Başlık"
-                          maxLength={160}
-                          defaultValue={editKnowledge?.title || ''}
-                          required
-                        />
-                      </label>
-                      <label>
-                        Kategori
-                        <input
-                          name="category"
-                          placeholder="Kategori"
-                          defaultValue={editKnowledge?.category || ''}
-                        />
-                      </label>
-                      <label>
-                        İçerik
-                        <textarea
-                          name="content"
-                          aria-label="Bilgi içeriği"
-                          placeholder="Marka bilgisi"
-                          maxLength={12000}
-                          defaultValue={editKnowledge?.content || ''}
-                          required
-                        />
-                      </label>
-                      <label>
-                        Kaynak
-                        <input
-                          name="source"
-                          placeholder="Kaynak bağlantısı veya açıklaması"
-                          defaultValue={editKnowledge?.source || ''}
-                          required
-                        />
-                      </label>
-                      <label className="biz-check">
-                        <input
-                          type="checkbox"
-                          name="publicAllowed"
-                          defaultChecked={editKnowledge ? editKnowledge.public_allowed : true}
-                        />
-                        Kullanıcılara açıklanmasına izin ver
-                      </label>
-                      <div className="biz-actions">
-                        <button type="submit" className="biz-btn-primary" data-testid="biz-knowledge-save">
-                          {editKnowledge ? 'Güncelle' : 'Bilgiyi kaydet'}
-                        </button>
-                        <button type="button" data-testid="biz-knowledge-cancel" onClick={closeKnowledgeForm}>
-                          Vazgeç
-                        </button>
-                      </div>
-                    </form>
-                  ) : null}
-
-                  <div
-                    className={`biz-knowledge-list${knowledgeFormOpen ? ' is-dimmed' : ''}`}
-                    data-testid="biz-knowledge-list"
-                  >
-                    {!activeKnowledge.length ? (
-                      <p className="biz-empty" data-testid="biz-knowledge-empty">
-                        Henüz bilgi kaydı yok.
-                        {editor ? ' “+ Yeni bilgi” ile ilk kaydı ekleyin.' : ''}
-                      </p>
-                    ) : null}
-                    {activeKnowledge.map((k) => (
-                      <article
-                        className="biz-card biz-knowledge-card"
-                        key={k.id}
-                        data-testid={`biz-knowledge-card-${k.id}`}
-                      >
-                        <div className="biz-card-head">
-                          <h3>{k.title}</h3>
-                          <span className="biz-chip">
-                            {k.public_allowed ? 'Kullanıcılara açık' : 'Yalnızca marka'}
-                          </span>
-                        </div>
-                        <p className="biz-card-meta">
-                          {k.category || 'genel'} · sürüm {k.version}
-                        </p>
-                        <p className="biz-copy">{k.content}</p>
-                        <small>{k.source}</small>
-                        {editor && (
-                          <div className="biz-actions">
-                            <button
-                              type="button"
-                              data-testid={`biz-knowledge-edit-${k.id}`}
-                              onClick={() => openEditKnowledge(k)}
-                            >
-                              Düzenle
-                            </button>
-                            {role === 'owner' && k.status === 'published' && (
-                              <button
-                                type="button"
-                                onClick={() => void run(() => transition('knowledge', k, 'archived'))}
-                              >
-                                Arşivle
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </article>
-                    ))}
-                  </div>
-                </section>
+                <BusinessKnowledgePool
+                  knowledge={knowledge}
+                  canEdit={editor}
+                  busy={busy}
+                  onUiStateChange={setKnowledgeUi}
+                  onSave={async (payload) => {
+                    await run(async () => {
+                      await api(`${base}/knowledge`, 'POST', {
+                        title: payload.title,
+                        category: payload.category,
+                        content: payload.content,
+                        source: payload.source,
+                        publicAllowed: payload.publicAllowed,
+                        ...(payload.itemId ? { itemId: payload.itemId } : {}),
+                      });
+                      setNotice(payload.itemId ? 'Bilgi güncellendi.' : 'Bilgi kaydedildi.');
+                    });
+                  }}
+                  onDelete={async (row) => {
+                    await run(async () => {
+                      await api(`${base}/knowledge/${row.id}`, 'DELETE', { revision: row.revision });
+                      setNotice('Bilgi silindi.');
+                    });
+                  }}
+                />
               )}
 
               {tab === 'Yansı Stüdyosu' && (

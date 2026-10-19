@@ -177,6 +177,7 @@ describe('Business management', () => {
     fireEvent.click(screen.getByTestId('biz-knowledge-new'));
     expect(screen.getByLabelText('Bilgi başlığı')).toHaveValue('');
     expect(screen.getByLabelText('Bilgi içeriği')).toHaveValue('');
+    fireEvent.click(screen.getByTestId('biz-knowledge-back-list'));
 
     fireEvent.click(screen.getByTestId('biz-knowledge-edit-kb-1'));
     expect(screen.getByTestId('biz-knowledge-form')).toHaveAttribute('data-mode', 'edit');
@@ -215,6 +216,137 @@ describe('Business management', () => {
     expect(confirmSpy).toHaveBeenCalled();
     expect(screen.getByTestId('biz-knowledge-form')).toBeInTheDocument();
     confirmSpy.mockRestore();
+  });
+
+  it('supports knowledge search, detail, delete-by-id and cancels delete', async () => {
+    let knowledgeItems = [
+      {
+        id: 'kb-a',
+        item_id: 'item-a',
+        title: 'BiligN Nedir?',
+        category: 'marka',
+        content: 'Birinci kayıt — BiligN marka tanımı.',
+        source: 'Marka kitabı',
+        public_allowed: true,
+        status: 'published',
+        version: 1,
+        revision: 1,
+        created_at: '2026-10-01T10:00:00Z',
+        updated_at: '2026-10-02T10:00:00Z',
+      },
+      {
+        id: 'kb-b',
+        item_id: 'item-b',
+        title: 'BiligN Nedir?',
+        category: 'ürün',
+        content: 'İkinci kayıt — ürün deneyimi özeti.',
+        source: 'Ürün notu',
+        public_allowed: false,
+        status: 'published',
+        version: 1,
+        revision: 2,
+        created_at: '2026-10-03T10:00:00Z',
+        updated_at: '2026-10-04T10:00:00Z',
+      },
+    ];
+    api.mockImplementation(async (path = '', method = 'GET', body?: unknown) => {
+      if (path === '') return { items: [business], canProvision: false };
+      if (path === '/applications/mine') return { items: [] };
+      if (String(path).endsWith('/overview')) return { business, role: 'editor', publications: [] };
+      if (String(path).endsWith('/knowledge') && method === 'GET') return { items: knowledgeItems };
+      if (String(path).includes('/knowledge/') && method === 'DELETE') {
+        const id = String(path).split('/').pop();
+        const payload = body as { revision?: number };
+        const row = knowledgeItems.find((k) => k.id === id);
+        expect(row).toBeTruthy();
+        expect(payload.revision).toBe(row?.revision);
+        knowledgeItems = knowledgeItems.filter((k) => k.id !== id);
+        return { ...row, status: 'archived', revision: (row?.revision || 1) + 1 };
+      }
+      return { items: [] };
+    });
+    render(<SainaBusinessManager />);
+    await screen.findByText('BiligN', { selector: 'h2' });
+    fireEvent.click(screen.getByRole('button', { name: 'Bilgi Havuzu' }));
+
+    expect(screen.getByTestId('biz-knowledge-count')).toHaveTextContent('2 bilgi');
+    expect(screen.getByText('Kapalı')).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('biz-knowledge-search'), { target: { value: 'ürün deneyimi' } });
+    expect(screen.getByTestId('biz-knowledge-count')).toHaveTextContent('1 bilgi');
+    expect(screen.getByTestId('biz-knowledge-card-kb-b')).toBeInTheDocument();
+    expect(screen.queryByTestId('biz-knowledge-card-kb-a')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByTestId('biz-knowledge-search'), { target: { value: '' } });
+    fireEvent.change(screen.getByTestId('biz-knowledge-category'), { target: { value: 'marka' } });
+    expect(screen.getByTestId('biz-knowledge-count')).toHaveTextContent('1 bilgi');
+    fireEvent.change(screen.getByTestId('biz-knowledge-category'), { target: { value: 'all' } });
+
+    fireEvent.click(screen.getByTestId('biz-knowledge-open-kb-a'));
+    expect(screen.getByTestId('biz-knowledge-detail')).toHaveTextContent('Birinci kayıt — BiligN marka tanımı.');
+    expect(screen.getByTestId('biz-knowledge-detail')).toHaveTextContent('Kaynak: Marka kitabı');
+
+    fireEvent.click(screen.getByTestId('biz-knowledge-delete-kb-a'));
+    expect(screen.getByTestId('biz-knowledge-delete-dialog')).toHaveTextContent('BiligN Nedir?');
+    fireEvent.click(screen.getByRole('button', { name: 'Vazgeç' }));
+    expect(screen.queryByTestId('biz-knowledge-delete-dialog')).not.toBeInTheDocument();
+    expect(screen.getByTestId('biz-knowledge-card-kb-a')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('biz-knowledge-delete-kb-a'));
+    fireEvent.click(screen.getByTestId('biz-knowledge-delete-confirm'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('biz-knowledge-card-kb-a')).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId('biz-knowledge-card-kb-b')).toBeInTheDocument();
+    expect(screen.getByTestId('biz-knowledge-count')).toHaveTextContent('1 bilgi');
+    expect(api).toHaveBeenCalledWith('/business-a/knowledge/kb-a', 'DELETE', { revision: 1 });
+  });
+
+  it('disables knowledge save while a request is in flight', async () => {
+    let resolvePost: ((value: unknown) => void) | undefined;
+    api.mockImplementation(async (path = '', method = 'GET', body?: unknown) => {
+      if (path === '') return { items: [business], canProvision: false };
+      if (path === '/applications/mine') return { items: [] };
+      if (String(path).endsWith('/overview')) return { business, role: 'editor', publications: [] };
+      if (String(path).endsWith('/knowledge') && method === 'GET') return { items: [] };
+      if (String(path).endsWith('/knowledge') && method === 'POST') {
+        return await new Promise((resolve) => {
+          resolvePost = resolve;
+        });
+      }
+      return { items: [] };
+    });
+    render(<SainaBusinessManager />);
+    await screen.findByText('BiligN', { selector: 'h2' });
+    fireEvent.click(screen.getByRole('button', { name: 'Bilgi Havuzu' }));
+    fireEvent.click(screen.getByTestId('biz-knowledge-new'));
+    fireEvent.change(screen.getByLabelText('Bilgi başlığı'), { target: { value: 'Tek kayıt' } });
+    fireEvent.change(screen.getByLabelText('Bilgi içeriği'), { target: { value: 'İçerik' } });
+    fireEvent.change(screen.getByPlaceholderText('Kaynak bağlantısı veya açıklaması'), {
+      target: { value: 'Kaynak' },
+    });
+    fireEvent.click(screen.getByTestId('biz-knowledge-save'));
+    await waitFor(() => {
+      expect(screen.getByTestId('biz-knowledge-save')).toBeDisabled();
+    });
+    fireEvent.click(screen.getByTestId('biz-knowledge-save'));
+    const postCalls = api.mock.calls.filter(
+      (call) => String(call[0]).endsWith('/knowledge') && call[1] === 'POST'
+    );
+    expect(postCalls).toHaveLength(1);
+    resolvePost?.({
+      id: 'kb-new',
+      item_id: 'item-new',
+      title: 'Tek kayıt',
+      category: '',
+      content: 'İçerik',
+      source: 'Kaynak',
+      public_allowed: true,
+      status: 'published',
+      version: 1,
+      revision: 1,
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId('biz-knowledge-form')).not.toBeInTheDocument();
+    });
   });
 
   it('opens stepped Yansı Stüdyosu without default eight-step manual form', async () => {
@@ -325,8 +457,8 @@ describe('Business management', () => {
     fireEvent.click(screen.getByRole('button', { name: 'İkinci Marka' }));
     await screen.findByRole('heading', { name: 'İkinci Marka' });
     fireEvent.click(screen.getByRole('button', { name: 'Bilgi Havuzu' }));
-    expect(await screen.findByRole('heading', { name: /İkinci Bilgi/ })).toBeVisible();
-    expect(screen.queryByRole('heading', { name: /Birinci Bilgi/ })).not.toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /İkinci Bilgi/ })).toBeVisible();
+    expect(screen.queryByRole('button', { name: /Birinci Bilgi/ })).not.toBeInTheDocument();
   });
 });
 

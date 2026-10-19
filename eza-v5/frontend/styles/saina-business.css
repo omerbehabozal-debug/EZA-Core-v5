@@ -1915,13 +1915,25 @@
   }
 }
 
-/* —— Bilgi Havuzu (list-first save / edit) —— */
+/* —— Bilgi Havuzu (compact list / table) —— */
+.biz-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .biz-knowledge-workspace {
   display: flex;
   flex-direction: column;
   gap: 1.15rem;
   width: 100%;
-  max-width: min(100%, 1100px);
+  max-width: min(100%, 1180px);
 }
 
 .biz-knowledge-head {
@@ -1950,7 +1962,7 @@
   background: transparent;
   border: 1px solid var(--biz-border);
   color: var(--biz-muted);
-  border-radius: 999px;
+  border-radius: 10px;
   padding: 0.55rem 1rem;
   font: inherit;
   cursor: pointer;
@@ -1965,32 +1977,239 @@
   margin: 0;
 }
 
-.biz-knowledge-list {
+.biz-knowledge-toolbar {
   display: grid;
-  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1.4fr) minmax(8rem, 0.7fr) minmax(10rem, 0.9fr) auto;
+  gap: 0.65rem;
+  align-items: center;
 }
 
-.biz-knowledge-list.is-dimmed {
-  opacity: 0.72;
+.biz-knowledge-toolbar label {
+  margin: 0;
+  display: block;
+  min-width: 0;
 }
 
-.biz-knowledge-card {
-  padding: 0.9rem 1rem;
+.biz-knowledge-toolbar input,
+.biz-knowledge-toolbar select {
+  width: 100%;
+  margin-top: 0;
+  border-radius: 10px;
+  border: 1px solid var(--biz-border);
+  background: rgba(8, 12, 14, 0.55);
+  color: var(--biz-ink);
+  padding: 0.55rem 0.75rem;
+  font: inherit;
 }
 
-.biz-knowledge-card .biz-copy {
-  margin: 0.45rem 0;
+.biz-knowledge-count {
+  margin: 0;
+  justify-self: end;
+  color: var(--biz-muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.biz-knowledge-table-wrap {
+  border: 1px solid var(--biz-border);
+  border-radius: 14px;
+  background: rgba(8, 12, 14, 0.42);
+  overflow: hidden;
+}
+
+.biz-knowledge-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.biz-knowledge-table th,
+.biz-knowledge-table td {
+  padding: 0.75rem 0.85rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--biz-border);
+}
+
+.biz-knowledge-table th {
+  color: var(--biz-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  background: rgba(231, 180, 91, 0.04);
+}
+
+.biz-knowledge-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.biz-knowledge-table tbody tr.is-selected {
+  background: rgba(231, 180, 91, 0.06);
+}
+
+.biz-knowledge-table th:nth-child(1),
+.biz-knowledge-table td:nth-child(1) {
+  width: 18%;
+}
+
+.biz-knowledge-table th:nth-child(2),
+.biz-knowledge-table td:nth-child(2) {
+  width: 12%;
+}
+
+.biz-knowledge-table th:nth-child(3),
+.biz-knowledge-table td:nth-child(3) {
+  width: 32%;
+}
+
+.biz-knowledge-table th:nth-child(4),
+.biz-knowledge-table td:nth-child(4) {
+  width: 14%;
+}
+
+.biz-knowledge-table th:nth-child(5),
+.biz-knowledge-table td:nth-child(5) {
+  width: 12%;
+}
+
+.biz-knowledge-table th:nth-child(6),
+.biz-knowledge-table td:nth-child(6) {
+  width: 12%;
+}
+
+.biz-knowledge-title-btn {
+  display: inline;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: none;
+  color: var(--biz-ink);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.biz-knowledge-title-btn:hover {
+  color: var(--biz-gold);
+}
+
+.biz-knowledge-cat {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--biz-border);
+  color: var(--biz-muted);
+  font-size: 0.78rem;
+  line-height: 1.3;
+}
+
+.biz-knowledge-summary {
+  margin: 0;
+  color: var(--biz-muted);
+  font-size: 0.88rem;
+  line-height: 1.45;
   display: -webkit-box;
-  -webkit-line-clamp: 4;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.biz-knowledge-card .biz-actions {
-  margin-top: 0.55rem;
+.biz-knowledge-date {
+  color: var(--biz-muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
 }
 
-@media (max-width: 640px) {
+.biz-knowledge-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.biz-knowledge-row-actions button {
+  border-radius: 8px;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.82rem;
+}
+
+.biz-knowledge-danger {
+  color: #e8b4b0 !important;
+  border-color: rgba(210, 120, 110, 0.35) !important;
+}
+
+.biz-knowledge-danger-solid {
+  background: rgba(180, 70, 60, 0.28) !important;
+  border-color: rgba(210, 120, 110, 0.45) !important;
+  color: #f0cfcb !important;
+}
+
+.biz-knowledge-detail {
+  border: 1px solid var(--biz-border);
+  border-radius: 14px;
+  background: rgba(8, 12, 14, 0.55);
+  padding: 1rem 1.1rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.biz-knowledge-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.biz-knowledge-detail-head h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.biz-knowledge-detail-body {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+.biz-knowledge-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(4, 6, 8, 0.72);
+}
+
+.biz-knowledge-modal-card {
+  width: min(100%, 420px);
+  border: 1px solid var(--biz-border);
+  border-radius: 14px;
+  background: #12171a;
+  padding: 1.15rem 1.2rem;
+  display: grid;
+  gap: 0.75rem;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.45);
+}
+
+.biz-knowledge-modal-card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+@media (max-width: 900px) {
+  .biz-knowledge-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .biz-knowledge-count {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 760px) {
   .biz-knowledge-head {
     flex-direction: column;
     align-items: stretch;
@@ -2002,8 +2221,46 @@
     text-align: center;
   }
 
-  .biz-knowledge-list.is-dimmed {
+  .biz-knowledge-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .biz-knowledge-table thead {
     display: none;
+  }
+
+  .biz-knowledge-table,
+  .biz-knowledge-table tbody,
+  .biz-knowledge-table tr,
+  .biz-knowledge-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .biz-knowledge-table tr {
+    padding: 0.85rem 0.9rem;
+    border-bottom: 1px solid var(--biz-border);
+  }
+
+  .biz-knowledge-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .biz-knowledge-table td {
+    padding: 0.2rem 0;
+    border: 0;
+  }
+
+  .biz-knowledge-table td:nth-child(5) {
+    margin-top: 0.25rem;
+  }
+
+  .biz-knowledge-table td:nth-child(6) {
+    margin-top: 0.55rem;
+  }
+
+  .biz-knowledge-date {
+    white-space: normal;
   }
 }
 

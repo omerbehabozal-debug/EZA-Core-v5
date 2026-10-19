@@ -2,7 +2,20 @@ import { getApiUrl } from '@/lib/apiUrl';
 import { getAuthToken } from '@/lib/eza/authTokenStore';
 
 export type Business = { id: string; name: string; slug: string; description: string; logo_url: string | null; verified: boolean; official: boolean; status: string };
-export type Knowledge = { id: string; item_id: string; title: string; category: string; content: string; source: string; public_allowed: boolean; status: string; version: number; revision: number };
+export type Knowledge = {
+  id: string;
+  item_id: string;
+  title: string;
+  category: string;
+  content: string;
+  source: string;
+  public_allowed: boolean;
+  status: string;
+  version: number;
+  revision: number;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
 export type Step = { question: string; answer: string; sources: string[] };
 export type Draft = { id: string; title: string; summary: string; steps: Step[]; status: string; revision: number; conversation_id: string | null };
 export type Publication = { slug: string; journey_version: number; visibility?: string };
