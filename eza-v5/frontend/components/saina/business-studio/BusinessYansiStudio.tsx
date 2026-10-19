@@ -185,7 +185,7 @@ export default function BusinessYansiStudio({
     setError('');
     setUnavailable(null);
     if (published.length === 0) {
-      setError('Yayımlanmış ve herkese açık Bilgi Havuzu kaydı yok. Önce kaynak ekleyip onaylatın.');
+      setError('Kullanıcılara açıklanmasına izin verilen Bilgi Havuzu kaydı yok. Önce Bilgi Havuzu’na kayıt ekleyin.');
       return;
     }
     if (selectedIds.length === 0) {
@@ -409,8 +409,8 @@ export default function BusinessYansiStudio({
         <p className="biz-studio-eyebrow">AI Yansı Stüdyosu</p>
         <h2 className="biz-section-title">Kaynaklardan sohbet üret</h2>
         <p className="biz-section-lead">
-          Adım adım ilerleyin. Yalnızca yayımlanmış Bilgi Havuzu kayıtları kullanılır; owner onayı ve Ayna yayını bu
-          akışın dışındadır.
+          Adım adım ilerleyin. Kullanıcılara açıklanmasına izin verilen Bilgi Havuzu kayıtları kullanılır; owner onayı
+          ve Ayna yayını bu akışın dışındadır.
         </p>
         <StudioStepRail steps={railSteps} onSelect={goToPhase} />
       </div>
@@ -445,8 +445,8 @@ export default function BusinessYansiStudio({
           {showEmptyKnowledge ? (
             <div className="biz-studio-empty" data-testid="biz-studio-no-sources">
               <p>
-                Yayımlanmış ve herkese açık Bilgi Havuzu kaydı yok. Stüdyo, onaylı kaynak olmadan konu veya sohbet
-                üretemez; sekiz soruluk manuel form da burada açılmaz.
+                Kullanıcılara açıklanmasına izin verilen Bilgi Havuzu kaydı yok. Önce Bilgi Havuzu’na kayıt ekleyin;
+                sekiz soruluk manuel form burada açılmaz.
               </p>
               {onOpenKnowledgePool ? (
                 <button
@@ -479,7 +479,7 @@ export default function BusinessYansiStudio({
                         <span>
                           <strong>{k.title}</strong>
                           <em>
-                            {k.category || 'genel'} · v{k.version} · yayımlı
+                            {k.category || 'genel'} · v{k.version} · havuz
                           </em>
                           <small>{k.source}</small>
                         </span>

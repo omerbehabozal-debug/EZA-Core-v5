@@ -51,9 +51,13 @@ async def sample(monkeypatch):
     await engine.dispose()
 
 async def source(s,content='Yansı yayımlanmış bir sohbet deneyimidir.',**kwargs):
-    row=await svc.create_knowledge(s.db,s.business.id,s.owner.id,{'title':'Yansı nedir','content':content,'source':'Doğrulanmış uygulama akışı','publicAllowed':True,**kwargs})
-    for state in ['review','approved','published']:await svc.transition_knowledge(s.db,s.business.id,s.owner.id,row.id,state,row.revision)
-    return row
+    # Save = usable pool entry when publicAllowed (no review/approve/publish chain).
+    return await svc.create_knowledge(
+        s.db,
+        s.business.id,
+        s.owner.id,
+        {'title':'Yansı nedir','content':content,'source':'Doğrulanmış uygulama akışı','publicAllowed':True,**kwargs},
+    )
 
 @pytest.mark.asyncio
 async def test_roles_and_no_corporate_escalation(sample):
@@ -83,10 +87,15 @@ async def test_tenant_and_status_isolation(sample):
 @pytest.mark.asyncio
 async def test_review_revision_and_versioning(sample):
     s=sample;k=await source(s)
+    assert k.status=='published' and k.approved_by==s.owner.id
     replacement=await svc.create_knowledge(s.db,s.business.id,s.editor.id,{'itemId':str(k.item_id),'title':k.title,'content':k.content,'source':k.source,'publicAllowed':True})
-    assert replacement.version==2 and replacement.status=='draft'
-    assert [x.id for x in await svc.published_knowledge(s.db,s.business.id)]==[k.id]
-    with pytest.raises(HTTPException):await svc.transition_knowledge(s.db,s.business.id,s.editor.id,replacement.id,'approved',1)
+    await s.db.refresh(k)
+    assert replacement.version==2 and replacement.status=='published' and replacement.approved_by==s.editor.id
+    assert k.status=='archived'
+    assert [x.id for x in await svc.published_knowledge(s.db,s.business.id)]==[replacement.id]
+    private=await svc.create_knowledge(s.db,s.business.id,s.editor.id,{'title':'İç not','content':'Marka içi not','source':'operasyon','publicAllowed':False})
+    assert private.status=='published' and private.public_allowed is False
+    assert private.id not in {x.id for x in await svc.published_knowledge(s.db,s.business.id)}
     with pytest.raises(HTTPException) as e:await svc.transition_knowledge(s.db,s.business.id,s.owner.id,replacement.id,'review',999)
     assert e.value.status_code==409
 

@@ -65,12 +65,41 @@ async def list_knowledge(db, business_id):
     return list((await db.scalars(select(Knowledge).where(Knowledge.business_id == uid(business_id)).order_by(Knowledge.created_at.desc()))).all())
 
 async def create_knowledge(db, business_id, user_id, data):
+    """Save knowledge into the brand pool.
+
+    Product rule: Bilgi Havuzu is brand record-keeping, not a publish workflow.
+    A save creates a new version that is immediately usable by Studio / answer
+    ranking when public_allowed is true. Older published versions of the same
+    item are archived for integrity. public_allowed=false never enters
+    published_knowledge / end-user grounding.
+    """
     await access(db,business_id,user_id,'editor')
     item_id=uid(data['itemId']) if data.get('itemId') else uuid.uuid4()
+    public_allowed=bool(data.get('publicAllowed', False))
+    title=data['title']; category=data.get('category',''); content=data['content']; source=data['source']
+    if public_allowed:
+        public_content(title, category, content, source)
     # Lock tenant row to serialize new versions including the first version.
     await db.scalar(select(BusinessProfile).where(BusinessProfile.id==uid(business_id)).with_for_update())
     previous=await db.scalar(select(func.max(Knowledge.version)).where(Knowledge.business_id==uid(business_id),Knowledge.item_id==item_id))
-    row=Knowledge(business_id=uid(business_id),item_id=item_id,version=(previous or 0)+1,title=data['title'],category=data.get('category',''),content=data['content'],source=data['source'],public_allowed=data.get('publicAllowed',False),created_by=uid(user_id),status='draft',revision=1)
+    others=(await db.scalars(select(Knowledge).where(Knowledge.business_id==uid(business_id),Knowledge.item_id==item_id,Knowledge.status=='published').with_for_update())).all()
+    for other in others:
+        other.status='archived'
+        other.revision+=1
+    row=Knowledge(
+        business_id=uid(business_id),
+        item_id=item_id,
+        version=(previous or 0)+1,
+        title=title,
+        category=category,
+        content=content,
+        source=source,
+        public_allowed=public_allowed,
+        created_by=uid(user_id),
+        approved_by=uid(user_id),
+        status='published',
+        revision=1,
+    )
     db.add(row);await db.commit();await db.refresh(row);return row
 
 async def transition_knowledge(db,business_id,user_id,version_id,target,revision):

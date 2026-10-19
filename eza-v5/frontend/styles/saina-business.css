@@ -1915,6 +1915,98 @@
   }
 }
 
+/* —— Bilgi Havuzu (list-first save / edit) —— */
+.biz-knowledge-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+  width: 100%;
+  max-width: min(100%, 1100px);
+}
+
+.biz-knowledge-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.biz-knowledge-head-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.biz-knowledge-head .biz-section-lead {
+  margin-bottom: 0;
+}
+
+.biz-knowledge-new,
+.biz-knowledge-secondary {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.biz-knowledge-secondary {
+  background: transparent;
+  border: 1px solid var(--biz-border);
+  color: var(--biz-muted);
+  border-radius: 999px;
+  padding: 0.55rem 1rem;
+  font: inherit;
+  cursor: pointer;
+}
+
+.biz-knowledge-secondary:hover {
+  color: var(--biz-ink);
+  border-color: var(--biz-gold-line);
+}
+
+.biz-knowledge-form {
+  margin: 0;
+}
+
+.biz-knowledge-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.biz-knowledge-list.is-dimmed {
+  opacity: 0.72;
+}
+
+.biz-knowledge-card {
+  padding: 0.9rem 1rem;
+}
+
+.biz-knowledge-card .biz-copy {
+  margin: 0.45rem 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.biz-knowledge-card .biz-actions {
+  margin-top: 0.55rem;
+}
+
+@media (max-width: 640px) {
+  .biz-knowledge-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .biz-knowledge-new,
+  .biz-knowledge-secondary {
+    width: 100%;
+    text-align: center;
+  }
+
+  .biz-knowledge-list.is-dimmed {
+    display: none;
+  }
+}
+
 /* —— Yansı Stüdyosu workspace (studio + drafts + optional engine) —— */
 .biz-yansi-workspace {
   display: flex;

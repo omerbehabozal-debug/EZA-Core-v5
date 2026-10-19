@@ -69,6 +69,9 @@ export default function SainaBusinessManager() {
   const [catalogState, setCatalogState] = useState<CatalogState>('idle');
   const [serviceMessage, setServiceMessage] = useState('');
   const [editKnowledge, setEditKnowledge] = useState<Knowledge | null>(null);
+  const [knowledgeFormOpen, setKnowledgeFormOpen] = useState(false);
+  const [knowledgeFormKey, setKnowledgeFormKey] = useState(0);
+  const [knowledgeDirty, setKnowledgeDirty] = useState(false);
   const [editDraft, setEditDraft] = useState<Draft | null>(null);
   const [editorialChat, setEditorialChat] = useState('');
   const [answer, setAnswer] = useState('');
@@ -184,10 +187,55 @@ export default function SainaBusinessManager() {
     setAnswer('');
     setEditorialChat('');
     setEditKnowledge(null);
+    setKnowledgeFormOpen(false);
+    setKnowledgeDirty(false);
+    setKnowledgeFormKey((k) => k + 1);
     setEditDraft(null);
     setTab('Genel Bakış');
     if (selected) load(selected).catch((e) => setError(e.message));
   }, [selected]);
+
+  function confirmDiscardKnowledge(): boolean {
+    if (!knowledgeDirty) return true;
+    return window.confirm('Kaydedilmemiş değişiklikler var. Çıkmak istiyor musunuz?');
+  }
+
+  function resetKnowledgeFormState() {
+    setEditKnowledge(null);
+    setKnowledgeFormOpen(false);
+    setKnowledgeDirty(false);
+    setKnowledgeFormKey((k) => k + 1);
+  }
+
+  function closeKnowledgeForm() {
+    if (!confirmDiscardKnowledge()) return;
+    resetKnowledgeFormState();
+  }
+
+  function openNewKnowledge() {
+    if (!confirmDiscardKnowledge()) return;
+    setEditKnowledge(null);
+    setKnowledgeDirty(false);
+    setKnowledgeFormKey((k) => k + 1);
+    setKnowledgeFormOpen(true);
+  }
+
+  function openEditKnowledge(row: Knowledge) {
+    if (knowledgeFormOpen && editKnowledge?.id === row.id && !knowledgeDirty) return;
+    if (!confirmDiscardKnowledge()) return;
+    setEditKnowledge(row);
+    setKnowledgeDirty(false);
+    setKnowledgeFormKey((k) => k + 1);
+    setKnowledgeFormOpen(true);
+  }
+
+  function goToTab(next: (typeof tabs)[number]) {
+    if (tab === 'Bilgi Havuzu' && knowledgeFormOpen && knowledgeDirty && next !== 'Bilgi Havuzu') {
+      if (!confirmDiscardKnowledge()) return;
+      resetKnowledgeFormState();
+    }
+    setTab(next);
+  }
 
   async function run(action: () => Promise<unknown>) {
     if (busy) return;
@@ -219,37 +267,30 @@ export default function SainaBusinessManager() {
     await api(`${base}/${kind}/${row.id}/transition`, 'POST', { target, revision: row.revision });
   }
 
-  function actions(kind: 'knowledge' | 'drafts', row: Knowledge | Draft) {
+  function draftActions(row: Draft) {
     return (
       <div className="biz-actions">
         {editor && row.status === 'draft' && (
-          <button type="button" onClick={() => void run(() => transition(kind, row, 'review'))}>
+          <button type="button" onClick={() => void run(() => transition('drafts', row, 'review'))}>
             İncelemeye gönder
           </button>
         )}
         {editor && row.status === 'review' && (
-          <button type="button" onClick={() => void run(() => transition(kind, row, 'draft'))}>
+          <button type="button" onClick={() => void run(() => transition('drafts', row, 'draft'))}>
             Taslağa geri al
           </button>
         )}
         {role === 'owner' && row.status === 'review' && (
-          <button type="button" onClick={() => void run(() => transition(kind, row, 'approved'))}>
+          <button type="button" onClick={() => void run(() => transition('drafts', row, 'approved'))}>
             Onayla
-          </button>
-        )}
-        {role === 'owner' && kind === 'knowledge' && row.status === 'approved' && (
-          <button type="button" onClick={() => void run(() => transition(kind, row, 'published'))}>
-            Bilgiyi yayımla
-          </button>
-        )}
-        {role === 'owner' && row.status === 'published' && kind === 'knowledge' && (
-          <button type="button" onClick={() => void run(() => transition(kind, row, 'archived'))}>
-            Arşivle
           </button>
         )}
       </div>
     );
   }
+
+  const activeKnowledge = knowledge.filter((k) => k.status !== 'archived');
+  const usableKnowledgeCount = activeKnowledge.filter((k) => k.status === 'published' && k.public_allowed).length;
 
   if (!isAuthReady) {
     return (
@@ -467,7 +508,7 @@ export default function SainaBusinessManager() {
                   type="button"
                   className="biz-nav-btn"
                   aria-current={t === tab ? 'page' : undefined}
-                  onClick={() => setTab(t)}
+                  onClick={() => goToTab(t)}
                 >
                   {t}
                 </button>
@@ -508,8 +549,8 @@ export default function SainaBusinessManager() {
                         <span className="biz-stat-label">Taslak / inceleme</span>
                       </div>
                       <div className="biz-stat">
-                        <span className="biz-stat-value">{knowledge.filter((k) => k.status === 'published').length}</span>
-                        <span className="biz-stat-label">Yayımlı bilgi</span>
+                        <span className="biz-stat-value">{usableKnowledgeCount}</span>
+                        <span className="biz-stat-label">Havuz kaydı</span>
                       </div>
                     </div>
                     <p className="biz-section-lead" style={{ marginTop: 16, marginBottom: 0 }}>
@@ -520,23 +561,61 @@ export default function SainaBusinessManager() {
               )}
 
               {tab === 'Bilgi Havuzu' && (
-                <section>
-                  <h2 className="biz-section-title">Bilgi Havuzu</h2>
-                  <p className="biz-section-lead">Marka bilgilerini taslak, onay ve yayın durumlarıyla yönet.</p>
-                  {editor && (
+                <section className="biz-knowledge-workspace" data-testid="biz-knowledge-workspace">
+                  <header className="biz-knowledge-head">
+                    <div className="biz-knowledge-head-copy">
+                      <h2 className="biz-section-title">Bilgi Havuzu</h2>
+                      <p className="biz-section-lead">
+                        Marka bilgilerini kaydedin ve güncel tutun. Bu kayıt Yansı yayını oluşturmaz; Stüdyo ve bilgi
+                        motoru, kullanıcıya açıklanmasına izin verilen kayıtlardan yararlanır.
+                      </p>
+                    </div>
+                    {editor ? (
+                      knowledgeFormOpen ? (
+                        <button
+                          type="button"
+                          className="biz-knowledge-secondary"
+                          data-testid="biz-knowledge-back-list"
+                          onClick={closeKnowledgeForm}
+                        >
+                          Listeye dön
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="biz-btn-primary biz-knowledge-new"
+                          data-testid="biz-knowledge-new"
+                          onClick={openNewKnowledge}
+                        >
+                          + Yeni bilgi
+                        </button>
+                      )
+                    ) : null}
+                  </header>
+
+                  {editor && knowledgeFormOpen ? (
                     <form
-                      className="biz-form"
-                      key={editKnowledge?.id || 'new'}
+                      className="biz-form biz-knowledge-form"
+                      key={`knowledge-form-${knowledgeFormKey}`}
+                      data-testid="biz-knowledge-form"
+                      data-mode={editKnowledge ? 'edit' : 'create'}
+                      onInput={() => setKnowledgeDirty(true)}
+                      onChange={() => setKnowledgeDirty(true)}
                       onSubmit={submit(async (data) => {
+                        const editing = editKnowledge;
                         await api(`${base}/knowledge`, 'POST', {
                           ...data,
                           publicAllowed: data.publicAllowed === 'on',
-                          ...(editKnowledge ? { itemId: editKnowledge.item_id } : {}),
+                          ...(editing ? { itemId: editing.item_id } : {}),
                         });
                         setEditKnowledge(null);
+                        setKnowledgeFormOpen(false);
+                        setKnowledgeDirty(false);
+                        setKnowledgeFormKey((k) => k + 1);
+                        setNotice(editing ? 'Bilgi güncellendi.' : 'Bilgi kaydedildi.');
                       })}
                     >
-                      <h3>{editKnowledge ? 'Yeni sürüm oluştur' : 'Bilgi ekle'}</h3>
+                      <h3>{editKnowledge ? 'Bilgiyi güncelle' : 'Yeni bilgi'}</h3>
                       <label>
                         Başlık
                         <input
@@ -544,22 +623,26 @@ export default function SainaBusinessManager() {
                           aria-label="Bilgi başlığı"
                           placeholder="Başlık"
                           maxLength={160}
-                          defaultValue={editKnowledge?.title}
+                          defaultValue={editKnowledge?.title || ''}
                           required
                         />
                       </label>
                       <label>
                         Kategori
-                        <input name="category" placeholder="Kategori" defaultValue={editKnowledge?.category} />
+                        <input
+                          name="category"
+                          placeholder="Kategori"
+                          defaultValue={editKnowledge?.category || ''}
+                        />
                       </label>
                       <label>
                         İçerik
                         <textarea
                           name="content"
                           aria-label="Bilgi içeriği"
-                          placeholder="Doğrulanmış bilgi"
+                          placeholder="Marka bilgisi"
                           maxLength={12000}
-                          defaultValue={editKnowledge?.content}
+                          defaultValue={editKnowledge?.content || ''}
                           required
                         />
                       </label>
@@ -568,48 +651,78 @@ export default function SainaBusinessManager() {
                         <input
                           name="source"
                           placeholder="Kaynak bağlantısı veya açıklaması"
-                          defaultValue={editKnowledge?.source}
+                          defaultValue={editKnowledge?.source || ''}
                           required
                         />
                       </label>
                       <label className="biz-check">
-                        <input type="checkbox" name="publicAllowed" defaultChecked={editKnowledge?.public_allowed} />
+                        <input
+                          type="checkbox"
+                          name="publicAllowed"
+                          defaultChecked={editKnowledge ? editKnowledge.public_allowed : true}
+                        />
                         Kullanıcılara açıklanmasına izin ver
                       </label>
                       <div className="biz-actions">
-                        <button type="submit" className="biz-btn-primary">
-                          Taslak sürüm kaydet
+                        <button type="submit" className="biz-btn-primary" data-testid="biz-knowledge-save">
+                          {editKnowledge ? 'Güncelle' : 'Bilgiyi kaydet'}
                         </button>
-                        {editKnowledge && (
-                          <button type="button" onClick={() => setEditKnowledge(null)}>
-                            Vazgeç
-                          </button>
-                        )}
+                        <button type="button" data-testid="biz-knowledge-cancel" onClick={closeKnowledgeForm}>
+                          Vazgeç
+                        </button>
                       </div>
                     </form>
-                  )}
-                  {!knowledge.length && <p className="biz-empty">Henüz bilgi kaydı yok.</p>}
-                  {knowledge.map((k) => (
-                    <article className="biz-card" key={k.id}>
-                      <div className="biz-card-head">
-                        <h3>
-                          {k.title} · v{k.version}
-                        </h3>
-                        <span className={statusClass(k.status)}>{k.status}</span>
-                      </div>
-                      <p className="biz-card-meta">{k.category || 'kategori yok'}</p>
-                      <p className="biz-copy">{k.content}</p>
-                      <small>{k.source}</small>
-                      {editor && (
-                        <div className="biz-actions">
-                          <button type="button" onClick={() => setEditKnowledge(k)}>
-                            Düzenle / yeni sürüm
-                          </button>
+                  ) : null}
+
+                  <div
+                    className={`biz-knowledge-list${knowledgeFormOpen ? ' is-dimmed' : ''}`}
+                    data-testid="biz-knowledge-list"
+                  >
+                    {!activeKnowledge.length ? (
+                      <p className="biz-empty" data-testid="biz-knowledge-empty">
+                        Henüz bilgi kaydı yok.
+                        {editor ? ' “+ Yeni bilgi” ile ilk kaydı ekleyin.' : ''}
+                      </p>
+                    ) : null}
+                    {activeKnowledge.map((k) => (
+                      <article
+                        className="biz-card biz-knowledge-card"
+                        key={k.id}
+                        data-testid={`biz-knowledge-card-${k.id}`}
+                      >
+                        <div className="biz-card-head">
+                          <h3>{k.title}</h3>
+                          <span className="biz-chip">
+                            {k.public_allowed ? 'Kullanıcılara açık' : 'Yalnızca marka'}
+                          </span>
                         </div>
-                      )}
-                      {actions('knowledge', k)}
-                    </article>
-                  ))}
+                        <p className="biz-card-meta">
+                          {k.category || 'genel'} · sürüm {k.version}
+                        </p>
+                        <p className="biz-copy">{k.content}</p>
+                        <small>{k.source}</small>
+                        {editor && (
+                          <div className="biz-actions">
+                            <button
+                              type="button"
+                              data-testid={`biz-knowledge-edit-${k.id}`}
+                              onClick={() => openEditKnowledge(k)}
+                            >
+                              Düzenle
+                            </button>
+                            {role === 'owner' && k.status === 'published' && (
+                              <button
+                                type="button"
+                                onClick={() => void run(() => transition('knowledge', k, 'archived'))}
+                              >
+                                Arşivle
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </article>
+                    ))}
+                  </div>
                 </section>
               )}
 
@@ -622,7 +735,7 @@ export default function SainaBusinessManager() {
                     canEdit={editor}
                     editDraft={editDraft}
                     onClearEdit={() => setEditDraft(null)}
-                    onOpenKnowledgePool={() => setTab('Bilgi Havuzu')}
+                    onOpenKnowledgePool={() => goToTab('Bilgi Havuzu')}
                     onDraftSaved={async () => {
                       setEditDraft(null);
                       if (selected) await load(selected);
@@ -665,7 +778,7 @@ export default function SainaBusinessManager() {
                             </button>
                           </div>
                         )}
-                        {actions('drafts', d)}
+                        {draftActions(d)}
                         {editor && d.status === 'approved' && (
                           <div className="biz-actions">
                             <button

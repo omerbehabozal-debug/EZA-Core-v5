@@ -53,7 +53,7 @@ describe('Business management', () => {
     render(<SainaBusinessManager />);
     await screen.findByText('BiligN', { selector: 'h2' });
     fireEvent.click(screen.getByRole('button', { name: 'Bilgi Havuzu' }));
-    expect(screen.queryByRole('button', { name: 'Taslak sürüm kaydet' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Bilgiyi kaydet' })).not.toBeInTheDocument();
     expect(api).toHaveBeenCalledWith('/business-a/knowledge');
   });
 
@@ -102,6 +102,119 @@ describe('Business management', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Oturum doğrulanamadı');
     expect(screen.queryByRole('button', { name: 'Başvuruyu gönder' })).not.toBeInTheDocument();
     expect(auth.logout).not.toHaveBeenCalled();
+  });
+
+  it('keeps knowledge list-first without review/approve/publish controls', async () => {
+    let knowledgeItems = [
+      {
+        id: 'kb-1',
+        item_id: 'item-1',
+        title: 'Menü hikâyesi',
+        category: 'ürün',
+        content: 'Zeytinyağlı yaprak dolması…',
+        source: 'Marka kitabı',
+        public_allowed: true,
+        status: 'published',
+        version: 1,
+        revision: 1,
+      },
+    ];
+    api.mockImplementation(async (path = '', method = 'GET', body?: unknown) => {
+      if (path === '') return { items: [business], canProvision: false };
+      if (path === '/applications/mine') return { items: [] };
+      if (String(path).endsWith('/overview')) return { business, role: 'editor', publications: [] };
+      if (String(path).endsWith('/knowledge') && method === 'GET') return { items: knowledgeItems };
+      if (String(path).endsWith('/knowledge') && method === 'POST') {
+        const payload = body as Record<string, unknown>;
+        const created = {
+          id: 'kb-2',
+          item_id: typeof payload.itemId === 'string' ? payload.itemId : 'item-2',
+          title: String(payload.title || ''),
+          category: String(payload.category || ''),
+          content: String(payload.content || ''),
+          source: String(payload.source || ''),
+          public_allowed: Boolean(payload.publicAllowed),
+          status: 'published',
+          version: 1,
+          revision: 1,
+        };
+        knowledgeItems = [created, ...knowledgeItems];
+        return created;
+      }
+      return { items: [] };
+    });
+    render(<SainaBusinessManager />);
+    await screen.findByText('BiligN', { selector: 'h2' });
+    fireEvent.click(screen.getByRole('button', { name: 'Bilgi Havuzu' }));
+
+    expect(screen.getByTestId('biz-knowledge-list')).toBeInTheDocument();
+    expect(screen.queryByTestId('biz-knowledge-form')).not.toBeInTheDocument();
+    expect(screen.getByTestId('biz-knowledge-new')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'İncelemeye gönder' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Onayla' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Bilgiyi yayımla' })).not.toBeInTheDocument();
+    expect(screen.queryByText('published')).not.toBeInTheDocument();
+    expect(screen.getByText('Kullanıcılara açık')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('biz-knowledge-new'));
+    expect(screen.getByTestId('biz-knowledge-form')).toHaveAttribute('data-mode', 'create');
+    expect(screen.getByTestId('biz-knowledge-save')).toHaveTextContent('Bilgiyi kaydet');
+    expect(screen.getByLabelText('Bilgi başlığı')).toHaveValue('');
+
+    fireEvent.change(screen.getByLabelText('Bilgi başlığı'), { target: { value: 'Sofra ritüeli' } });
+    fireEvent.change(screen.getByLabelText('Bilgi içeriği'), { target: { value: 'Paylaşım kültürü' } });
+    fireEvent.change(screen.getByPlaceholderText('Kaynak bağlantısı veya açıklaması'), {
+      target: { value: 'Operasyon notu' },
+    });
+    fireEvent.click(screen.getByTestId('biz-knowledge-save'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('biz-knowledge-form')).not.toBeInTheDocument();
+    });
+    expect(screen.getByTestId('biz-knowledge-new')).toBeInTheDocument();
+    const cards = screen.getAllByTestId(/biz-knowledge-card-/);
+    expect(cards[0]).toHaveTextContent('Sofra ritüeli');
+
+    fireEvent.click(screen.getByTestId('biz-knowledge-new'));
+    expect(screen.getByLabelText('Bilgi başlığı')).toHaveValue('');
+    expect(screen.getByLabelText('Bilgi içeriği')).toHaveValue('');
+
+    fireEvent.click(screen.getByTestId('biz-knowledge-edit-kb-1'));
+    expect(screen.getByTestId('biz-knowledge-form')).toHaveAttribute('data-mode', 'edit');
+    expect(screen.getByTestId('biz-knowledge-save')).toHaveTextContent('Güncelle');
+    expect(screen.getByLabelText('Bilgi başlığı')).toHaveValue('Menü hikâyesi');
+  });
+
+  it('keeps knowledge form open with values when save fails and warns on dirty exit', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    api.mockImplementation(async (path = '', method = 'GET') => {
+      if (path === '') return { items: [business], canProvision: false };
+      if (path === '/applications/mine') return { items: [] };
+      if (String(path).endsWith('/overview')) return { business, role: 'editor', publications: [] };
+      if (String(path).endsWith('/knowledge') && method === 'GET') return { items: [] };
+      if (String(path).endsWith('/knowledge') && method === 'POST') {
+        throw new BusinessApiError(422, 'public_content_review_required');
+      }
+      return { items: [] };
+    });
+    render(<SainaBusinessManager />);
+    await screen.findByText('BiligN', { selector: 'h2' });
+    fireEvent.click(screen.getByRole('button', { name: 'Bilgi Havuzu' }));
+    fireEvent.click(screen.getByTestId('biz-knowledge-new'));
+    fireEvent.change(screen.getByLabelText('Bilgi başlığı'), { target: { value: 'Taslak başlık' } });
+    fireEvent.change(screen.getByLabelText('Bilgi içeriği'), { target: { value: 'Taslak içerik' } });
+    fireEvent.change(screen.getByPlaceholderText('Kaynak bağlantısı veya açıklaması'), {
+      target: { value: 'Kaynak' },
+    });
+    fireEvent.click(screen.getByTestId('biz-knowledge-save'));
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('biz-knowledge-form')).toBeInTheDocument();
+    expect(screen.getByLabelText('Bilgi başlığı')).toHaveValue('Taslak başlık');
+    fireEvent.click(screen.getByTestId('biz-knowledge-cancel'));
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(screen.getByTestId('biz-knowledge-form')).toBeInTheDocument();
+    confirmSpy.mockRestore();
   });
 
   it('opens stepped Yansı Stüdyosu without default eight-step manual form', async () => {
