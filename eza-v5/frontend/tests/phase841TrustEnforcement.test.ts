@@ -75,6 +75,9 @@ describe('Phase 8.4.1 public mirror trust cache', () => {
 describe('Phase 8.4.1 cached sohbet revalidation', () => {
   beforeEach(() => {
     sessionStorage.clear();
+    localStorage.clear();
+    // Authenticated cache reuse path requires eza_token (see createMirrorSohbetSession).
+    localStorage.setItem('eza_token', 'phase841-test-token');
     vi.clearAllMocks();
     vi.mocked(fetchPublicMirrorBySlug).mockReset();
     vi.mocked(fetchPublicFrozenJourneyArtifact).mockReset();

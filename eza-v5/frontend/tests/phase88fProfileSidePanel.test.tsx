@@ -220,6 +220,11 @@ describe('Phase 8.8F profile side panel', () => {
 
   it('shows public name and read-only honorific as identity, not plan', () => {
     openMenu();
+    // Compact account menu keeps identity off the root list (plan lives on the trigger + Plan section).
+    expect(screen.queryByTestId('saina-profile-menu-identity')).toBeNull();
+    expect(screen.getByTestId('saina-profile-menu-trigger')).toHaveTextContent('Premium');
+
+    fireEvent.click(screen.getByTestId('saina-profile-nav-profile'));
     const panel = screen.getByTestId('saina-profile-menu');
     const identity = screen.getByTestId('saina-profile-menu-identity');
 
@@ -232,8 +237,8 @@ describe('Phase 8.8F profile side panel', () => {
       'curious'
     );
     expect(within(identity).queryByText(/Premium|Free|Mini|Standard/i)).toBeNull();
-    expect(screen.getByTestId('saina-profile-plan-summary')).toHaveTextContent('Premium');
     expect(screen.queryByText(SAINA_MENU_ACCOUNT)).toBeNull();
+    expect(screen.getByTestId('saina-account-email')).toHaveTextContent('owner@example.com');
 
     const honorific = screen.getByTestId('saina-profile-menu-honorific');
     expect(honorific.tagName).toBe('SPAN');
@@ -242,12 +247,11 @@ describe('Phase 8.8F profile side panel', () => {
     expect(honorific.closest('[role="listbox"]')).toBeNull();
     expect(panel.querySelector('select')).toBeNull();
 
-    expect(screen.queryByTestId('saina-public-name-input')).toBeNull();
+    expect(screen.getByTestId('saina-public-name-input')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('saina-profile-back'));
     fireEvent.click(screen.getByTestId('saina-profile-nav-plan'));
     expect(screen.getByTestId('saina-profile-plan-row')).toHaveTextContent('Plan');
     expect(screen.getByTestId('saina-profile-plan-value')).toHaveTextContent('Premium');
-    fireEvent.click(screen.getByTestId('saina-profile-back'));
-    expect(screen.getByTestId('saina-account-email')).toHaveTextContent('owner@example.com');
   });
 
   it('shows Bilgin as a stronger read-only marker without a selector', () => {
@@ -256,6 +260,7 @@ describe('Phase 8.8F profile side panel', () => {
       public_honorific: 'bilgin',
     };
     openMenu();
+    fireEvent.click(screen.getByTestId('saina-profile-nav-profile'));
     const marker = screen.getByTestId('saina-profile-menu-honorific');
     expect(marker).toHaveTextContent('Bilgin');
     expect(marker).toHaveAttribute('data-honorific', 'bilgin');

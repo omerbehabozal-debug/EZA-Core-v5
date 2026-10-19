@@ -316,7 +316,9 @@ describe('SainaProfileMenu avatar interactions', () => {
       expect(screen.queryByTestId('profile-avatar-crop-editor')).not.toBeInTheDocument();
     });
 
-    fireEvent.change(input, { target: { files: [file] } });
+    // Crop unmounts the profile surface (and its file input); re-query the remounted input.
+    const remountedInput = screen.getByTestId('saina-profile-avatar-input') as HTMLInputElement;
+    fireEvent.change(remountedInput, { target: { files: [file] } });
     await waitFor(() => {
       expect(screen.getByTestId('profile-avatar-crop-editor')).toBeInTheDocument();
     });
