@@ -1915,17 +1915,18 @@
   }
 }
 
-/* —— AI Yansı Stüdyosu (Stage 3 UX) —— */
+/* —— AI Yansı Stüdyosu (stepped UX) —— */
 .biz-studio {
   display: flex;
   flex-direction: column;
-  gap: 1.35rem;
-  max-width: 920px;
+  gap: 1.1rem;
+  max-width: min(100%, 980px);
   width: 100%;
+  margin-inline: auto;
 }
 
 .biz-studio-hero {
-  padding: 0.25rem 0 0.5rem;
+  padding: 0.15rem 0 0.35rem;
 }
 
 .biz-studio-eyebrow {
@@ -1938,25 +1939,160 @@
 
 .biz-studio-steps-rail {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
   list-style: none;
-  margin: 1rem 0 0;
+  margin: 0.85rem 0 0;
   padding: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
 }
 
-.biz-studio-steps-rail li {
-  padding: 0.35rem 0.7rem;
+.biz-studio-rail-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.7rem;
   border-radius: 999px;
   border: 1px solid var(--biz-border);
+  background: transparent;
   color: var(--biz-muted);
   font-size: 0.78rem;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
-.biz-studio-steps-rail li[data-active='true'] {
+.biz-studio-steps-rail li[data-state='active'] .biz-studio-rail-btn {
   color: var(--biz-ink);
   border-color: var(--biz-gold-line);
   background: var(--biz-gold-soft);
+}
+
+.biz-studio-steps-rail li[data-state='complete'] .biz-studio-rail-btn {
+  color: var(--biz-ink);
+  border-color: rgba(120, 190, 140, 0.35);
+}
+
+.biz-studio-steps-rail li[data-state='locked'] .biz-studio-rail-btn {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.biz-studio-steps-rail li[data-state='upcoming'] .biz-studio-rail-btn {
+  color: var(--biz-muted);
+}
+
+.biz-studio-rail-index {
+  display: inline-grid;
+  place-items: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  font-size: 0.68rem;
+  background: rgba(231, 180, 91, 0.12);
+  color: var(--biz-gold);
+}
+
+.biz-studio-count {
+  margin: 0;
+  color: var(--biz-muted);
+  font-size: 0.82rem;
+}
+
+.biz-studio-empty {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0.35rem 0;
+  color: var(--biz-muted);
+  line-height: 1.5;
+}
+
+.biz-studio-empty .biz-btn-primary {
+  justify-self: start;
+}
+
+.biz-studio-preview-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.biz-studio-meta-edit {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.biz-studio-meta-edit label {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--biz-muted);
+  font-size: 0.82rem;
+}
+
+.biz-studio-meta-edit input,
+.biz-studio-meta-edit textarea {
+  width: 100%;
+  color: var(--biz-ink);
+}
+
+.biz-studio-turn-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0 0.35rem;
+}
+
+.biz-studio-turn-index {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--biz-muted);
+}
+
+.biz-studio-turn-edit {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--biz-gold);
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 0.2rem 0.45rem;
+  border-radius: 8px;
+}
+
+.biz-studio-turn.is-editing {
+  outline: 1px solid rgba(231, 180, 91, 0.35);
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
+.biz-studio-step-editor {
+  margin-top: 0.75rem;
+  padding: 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--biz-gold-line);
+  background: rgba(231, 180, 91, 0.05);
+  display: grid;
+  gap: 0.65rem;
+}
+
+.biz-studio-step-editor h4 {
+  margin: 0;
+  color: var(--biz-ink);
+  font-size: 0.95rem;
+}
+
+.biz-studio-step-editor label {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--biz-muted);
+  font-size: 0.85rem;
+}
+
+.biz-studio-panel--preview {
+  padding-bottom: 1.35rem;
 }
 
 .biz-studio-banner {

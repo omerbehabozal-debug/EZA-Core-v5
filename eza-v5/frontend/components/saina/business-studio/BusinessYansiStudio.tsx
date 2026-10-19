@@ -22,6 +22,7 @@ import {
 } from '@/lib/eza/businessStudio';
 import StudioChatPreview from './StudioChatPreview';
 import StudioGenerationStatus from './StudioGenerationStatus';
+import StudioStepRail, { type StudioRailStep, type StudioRailStepId } from './StudioStepRail';
 
 type Props = {
   businessId: string;
@@ -30,14 +31,19 @@ type Props = {
   onDraftSaved: () => Promise<void> | void;
   editDraft?: Draft | null;
   onClearEdit?: () => void;
+  onOpenKnowledgePool?: () => void;
 };
 
-type FlowPhase = 'sources' | 'topics' | 'generating' | 'preview' | 'manual';
+type FlowPhase = 'sources' | 'topics' | 'chat' | 'preview';
 
 const emptySteps = (): Step[] => Array.from({ length: 8 }, () => ({ question: '', answer: '', sources: [] }));
 
 function publishedSources(knowledge: Knowledge[]): Knowledge[] {
   return knowledge.filter((k) => k.status === 'published' && k.public_allowed);
+}
+
+function hasFilledDraft(steps: Step[], title: string): boolean {
+  return Boolean(title.trim()) && steps.every((s) => s.question.trim() && s.answer.trim() && s.sources[0]);
 }
 
 export default function BusinessYansiStudio({
@@ -47,6 +53,7 @@ export default function BusinessYansiStudio({
   onDraftSaved,
   editDraft = null,
   onClearEdit,
+  onOpenKnowledgePool,
 }: Props) {
   const published = useMemo(() => publishedSources(knowledge), [knowledge]);
   const sourceTitles = useMemo(
@@ -56,8 +63,9 @@ export default function BusinessYansiStudio({
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [topicHint, setTopicHint] = useState('');
-  const [phase, setPhase] = useState<FlowPhase>('sources');
-  const [manualOpen, setManualOpen] = useState(false);
+  const [phase, setPhase] = useState<FlowPhase>(editDraft ? 'preview' : 'sources');
+  const [manualOpen, setManualOpen] = useState(Boolean(editDraft));
+  const [editingStep, setEditingStep] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [unavailable, setUnavailable] = useState<string | null>(null);
@@ -78,6 +86,66 @@ export default function BusinessYansiStudio({
   const inFlightRef = useRef(false);
 
   const base = `/${businessId}`;
+  const hasTopics = Boolean(topics && topics.length > 0);
+  const chatInProgress = phase === 'chat' && busy;
+  const draftPending = Boolean(draftJob && !isTerminalStudioStatus(draftJob.status));
+
+  const railSteps: StudioRailStep[] = useMemo(() => {
+    const topicsUnlocked = hasTopics || phase === 'topics' || phase === 'chat' || phase === 'preview';
+    const chatUnlocked = Boolean(draftResult) || draftPending || phase === 'chat' || phase === 'preview';
+    const previewUnlocked = Boolean(draftResult) || Boolean(editDraft);
+
+    return [
+      {
+        id: 'sources' as const,
+        label: 'Kaynaklar',
+        state: phase === 'sources' ? ('active' as const) : ('complete' as const),
+      },
+      {
+        id: 'topics' as const,
+        label: 'Konu',
+        state:
+          phase === 'topics'
+            ? ('active' as const)
+            : !topicsUnlocked
+              ? ('locked' as const)
+              : phase === 'sources'
+                ? ('upcoming' as const)
+                : ('complete' as const),
+      },
+      {
+        id: 'chat' as const,
+        label: 'Sohbet',
+        state:
+          phase === 'chat'
+            ? ('active' as const)
+            : !chatUnlocked
+              ? ('locked' as const)
+              : phase === 'preview'
+                ? ('complete' as const)
+                : ('upcoming' as const),
+      },
+      {
+        id: 'preview' as const,
+        label: 'Önizleme',
+        state:
+          phase === 'preview'
+            ? ('active' as const)
+            : !previewUnlocked
+              ? ('locked' as const)
+              : ('upcoming' as const),
+      },
+    ];
+  }, [phase, hasTopics, draftResult, draftPending, editDraft]);
+
+  const goToPhase = (id: StudioRailStepId) => {
+    const target = railSteps.find((s) => s.id === id);
+    if (!target || target.state === 'locked') return;
+    if (id === 'sources' || id === 'topics' || id === 'chat' || id === 'preview') {
+      setPhase(id);
+      setError('');
+    }
+  };
 
   const toggleSource = (id: string) => {
     setSelectedIds((cur) => {
@@ -85,11 +153,13 @@ export default function BusinessYansiStudio({
       if (cur.length >= 16) return cur;
       return [...cur, id];
     });
+    // Changing sources invalidates downstream AI results (snapshot may go stale).
     setTopics(null);
     setTopicsJob(null);
     setSelectedTopicId(null);
     setDraftResult(null);
     setDraftJob(null);
+    setEditingStep(null);
     topicsKeyRef.current = null;
     draftKeyRef.current = null;
   };
@@ -105,6 +175,10 @@ export default function BusinessYansiStudio({
       }))
     );
   }, []);
+
+  const updateStepField = (index: number, patch: Partial<Step>) => {
+    setSteps((old) => old.map((v, j) => (j === index ? { ...v, ...patch } : v)));
+  };
 
   const runTopics = async () => {
     if (!canEdit || inFlightRef.current) return;
@@ -134,6 +208,7 @@ export default function BusinessYansiStudio({
         topicHint: topicHint.trim(),
       });
 
+      // 202 / queued / running are not success — poll to terminal.
       if (!isTerminalStudioStatus(job.status)) {
         job = await pollStudioGeneration(businessId, job.generationId);
       }
@@ -142,9 +217,7 @@ export default function BusinessYansiStudio({
 
       if (job.status === 'blocked' || !job.executionAvailable) {
         setTopics(null);
-        setUnavailable(
-          studioErrorMessage(job.errorCode || 'studio_execution_not_implemented')
-        );
+        setUnavailable(studioErrorMessage(job.errorCode || 'studio_execution_not_implemented'));
         return;
       }
 
@@ -169,9 +242,10 @@ export default function BusinessYansiStudio({
       setDraftResult(null);
       setDraftJob(null);
       draftKeyRef.current = null;
+      setPhase('topics');
     } catch (err) {
       const avail = classifyStudioAvailability(err);
-      if (!avail.available && (isBusinessApiError(err) && (err.status === 503 || err.status === 404))) {
+      if (!avail.available && isBusinessApiError(err) && (err.status === 503 || err.status === 404)) {
         setUnavailable(avail.message);
         setTopics(null);
       } else if (isBusinessApiError(err)) {
@@ -190,11 +264,10 @@ export default function BusinessYansiStudio({
     setError('');
     setUnavailable(null);
     setSelectedTopicId(topicId);
-    setPhase('generating');
+    setPhase('chat');
     inFlightRef.current = true;
     setBusy(true);
 
-    // New topic selection → new draft idempotency key (same topic reuses key).
     if (!draftKeyRef.current || draftKeyRef.current.indexOf(topicId) < 0) {
       draftKeyRef.current = newStudioIdempotencyKey(`draft.${topicId}`);
     }
@@ -216,9 +289,7 @@ export default function BusinessYansiStudio({
 
       if (job.status === 'blocked' || !job.executionAvailable) {
         setDraftResult(null);
-        setUnavailable(
-          studioErrorMessage(job.errorCode || 'studio_execution_not_implemented')
-        );
+        setUnavailable(studioErrorMessage(job.errorCode || 'studio_execution_not_implemented'));
         setPhase('topics');
         return;
       }
@@ -240,6 +311,8 @@ export default function BusinessYansiStudio({
 
       setDraftResult(parsed);
       applyDraftToEditor(parsed);
+      setManualOpen(false);
+      setEditingStep(null);
       setPhase('preview');
     } catch (err) {
       if (isBusinessApiError(err) && err.code === 'studio_snapshot_stale') {
@@ -284,8 +357,8 @@ export default function BusinessYansiStudio({
     }
   };
 
-  const saveDraft = async (event: FormEvent) => {
-    event.preventDefault();
+  const saveDraft = async (event?: FormEvent) => {
+    event?.preventDefault();
     if (!canEdit || busy) return;
     setBusy(true);
     setError('');
@@ -299,6 +372,7 @@ export default function BusinessYansiStudio({
       onClearEdit?.();
       await onDraftSaved();
       setPhase('preview');
+      setEditingStep(null);
     } catch (err) {
       if (isBusinessApiError(err)) setError(err.message);
       else setError('Taslak kaydedilemedi. Backend doğrulaması başarısız olabilir.');
@@ -306,6 +380,18 @@ export default function BusinessYansiStudio({
       setBusy(false);
     }
   };
+
+  const previewTurns = useMemo(() => {
+    return steps.map((step, index) => {
+      const evidence = draftResult?.steps[index]?.evidence ?? null;
+      return {
+        question: step.question || `Adım ${index + 1} sorusu henüz yok`,
+        answer: step.answer || 'Cevap henüz yok',
+        evidence,
+        sourceLabel: sourceTitles[step.sources[0]] || sourceTitles[evidence?.versionId || ''],
+      };
+    });
+  }, [steps, draftResult, sourceTitles]);
 
   if (!canEdit) {
     return (
@@ -315,28 +401,25 @@ export default function BusinessYansiStudio({
     );
   }
 
+  const showEmptyKnowledge = published.length === 0 && !editDraft;
+
   return (
-    <div className="biz-studio" data-testid="biz-yansi-studio">
+    <div className="biz-studio" data-testid="biz-yansi-studio" data-phase={phase}>
       <div className="biz-studio-hero">
         <p className="biz-studio-eyebrow">AI Yansı Stüdyosu</p>
         <h2 className="biz-section-title">Kaynaklardan sohbet üret</h2>
         <p className="biz-section-lead">
-          Yalnızca yayımlanmış Bilgi Havuzu kayıtları kullanılır. Cevaplar kaynaklı alıntıdır; owner onayı ve Ayna
-          yayını bu akışın dışındadır.
+          Adım adım ilerleyin. Yalnızca yayımlanmış Bilgi Havuzu kayıtları kullanılır; owner onayı ve Ayna yayını bu
+          akışın dışındadır.
         </p>
-        <ol className="biz-studio-steps-rail" aria-label="Stüdyo adımları">
-          <li data-active={phase === 'sources' || phase === 'topics'}>Kaynaklar</li>
-          <li data-active={phase === 'topics' || phase === 'generating'}>Konu</li>
-          <li data-active={phase === 'generating' || phase === 'preview'}>Sohbet</li>
-          <li data-active={phase === 'preview' || phase === 'manual'}>Önizle / düzenle</li>
-        </ol>
+        <StudioStepRail steps={railSteps} onSelect={goToPhase} />
       </div>
 
       {unavailable ? (
         <div className="biz-studio-banner biz-studio-banner--warn" role="status" data-testid="biz-studio-unavailable">
           <strong>AI üretim şu an kullanılamıyor.</strong>
           <p>{unavailable}</p>
-          <p>Mevcut manuel taslak akışıyla devam edebilirsiniz; sahte konu veya sohbet gösterilmez.</p>
+          <p>Sahte konu veya sohbet gösterilmez. Uygunsa gelişmiş manuel düzenlemeyi kullanın.</p>
         </div>
       ) : null}
 
@@ -346,220 +429,273 @@ export default function BusinessYansiStudio({
         </p>
       ) : null}
 
-      <section className="biz-studio-panel" aria-labelledby="biz-studio-sources-title">
-        <h3 id="biz-studio-sources-title" className="biz-studio-panel-title">
-          1. Kaynakları seç
-        </h3>
-        {published.length === 0 ? (
-          <p className="biz-empty" data-testid="biz-studio-no-sources">
-            Uygun kaynak yok. Bilgi Havuzu’nda yayımlanmış ve herkese açık kayıtlar görünür.
-          </p>
-        ) : (
-          <ul className="biz-studio-source-list">
-            {published.map((k) => {
-              const on = selectedIds.includes(k.id);
-              return (
-                <li key={k.id}>
-                  <label className={`biz-studio-source${on ? ' is-selected' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      onChange={() => toggleSource(k.id)}
-                      disabled={busy}
-                      data-testid={`biz-studio-source-${k.id}`}
-                    />
-                    <span>
-                      <strong>{k.title}</strong>
-                      <em>
-                        {k.category || 'genel'} · v{k.version}
-                      </em>
-                      <small>{k.source}</small>
-                    </span>
-                  </label>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        <label className="biz-studio-hint">
-          İsteğe bağlı yön (konu ipucu)
-          <input
-            value={topicHint}
-            maxLength={500}
-            disabled={busy}
-            onChange={(e) => setTopicHint(e.target.value)}
-            placeholder="Örn. misafir deneyimi, menü hikâyesi…"
-            data-testid="biz-studio-topic-hint"
-          />
-        </label>
-        <div className="biz-actions">
-          <button
-            type="button"
-            className="biz-btn-primary"
-            disabled={busy || published.length === 0 || selectedIds.length === 0}
-            onClick={() => void runTopics()}
-            data-testid="biz-studio-suggest-topics"
-          >
-            {busy && phase === 'topics' ? 'Konular isteniyor…' : 'AI ile konu öner'}
-          </button>
-        </div>
-      </section>
-
-      <StudioGenerationStatus
-        generation={topicsJob}
-        phaseLabel="Konu önerisi"
-        busy={busy && phase === 'topics'}
-      />
-
-      {topics && topics.length > 0 ? (
-        <section className="biz-studio-panel" aria-labelledby="biz-studio-topics-title">
-          <h3 id="biz-studio-topics-title" className="biz-studio-panel-title">
-            2. Konu seç
-          </h3>
-          <div className="biz-studio-topic-grid" data-testid="biz-studio-topic-grid">
-            {topics.map((topic) => {
-              const selected = selectedTopicId === topic.id;
-              const evidenceNote =
-                topic.evidence?.[0]?.text?.slice(0, 120) ||
-                (topic.answerPassageIds?.length
-                  ? `${topic.answerPassageIds.length} kaynak pasajı`
-                  : 'Kaynaklı öneri');
-              return (
-                <article
-                  key={topic.id}
-                  className={`biz-studio-topic-card${selected ? ' is-selected' : ''}`}
-                  data-testid={`biz-studio-topic-${topic.id}`}
-                >
-                  <h4>{topic.title}</h4>
-                  <p>{topic.description}</p>
-                  <p className="biz-studio-topic-source">{evidenceNote}</p>
-                  <button
-                    type="button"
-                    className="biz-btn-primary"
-                    disabled={busy}
-                    onClick={() => void runDraftGeneration(topic.id)}
-                    data-testid={`biz-studio-generate-${topic.id}`}
-                  >
-                    {busy && selectedTopicId === topic.id ? 'Üretiliyor…' : 'Sekiz soruluk sohbet oluştur'}
-                  </button>
-                </article>
-              );
-            })}
+      {/* —— 1. Kaynaklar —— */}
+      {phase === 'sources' ? (
+        <section className="biz-studio-panel" aria-labelledby="biz-studio-sources-title">
+          <div className="biz-studio-panel-head">
+            <h3 id="biz-studio-sources-title" className="biz-studio-panel-title">
+              Kaynaklar
+            </h3>
+            <p className="biz-studio-count" data-testid="biz-studio-source-count">
+              {published.length} uygun kaynak
+              {selectedIds.length > 0 ? ` · ${selectedIds.length} seçili` : ''}
+            </p>
           </div>
-        </section>
-      ) : null}
 
-      <StudioGenerationStatus
-        generation={draftJob}
-        phaseLabel="Sohbet üretimi"
-        busy={busy && phase === 'generating'}
-      />
-
-      {draftJob && !isTerminalStudioStatus(draftJob.status) ? (
-        <div className="biz-actions">
-          <button type="button" disabled={busy} onClick={() => void refreshDraftJob()}>
-            Durumu yenile
-          </button>
-        </div>
-      ) : null}
-
-      {draftResult ? (
-        <section className="biz-studio-panel" aria-labelledby="biz-studio-preview-title">
-          <h3 id="biz-studio-preview-title" className="biz-studio-panel-title">
-            3. Önizle
-          </h3>
-          <StudioChatPreview
-            title={draftResult.title}
-            summary={draftResult.summary}
-            steps={draftResult.steps}
-            sourceTitles={sourceTitles}
-          />
-          {draftJob?.draftId ? (
-            <p className="biz-notice" role="status">
-              Backend taslak kimliği: {draftJob.draftId}. Kaydetmeden önce metni gözden geçirin; incelemeye gönderme
-              owner onayını atlamaz.
-            </p>
+          {showEmptyKnowledge ? (
+            <div className="biz-studio-empty" data-testid="biz-studio-no-sources">
+              <p>
+                Yayımlanmış ve herkese açık Bilgi Havuzu kaydı yok. Stüdyo, onaylı kaynak olmadan konu veya sohbet
+                üretemez; sekiz soruluk manuel form da burada açılmaz.
+              </p>
+              {onOpenKnowledgePool ? (
+                <button
+                  type="button"
+                  className="biz-btn-primary"
+                  onClick={onOpenKnowledgePool}
+                  data-testid="biz-studio-goto-knowledge"
+                >
+                  Bilgi Havuzu’na git
+                </button>
+              ) : (
+                <p className="biz-card-meta">Sol menüden Bilgi Havuzu sekmesine geçin.</p>
+              )}
+            </div>
           ) : (
-            <p className="biz-notice" role="status">
-              Üretim tamamlandı. Taslağı kaydetmek backend doğrulamasını yeniden çalıştırır.
-            </p>
+            <>
+              <ul className="biz-studio-source-list">
+                {published.map((k) => {
+                  const on = selectedIds.includes(k.id);
+                  return (
+                    <li key={k.id}>
+                      <label className={`biz-studio-source${on ? ' is-selected' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={on}
+                          onChange={() => toggleSource(k.id)}
+                          disabled={busy}
+                          data-testid={`biz-studio-source-${k.id}`}
+                        />
+                        <span>
+                          <strong>{k.title}</strong>
+                          <em>
+                            {k.category || 'genel'} · v{k.version} · yayımlı
+                          </em>
+                          <small>{k.source}</small>
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+              <label className="biz-studio-hint">
+                İsteğe bağlı yön (konu ipucu)
+                <input
+                  value={topicHint}
+                  maxLength={500}
+                  disabled={busy}
+                  onChange={(e) => setTopicHint(e.target.value)}
+                  placeholder="Örn. misafir deneyimi, menü hikâyesi…"
+                  data-testid="biz-studio-topic-hint"
+                />
+              </label>
+              <div className="biz-actions">
+                <button
+                  type="button"
+                  className="biz-btn-primary"
+                  disabled={busy || published.length === 0 || selectedIds.length === 0}
+                  onClick={() => void runTopics()}
+                  data-testid="biz-studio-suggest-topics"
+                >
+                  {busy ? 'Konular isteniyor…' : 'AI ile konu öner'}
+                </button>
+              </div>
+            </>
           )}
         </section>
       ) : null}
 
-      <section className="biz-studio-panel" aria-labelledby="biz-studio-edit-title">
-        <div className="biz-studio-panel-head">
-          <h3 id="biz-studio-edit-title" className="biz-studio-panel-title">
-            4. Düzenle ve kaydet
-          </h3>
-          <button
-            type="button"
-            className="biz-studio-linkish"
-            onClick={() => {
-              setManualOpen((v) => !v);
-              setPhase('manual');
-            }}
-            data-testid="biz-studio-toggle-manual"
-          >
-            {manualOpen || !draftResult ? 'Gelişmiş manuel düzenleme' : 'Manuel formu gizle'}
-          </button>
-        </div>
+      {/* —— 2. Konu —— */}
+      {phase === 'topics' ? (
+        <section className="biz-studio-panel" aria-labelledby="biz-studio-topics-title">
+          <div className="biz-studio-panel-head">
+            <h3 id="biz-studio-topics-title" className="biz-studio-panel-title">
+              Konu seçimi
+            </h3>
+            <button type="button" className="biz-studio-linkish" onClick={() => setPhase('sources')} disabled={busy}>
+              ← Kaynaklara dön
+            </button>
+          </div>
 
-        {(manualOpen || !draftResult || editDraft) && (
-          <form className="biz-form biz-studio-manual" onSubmit={(e) => void saveDraft(e)} data-testid="biz-studio-manual-form">
-            <label>
-              Başlık
-              <input
-                aria-label="Yansı başlığı"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
+          <StudioGenerationStatus
+            generation={topicsJob}
+            phaseLabel="Konu önerisi"
+            busy={busy && !hasTopics}
+          />
+
+          {busy && !hasTopics ? (
+            <p className="biz-empty" data-testid="biz-studio-topics-loading">
+              Konu önerileri üretiliyor. Boş kart gösterilmez.
+            </p>
+          ) : null}
+
+          {!busy && !hasTopics && !unavailable ? (
+            <div className="biz-studio-empty" data-testid="biz-studio-topics-empty">
+              <p>Henüz konu yok. Kaynaklardan “AI ile konu öner” ile devam edin.</p>
+              <button type="button" className="biz-btn-primary" onClick={() => setPhase('sources')}>
+                Kaynaklara dön
+              </button>
+            </div>
+          ) : null}
+
+          {hasTopics && topics ? (
+            <div className="biz-studio-topic-grid" data-testid="biz-studio-topic-grid">
+              {topics.map((topic) => {
+                const selected = selectedTopicId === topic.id;
+                const evidenceNote =
+                  topic.evidence?.[0]?.text?.slice(0, 120) ||
+                  (topic.answerPassageIds?.length
+                    ? `${topic.answerPassageIds.length} kaynak pasajı`
+                    : 'Kaynaklı öneri');
+                return (
+                  <article
+                    key={topic.id}
+                    className={`biz-studio-topic-card${selected ? ' is-selected' : ''}`}
+                    data-testid={`biz-studio-topic-${topic.id}`}
+                  >
+                    <h4>{topic.title}</h4>
+                    <p>{topic.description}</p>
+                    <p className="biz-studio-topic-source">{evidenceNote}</p>
+                    <button
+                      type="button"
+                      className="biz-btn-primary"
+                      disabled={busy}
+                      onClick={() => void runDraftGeneration(topic.id)}
+                      data-testid={`biz-studio-generate-${topic.id}`}
+                    >
+                      {busy && selectedTopicId === topic.id ? 'Üretiliyor…' : 'Bu konuyla sohbet oluştur'}
+                    </button>
+                  </article>
+                );
+              })}
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {/* —— 3. Sohbet üretimi —— */}
+      {phase === 'chat' ? (
+        <section className="biz-studio-panel" aria-labelledby="biz-studio-chat-gen-title">
+          <div className="biz-studio-panel-head">
+            <h3 id="biz-studio-chat-gen-title" className="biz-studio-panel-title">
+              Sohbet üretimi
+            </h3>
+            <button
+              type="button"
+              className="biz-studio-linkish"
+              onClick={() => setPhase('topics')}
+              disabled={busy}
+            >
+              ← Konuya dön
+            </button>
+          </div>
+          <StudioGenerationStatus
+            generation={draftJob}
+            phaseLabel="Sekiz adımlı sohbet"
+            busy={busy || draftPending}
+          />
+          <p className="biz-card-meta">
+            Üretim tamamlanmadan önizleme açılmaz. HTTP 202 veya kuyruk durumu başarı sayılmaz. Tekrar tıklamayın —
+            aynı işlem anahtarı ücretli yinelenen üretimi engeller.
+          </p>
+          {draftPending ? (
+            <div className="biz-actions">
+              <button type="button" disabled={busy} onClick={() => void refreshDraftJob()}>
+                Durumu yenile
+              </button>
+            </div>
+          ) : null}
+          {chatInProgress ? (
+            <p className="biz-empty" data-testid="biz-studio-chat-loading">
+              Sohbet adımları üretiliyor…
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
+      {/* —— 4. Önizleme / düzenleme —— */}
+      {phase === 'preview' ? (
+        <section className="biz-studio-panel biz-studio-panel--preview" aria-labelledby="biz-studio-preview-title">
+          <div className="biz-studio-panel-head">
+            <h3 id="biz-studio-preview-title" className="biz-studio-panel-title">
+              Önizleme ve düzenleme
+            </h3>
+            <div className="biz-studio-preview-actions">
+              {hasTopics ? (
+                <button
+                  type="button"
+                  className="biz-studio-linkish"
+                  onClick={() => setPhase('topics')}
+                  disabled={busy}
+                >
+                  ← Konuya dön
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="biz-studio-linkish"
+                onClick={() => setManualOpen((v) => !v)}
+                data-testid="biz-studio-toggle-manual"
+              >
+                {manualOpen ? 'Manuel formu gizle' : 'Gelişmiş manuel düzenleme'}
+              </button>
+            </div>
+          </div>
+
+          {(draftResult || hasFilledDraft(steps, title) || editDraft) && !manualOpen ? (
+            <>
+              <StudioChatPreview
+                title={title}
+                summary={summary}
+                turns={previewTurns}
+                editingStep={editingStep}
+                onSelectStep={(index) => setEditingStep((cur) => (cur === index ? null : index))}
+                onTitleChange={setTitle}
+                onSummaryChange={setSummary}
+                titleEditable
                 disabled={busy}
               />
-            </label>
-            <label>
-              Özet
-              <textarea value={summary} onChange={(e) => setSummary(e.target.value)} disabled={busy} />
-            </label>
-            <div className="biz-step-grid">
-              {steps.map((s, i) => (
-                <div className="biz-step" key={i}>
-                  <h3>{i + 1}. adım</h3>
+
+              {editingStep !== null && steps[editingStep] ? (
+                <div className="biz-studio-step-editor" data-testid={`biz-studio-step-editor-${editingStep}`}>
+                  <h4>Adım {editingStep + 1} düzenle</h4>
                   <label>
                     Soru
                     <input
-                      aria-label={`${i + 1}. soru`}
-                      value={s.question}
-                      onChange={(e) =>
-                        setSteps((old) => old.map((v, j) => (j === i ? { ...v, question: e.target.value } : v)))
-                      }
-                      required
+                      aria-label={`${editingStep + 1}. soru`}
+                      value={steps[editingStep].question}
                       disabled={busy}
+                      onChange={(e) => updateStepField(editingStep, { question: e.target.value })}
                     />
                   </label>
                   <label>
                     Cevap
                     <textarea
-                      aria-label={`${i + 1}. cevap`}
-                      value={s.answer}
+                      aria-label={`${editingStep + 1}. cevap`}
+                      value={steps[editingStep].answer}
                       maxLength={4000}
-                      onChange={(e) =>
-                        setSteps((old) => old.map((v, j) => (j === i ? { ...v, answer: e.target.value } : v)))
-                      }
-                      required
+                      rows={4}
                       disabled={busy}
+                      onChange={(e) => updateStepField(editingStep, { answer: e.target.value })}
                     />
                   </label>
                   <label>
                     Kaynak
                     <select
-                      aria-label={`${i + 1}. kaynak`}
-                      value={s.sources[0] || ''}
-                      onChange={(e) =>
-                        setSteps((old) => old.map((v, j) => (j === i ? { ...v, sources: [e.target.value] } : v)))
-                      }
-                      required
+                      aria-label={`${editingStep + 1}. kaynak`}
+                      value={steps[editingStep].sources[0] || ''}
                       disabled={busy}
+                      onChange={(e) => updateStepField(editingStep, { sources: [e.target.value] })}
                     >
                       <option value="">Yayımlanmış kaynak seç</option>
                       {published.map((k) => (
@@ -569,26 +705,139 @@ export default function BusinessYansiStudio({
                       ))}
                     </select>
                   </label>
+                  <div className="biz-actions">
+                    <button type="button" onClick={() => setEditingStep(null)} disabled={busy}>
+                      Düzenlemeyi kapat
+                    </button>
+                  </div>
                 </div>
-              ))}
-            </div>
-            <div className="biz-actions">
-              <button type="submit" className="biz-btn-primary" disabled={busy} data-testid="biz-studio-save-draft">
-                {busy ? 'Kaydediliyor…' : editDraft ? 'Taslağı güncelle' : 'Taslağı kaydet'}
-              </button>
-              {editDraft ? (
-                <button type="button" disabled={busy} onClick={() => onClearEdit?.()}>
-                  Düzenlemeyi bırak
-                </button>
               ) : null}
+
+              {draftJob?.draftId ? (
+                <p className="biz-notice" role="status">
+                  Backend taslak kimliği: {draftJob.draftId}. Kaydetmeden önce metni gözden geçirin; incelemeye gönderme
+                  owner onayını atlamaz.
+                </p>
+              ) : (
+                <p className="biz-notice" role="status">
+                  Taslağı kaydetmek mevcut Business draft API doğrulamasını çalıştırır.
+                </p>
+              )}
+
+              <div className="biz-actions">
+                <button
+                  type="button"
+                  className="biz-btn-primary"
+                  disabled={busy}
+                  onClick={() => void saveDraft()}
+                  data-testid="biz-studio-save-draft"
+                >
+                  {busy ? 'Kaydediliyor…' : editDraft ? 'Taslağı güncelle' : 'Taslağı kaydet'}
+                </button>
+                {editDraft ? (
+                  <button type="button" disabled={busy} onClick={() => onClearEdit?.()}>
+                    Düzenlemeyi bırak
+                  </button>
+                ) : null}
+              </div>
+            </>
+          ) : null}
+
+          {manualOpen ? (
+            <form
+              className="biz-form biz-studio-manual"
+              onSubmit={(e) => void saveDraft(e)}
+              data-testid="biz-studio-manual-form"
+            >
+              <p className="biz-card-meta">
+                Gelişmiş manuel düzenleme isteğe bağlıdır. Varsayılan deneyim sohbet önizlemesidir.
+              </p>
+              <label>
+                Başlık
+                <input
+                  aria-label="Yansı başlığı"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                  disabled={busy}
+                />
+              </label>
+              <label>
+                Özet
+                <textarea value={summary} onChange={(e) => setSummary(e.target.value)} disabled={busy} />
+              </label>
+              <div className="biz-step-grid">
+                {steps.map((s, i) => (
+                  <div className="biz-step" key={i}>
+                    <h3>{i + 1}. adım</h3>
+                    <label>
+                      Soru
+                      <input
+                        aria-label={`${i + 1}. soru`}
+                        value={s.question}
+                        onChange={(e) => updateStepField(i, { question: e.target.value })}
+                        required
+                        disabled={busy}
+                      />
+                    </label>
+                    <label>
+                      Cevap
+                      <textarea
+                        aria-label={`${i + 1}. cevap`}
+                        value={s.answer}
+                        maxLength={4000}
+                        onChange={(e) => updateStepField(i, { answer: e.target.value })}
+                        required
+                        disabled={busy}
+                      />
+                    </label>
+                    <label>
+                      Kaynak
+                      <select
+                        aria-label={`${i + 1}. kaynak`}
+                        value={s.sources[0] || ''}
+                        onChange={(e) => updateStepField(i, { sources: [e.target.value] })}
+                        required
+                        disabled={busy}
+                      >
+                        <option value="">Yayımlanmış kaynak seç</option>
+                        {published.map((k) => (
+                          <option key={k.id} value={k.id}>
+                            {k.title} v{k.version}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+                ))}
+              </div>
+              <div className="biz-actions">
+                <button type="submit" className="biz-btn-primary" disabled={busy} data-testid="biz-studio-save-draft">
+                  {busy ? 'Kaydediliyor…' : editDraft ? 'Taslağı güncelle' : 'Taslağı kaydet'}
+                </button>
+                {editDraft ? (
+                  <button type="button" disabled={busy} onClick={() => onClearEdit?.()}>
+                    Düzenlemeyi bırak
+                  </button>
+                ) : null}
+              </div>
+              <p className="biz-card-meta">
+                Kayıt, mevcut Business draft API’sinin doğrulamasından geçer. İncelemeye gönderme ve owner onayı ayrı
+                adımlardır.
+              </p>
+            </form>
+          ) : null}
+
+          {!draftResult && !editDraft && !hasFilledDraft(steps, title) && !manualOpen ? (
+            <div className="biz-studio-empty" data-testid="biz-studio-preview-empty">
+              <p>Önizlenecek sohbet yok. Önce kaynaklardan konu ve sohbet üretin.</p>
+              <button type="button" className="biz-btn-primary" onClick={() => setPhase('sources')}>
+                Kaynaklara dön
+              </button>
             </div>
-            <p className="biz-card-meta">
-              Kayıt, mevcut Business draft API’sinin doğrulamasından geçer. İncelemeye gönderme ve owner onayı ayrı
-              adımlardır.
-            </p>
-          </form>
-        )}
-      </section>
+          ) : null}
+        </section>
+      ) : null}
     </div>
   );
 }

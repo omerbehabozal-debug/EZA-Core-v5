@@ -104,7 +104,7 @@ describe('Business management', () => {
     expect(auth.logout).not.toHaveBeenCalled();
   });
 
-  it('provides eight sourced editorial steps to editor', async () => {
+  it('opens stepped Yansı Stüdyosu without default eight-step manual form', async () => {
     api.mockImplementation(async (path = '') => {
       if (path === '') return { items: [business], canProvision: false };
       if (path === '/applications/mine') return { items: [] };
@@ -114,8 +114,11 @@ describe('Business management', () => {
     render(<SainaBusinessManager />);
     await screen.findByText('BiligN', { selector: 'h2' });
     fireEvent.click(screen.getByRole('button', { name: 'Yansı Stüdyosu' }));
-    expect(screen.getAllByRole('combobox').length).toBeGreaterThanOrEqual(8);
-    expect(screen.getByLabelText('8. soru')).toBeVisible();
+    expect(screen.getByTestId('biz-yansi-studio')).toHaveAttribute('data-phase', 'sources');
+    expect(screen.getByTestId('biz-studio-step-rail')).toBeInTheDocument();
+    expect(screen.getByTestId('biz-studio-no-sources')).toBeInTheDocument();
+    expect(screen.getByTestId('biz-studio-goto-knowledge')).toBeInTheDocument();
+    expect(screen.queryByTestId('biz-studio-manual-form')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Onayla' })).not.toBeInTheDocument();
   });
 

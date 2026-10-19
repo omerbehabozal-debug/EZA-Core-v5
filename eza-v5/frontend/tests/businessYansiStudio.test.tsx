@@ -1,6 +1,7 @@
 /**
  * Stage 3 — AI Yansı Stüdyosu UX (honest API states, no fake success).
  */
+import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import BusinessYansiStudio from '@/components/saina/business-studio/BusinessYansiStudio';
@@ -55,8 +56,18 @@ vi.mock('@/lib/eza/businessYansi', async () => {
 });
 
 vi.mock('@/components/standalone/ChatBubble', () => ({
-  default: ({ message, isUser }: { message: string; isUser: boolean }) => (
-    <div data-testid={isUser ? 'mock-bubble-user' : 'mock-bubble-ai'}>{message}</div>
+  default: ({
+    message,
+    isUser,
+    renderedBody,
+  }: {
+    message: string;
+    isUser: boolean;
+    renderedBody?: ReactNode;
+  }) => (
+    <div data-testid={isUser ? 'mock-bubble-user' : 'mock-bubble-ai'}>
+      {renderedBody ?? message}
+    </div>
   ),
 }));
 
@@ -256,7 +267,47 @@ describe('BusinessYansiStudio', () => {
     });
     expect(screen.getAllByTestId('mock-bubble-user')).toHaveLength(8);
     expect(screen.getAllByTestId('mock-bubble-ai')).toHaveLength(8);
-    expect(screen.getByText('Üretilen başlık')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Üretilen başlık')).toBeInTheDocument();
+    expect(screen.queryByTestId('biz-studio-topic-grid')).toBeNull();
+    expect(screen.queryByTestId('biz-studio-manual-form')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('biz-studio-edit-step-0'));
+    expect(screen.getByTestId('biz-studio-step-editor-0')).toBeInTheDocument();
+    expect(screen.queryByTestId('biz-studio-step-editor-1')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('biz-studio-toggle-manual'));
+    expect(screen.getByTestId('biz-studio-manual-form')).toBeInTheDocument();
+  });
+
+  it('empty knowledge shows Bilgi Havuzu CTA and hides manual eight-step form', () => {
+    const onOpen = vi.fn();
+    render(
+      <BusinessYansiStudio
+        businessId="biz-1"
+        knowledge={[]}
+        canEdit
+        onDraftSaved={vi.fn()}
+        onOpenKnowledgePool={onOpen}
+      />
+    );
+    expect(screen.getByTestId('biz-studio-no-sources')).toBeInTheDocument();
+    expect(screen.queryByTestId('biz-studio-manual-form')).toBeNull();
+    expect(screen.queryByTestId('biz-studio-suggest-topics')).toBeNull();
+    fireEvent.click(screen.getByTestId('biz-studio-goto-knowledge'));
+    expect(onOpen).toHaveBeenCalled();
+  });
+
+  it('locks preview rail until a real draft exists', () => {
+    render(
+      <BusinessYansiStudio
+        businessId="biz-1"
+        knowledge={knowledge}
+        canEdit
+        onDraftSaved={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId('biz-studio-rail-preview')).toHaveAttribute('data-state', 'locked');
+    expect(screen.getByTestId('biz-yansi-studio')).toHaveAttribute('data-phase', 'sources');
   });
 
   it('surfaces admission-disabled without inventing topics', async () => {

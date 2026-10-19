@@ -620,6 +620,7 @@ export default function SainaBusinessManager() {
                     canEdit={editor}
                     editDraft={editDraft}
                     onClearEdit={() => setEditDraft(null)}
+                    onOpenKnowledgePool={() => setTab('Bilgi Havuzu')}
                     onDraftSaved={async () => {
                       setEditDraft(null);
                       if (selected) await load(selected);

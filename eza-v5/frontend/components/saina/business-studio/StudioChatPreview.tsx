@@ -2,13 +2,25 @@
 
 import { useState } from 'react';
 import ChatBubble from '@/components/standalone/ChatBubble';
-import type { StudioDraftStep, StudioEvidence } from '@/lib/eza/businessStudio';
+import type { StudioEvidence } from '@/lib/eza/businessStudio';
+
+export type StudioPreviewTurn = {
+  question: string;
+  answer: string;
+  evidence?: StudioEvidence | null;
+  sourceLabel?: string;
+};
 
 type Props = {
   title: string;
   summary: string;
-  steps: StudioDraftStep[];
-  sourceTitles?: Record<string, string>;
+  turns: StudioPreviewTurn[];
+  editingStep: number | null;
+  onSelectStep: (index: number) => void;
+  onTitleChange?: (value: string) => void;
+  onSummaryChange?: (value: string) => void;
+  titleEditable?: boolean;
+  disabled?: boolean;
 };
 
 function EvidencePanel({
@@ -19,8 +31,8 @@ function EvidencePanel({
   sourceTitle?: string;
 }) {
   return (
-    <details className="biz-studio-evidence">
-      <summary>Kaynak ve pasaj</summary>
+    <details className="biz-studio-evidence" open>
+      <summary>Kaynak pasajı</summary>
       <p className="biz-studio-evidence-meta">
         {sourceTitle || 'Bilgi kaydı'} · v{evidence.version}
       </p>
@@ -29,24 +41,79 @@ function EvidencePanel({
   );
 }
 
-export default function StudioChatPreview({ title, summary, steps, sourceTitles }: Props) {
-  const [openEvidence, setOpenEvidence] = useState<number | null>(0);
+export default function StudioChatPreview({
+  title,
+  summary,
+  turns,
+  editingStep,
+  onSelectStep,
+  onTitleChange,
+  onSummaryChange,
+  titleEditable = false,
+  disabled = false,
+}: Props) {
+  const [openEvidence, setOpenEvidence] = useState<number | null>(null);
 
   return (
     <section className="biz-studio-chat" data-testid="biz-studio-chat-preview" aria-label="Yansı sohbet önizlemesi">
       <header className="biz-studio-chat-head">
-        <h3>{title}</h3>
-        <p>{summary}</p>
+        {titleEditable && onTitleChange ? (
+          <div className="biz-studio-meta-edit">
+            <label>
+              Başlık
+              <input
+                aria-label="Yansı başlığı"
+                value={title}
+                disabled={disabled}
+                onChange={(e) => onTitleChange(e.target.value)}
+                data-testid="biz-studio-preview-title-input"
+              />
+            </label>
+            <label>
+              Özet
+              <textarea
+                aria-label="Yansı özeti"
+                value={summary}
+                disabled={disabled}
+                rows={2}
+                onChange={(e) => onSummaryChange?.(e.target.value)}
+                data-testid="biz-studio-preview-summary-input"
+              />
+            </label>
+          </div>
+        ) : (
+          <>
+            <h3>{title}</h3>
+            <p>{summary}</p>
+          </>
+        )}
       </header>
+
       <div className="biz-studio-chat-thread">
-        {steps.map((step, index) => {
-          const sourceTitle = sourceTitles?.[step.evidence.versionId];
+        {turns.map((turn, index) => {
+          const selected = editingStep === index;
           return (
-            <div className="biz-studio-turn" key={`${index}-${step.evidence.passageHash}`}>
+            <div
+              className={`biz-studio-turn${selected ? ' is-editing' : ''}`}
+              key={`${index}-${turn.question.slice(0, 24)}`}
+              data-testid={`biz-studio-turn-${index}`}
+            >
+              <div className="biz-studio-turn-toolbar">
+                <span className="biz-studio-turn-index">Adım {index + 1}</span>
+                <button
+                  type="button"
+                  className="biz-studio-turn-edit"
+                  disabled={disabled}
+                  data-testid={`biz-studio-edit-step-${index}`}
+                  onClick={() => onSelectStep(index)}
+                >
+                  {selected ? 'Düzenleniyor' : 'Bu adımı düzenle'}
+                </button>
+              </div>
               <ChatBubble
                 variant="saina"
                 isUser
-                message={step.question}
+                message={turn.question}
                 userInitial="B"
                 isFirstAssistantMessage={false}
                 ezaVisibilityEnabled={false}
@@ -54,22 +121,28 @@ export default function StudioChatPreview({ title, summary, steps, sourceTitles 
               <ChatBubble
                 variant="saina"
                 isUser={false}
-                message={step.answer}
+                message={turn.answer}
                 isFirstAssistantMessage={index === 0}
                 ezaVisibilityEnabled={false}
                 renderedBody={
                   <div className="biz-studio-answer-body">
-                    <p className="biz-studio-answer-text">{step.answer}</p>
-                    <button
-                      type="button"
-                      className="biz-studio-evidence-toggle"
-                      data-testid={`biz-studio-evidence-toggle-${index}`}
-                      onClick={() => setOpenEvidence((cur) => (cur === index ? null : index))}
-                    >
-                      {openEvidence === index ? 'Kaynağı gizle' : 'Kaynağı göster'}
-                    </button>
-                    {openEvidence === index ? (
-                      <EvidencePanel evidence={step.evidence} sourceTitle={sourceTitle} />
+                    <p className="biz-studio-answer-text">{turn.answer}</p>
+                    {turn.evidence ? (
+                      <>
+                        <button
+                          type="button"
+                          className="biz-studio-evidence-toggle"
+                          data-testid={`biz-studio-evidence-toggle-${index}`}
+                          onClick={() => setOpenEvidence((cur) => (cur === index ? null : index))}
+                        >
+                          {openEvidence === index ? 'Kaynağı gizle' : 'Kaynağı incele'}
+                        </button>
+                        {openEvidence === index ? (
+                          <EvidencePanel evidence={turn.evidence} sourceTitle={turn.sourceLabel} />
+                        ) : null}
+                      </>
+                    ) : turn.sourceLabel ? (
+                      <p className="biz-studio-evidence-meta">Kaynak: {turn.sourceLabel}</p>
                     ) : null}
                   </div>
                 }
