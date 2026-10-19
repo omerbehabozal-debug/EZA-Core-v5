@@ -1914,3 +1914,340 @@
     flex-direction: column;
   }
 }
+
+/* —— AI Yansı Stüdyosu (Stage 3 UX) —— */
+.biz-studio {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+  max-width: 920px;
+  width: 100%;
+}
+
+.biz-studio-hero {
+  padding: 0.25rem 0 0.5rem;
+}
+
+.biz-studio-eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--biz-gold);
+}
+
+.biz-studio-steps-rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+
+.biz-studio-steps-rail li {
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--biz-border);
+  color: var(--biz-muted);
+  font-size: 0.78rem;
+}
+
+.biz-studio-steps-rail li[data-active='true'] {
+  color: var(--biz-ink);
+  border-color: var(--biz-gold-line);
+  background: var(--biz-gold-soft);
+}
+
+.biz-studio-banner {
+  border: 1px solid var(--biz-gold-line);
+  background: rgba(231, 180, 91, 0.08);
+  border-radius: 14px;
+  padding: 1rem 1.1rem;
+}
+
+.biz-studio-banner--warn strong {
+  color: var(--biz-gold);
+}
+
+.biz-studio-banner p {
+  margin: 0.4rem 0 0;
+  color: var(--biz-muted);
+  line-height: 1.45;
+}
+
+.biz-studio-panel {
+  border: 1px solid var(--biz-border);
+  background: var(--biz-panel);
+  border-radius: 16px;
+  padding: 1.1rem 1.15rem 1.25rem;
+}
+
+.biz-studio-panel-title {
+  margin: 0 0 0.85rem;
+  font-size: 1.05rem;
+  color: var(--biz-ink);
+  font-weight: 600;
+}
+
+.biz-studio-panel-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.biz-studio-panel-head .biz-studio-panel-title {
+  margin: 0;
+}
+
+.biz-studio-linkish {
+  background: transparent;
+  border: none;
+  color: var(--biz-gold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
+.biz-studio-source-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.biz-studio-source {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.75rem;
+  align-items: start;
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid var(--biz-border);
+  background: var(--biz-panel-raised);
+  cursor: pointer;
+}
+
+.biz-studio-source.is-selected {
+  border-color: var(--biz-gold-line);
+  box-shadow: inset 0 0 0 1px rgba(231, 180, 91, 0.25);
+}
+
+.biz-studio-source strong {
+  display: block;
+  color: var(--biz-ink);
+}
+
+.biz-studio-source em,
+.biz-studio-source small {
+  display: block;
+  color: var(--biz-muted);
+  font-style: normal;
+  margin-top: 0.2rem;
+}
+
+.biz-studio-hint {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+  color: var(--biz-muted);
+}
+
+.biz-studio-hint input {
+  width: 100%;
+}
+
+.biz-studio-topic-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.85rem;
+}
+
+.biz-studio-topic-card {
+  border: 1px solid var(--biz-border);
+  border-radius: 14px;
+  padding: 1rem;
+  background: linear-gradient(165deg, rgba(18, 26, 28, 0.98), rgba(10, 14, 16, 0.96));
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.biz-studio-topic-card.is-selected {
+  border-color: var(--biz-gold);
+}
+
+.biz-studio-topic-card h4 {
+  margin: 0;
+  color: var(--biz-ink);
+  font-size: 1rem;
+}
+
+.biz-studio-topic-card p {
+  margin: 0;
+  color: var(--biz-muted);
+  line-height: 1.45;
+  font-size: 0.92rem;
+}
+
+.biz-studio-topic-source {
+  font-size: 0.78rem !important;
+  color: rgba(231, 180, 91, 0.85) !important;
+}
+
+.biz-studio-topic-card .biz-btn-primary {
+  margin-top: auto;
+}
+
+.biz-studio-status {
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--biz-border);
+  background: rgba(8, 12, 14, 0.7);
+}
+
+.biz-studio-status--ok {
+  border-color: rgba(120, 190, 140, 0.35);
+}
+
+.biz-studio-status--danger {
+  border-color: rgba(255, 160, 140, 0.35);
+}
+
+.biz-studio-status--warn {
+  border-color: var(--biz-gold-line);
+}
+
+.biz-studio-status--live {
+  border-color: rgba(120, 170, 220, 0.35);
+}
+
+.biz-studio-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.biz-studio-status-phase {
+  color: var(--biz-muted);
+  font-size: 0.85rem;
+}
+
+.biz-studio-status-pill {
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  background: var(--biz-gold-soft);
+  color: var(--biz-gold);
+  font-size: 0.78rem;
+}
+
+.biz-studio-status-msg,
+.biz-studio-status-meta {
+  margin: 0.45rem 0 0;
+  color: var(--biz-muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.biz-studio-chat {
+  border: 1px solid var(--biz-border);
+  border-radius: 16px;
+  overflow: hidden;
+  background: #070b0d;
+}
+
+.biz-studio-chat-head {
+  padding: 1rem 1.1rem;
+  border-bottom: 1px solid var(--biz-border);
+}
+
+.biz-studio-chat-head h3 {
+  margin: 0 0 0.35rem;
+  color: var(--biz-ink);
+}
+
+.biz-studio-chat-head p {
+  margin: 0;
+  color: var(--biz-muted);
+}
+
+.biz-studio-chat-thread {
+  padding: 0.75rem 0.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.biz-studio-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.biz-studio-answer-body {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.biz-studio-answer-text {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.biz-studio-evidence-toggle {
+  justify-self: start;
+  background: transparent;
+  border: 1px solid var(--biz-gold-line);
+  color: var(--biz-gold);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.biz-studio-evidence {
+  border-top: 1px solid var(--biz-border);
+  padding-top: 0.55rem;
+  color: var(--biz-muted);
+  font-size: 0.84rem;
+}
+
+.biz-studio-evidence-meta {
+  margin: 0.35rem 0;
+}
+
+.biz-studio-passage {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  border-left: 2px solid var(--biz-gold);
+  background: rgba(231, 180, 91, 0.06);
+  color: var(--biz-ink);
+  white-space: pre-wrap;
+}
+
+.biz-studio-manual {
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .biz-studio-topic-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .biz-studio-chat-thread {
+    padding-inline: 0.25rem;
+  }
+}

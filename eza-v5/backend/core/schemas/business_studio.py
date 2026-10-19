@@ -1,4 +1,4 @@
-"""Phase 1 contracts. Admission is implemented; AI execution is deliberately not."""
+"""Studio admission and opt-in extractive AI generation contracts."""
 from datetime import datetime
 from decimal import Decimal
 from typing import Literal
@@ -7,7 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 PROMPT_VERSION = 'business-studio-extractive-v1'
-State = Literal['blocked', 'pending', 'running', 'validated', 'succeeded', 'failed', 'cancelled', 'expired']
+State = Literal['blocked', 'pending', 'running', 'validated', 'succeeded', 'failed', 'cancelled', 'expired', 'queued', 'completed']
 
 
 class Strict(BaseModel):
@@ -29,6 +29,8 @@ class TopicsRequest(Strict):
 
 class GenerationRequest(TopicsRequest):
     expectedSnapshotHash: str = Field(pattern=r'^[0-9a-f]{64}$')
+    topicsGenerationId: UUID | None = None
+    topicId: str | None = Field(default=None, min_length=1, max_length=80)
 
 
 class SourceIdentity(Strict):
@@ -42,7 +44,9 @@ class GenerationResponse(Strict):
     businessId: UUID
     kind: Literal['topics', 'draft']
     status: State
-    executionAvailable: Literal[False] = False
+    executionAvailable: bool = False
+    result: dict | None = None
+    usageEstimated: bool = False
     snapshotHash: str
     sources: list[SourceIdentity]
     model: str | None
@@ -63,6 +67,8 @@ class GenerationResponse(Strict):
 
 
 class Evidence(Strict):
+    # Evidence must preserve source whitespace for exact offset/hash validation.
+    model_config = ConfigDict(extra='forbid', str_strip_whitespace=False)
     versionId: UUID
     version: int = Field(ge=1)
     contentHash: str = Field(pattern=r'^[0-9a-f]{64}$')

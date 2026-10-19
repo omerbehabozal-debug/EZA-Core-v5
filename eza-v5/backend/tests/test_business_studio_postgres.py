@@ -22,6 +22,7 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 
 from backend.tests.test_business_studio import migration
+from backend.tests.test_business_studio_generation import migration2
 from backend.models.production import User, Organization
 from backend.models.standalone_conversations import StandaloneConversation
 from backend.models.mirror_network import MirrorNetworkNode
@@ -63,6 +64,9 @@ async def test_real_pg_migration_and_parallel_admission():
                     migration().upgrade()
                     migration().downgrade()  # empty Studio tables, actual PG DDL
                     migration().upgrade()
+                    migration2().upgrade()
+                    migration2().downgrade()
+                    migration2().upgrade()
 
             await connection.run_sync(setup)
 
@@ -182,6 +186,48 @@ async def test_real_pg_migration_and_parallel_admission():
             assert denied.value.status_code in {403, 404}
             generation_id = row.id
 
+        # Stage 2: two independent requests for the same job make one provider call.
+        from types import SimpleNamespace
+        from unittest.mock import AsyncMock, patch
+        from backend.services.business_yansi import studio_execution, studio_generation
+        from backend.tests.test_business_studio_generation import topics_output, reply
+        async with sessions() as db:
+            knowledge = await db.get(BusinessKnowledgeVersion, source_id)
+            knowledge.content = '\n\n'.join(f'Workshop product detail number {i} describes a separate verified material choice.' for i in range(8))
+            await db.commit()
+            job = await studio.create_job(db, business_id, owner,
+                TopicsRequest(idempotencyKey='stage2-concurrent', sourceVersionIds=[source_id]), 'topics',
+                replace(studio.Limits(), daily_jobs=20))
+            job_id = job.id
+            output = topics_output(studio_generation.catalog(job.source_snapshot))
+        started, release = asyncio.Event(), asyncio.Event()
+        provider = SimpleNamespace(available_models=['openai/gpt-4o-mini'], openai_client=SimpleNamespace(api_key=None))
+        async def generate(**kwargs):
+            started.set()
+            await release.wait()
+            return reply(output)
+        provider.generate = AsyncMock(side_effect=generate)
+        async def execute_request():
+            async with sessions() as db:
+                row = await studio.read_job(db, business_id, owner, job_id)
+                return await studio_execution.execute(db, row, router=provider)
+        with patch.dict(os.environ, {'BILIGN_STUDIO_EXECUTION_ENABLED': 'true'}):
+            # Pin model in the job just as admission does from deployment config.
+            async with sessions() as db:
+                row = await db.get(BusinessStudioGeneration, job_id)
+                row.model = 'openai/gpt-4o-mini'
+                await db.commit()
+            with patch.dict(os.environ, {'BILIGN_STUDIO_PRICES_JSON': '{"openai/gpt-4o-mini":{"inputPerMillion":".15","outputPerMillion":".60"}}'}):
+                first = asyncio.create_task(execute_request())
+                try:
+                    await asyncio.wait_for(started.wait(), 10)
+                    second = await asyncio.wait_for(execute_request(), 10)
+                    assert second.status == 'running' and provider.generate.await_count == 1
+                finally:
+                    release.set()
+                    completed = await asyncio.wait_for(first, 10)
+                assert completed.status == 'succeeded' and provider.generate.await_count == 1
+
         # Source revoke / mutate → snapshot stale (rollback leaves no new admission)
         async with sessions() as db:
             knowledge = await db.get(BusinessKnowledgeVersion, source_id)
@@ -207,7 +253,7 @@ async def test_real_pg_migration_and_parallel_admission():
             assert after == before
 
         async with sessions() as db:
-            assert await db.scalar(select(func.count(BusinessStudioGeneration.id))) == 3
+            assert await db.scalar(select(func.count(BusinessStudioGeneration.id))) == 4
 
         async with engine.begin() as connection:
 

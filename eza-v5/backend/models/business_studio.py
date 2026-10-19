@@ -2,7 +2,7 @@
 import uuid
 
 from sqlalchemy import (Column, String, Integer, Date, DateTime, JSON, Numeric,
-                        ForeignKey, UniqueConstraint, CheckConstraint)
+                        ForeignKey, UniqueConstraint, CheckConstraint, Boolean)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from backend.core.utils.dependencies import Base
@@ -17,6 +17,7 @@ class BusinessStudioGeneration(Base):
     request_hash = Column(String(64), nullable=False)
     request_payload = Column(JSON, nullable=False)
     kind = Column(String(12), nullable=False)
+    execution = Column(JSON, nullable=True)
     source_snapshot = Column(JSON, nullable=False)
     snapshot_hash = Column(String(64), nullable=False)
     status = Column(String(16), nullable=False)
@@ -50,6 +51,7 @@ class BusinessStudioUsage(Base):
     __tablename__ = 'business_studio_usage'
     generation_id = Column(UUID(as_uuid=True), ForeignKey('business_studio_generations.id'), primary_key=True)
     attempt = Column(Integer, primary_key=True)
+    estimated = Column(Boolean, nullable=False, default=False, server_default="false")
     settlement_hash = Column(String(64), nullable=False)
     input_tokens = Column(Integer, nullable=False)
     output_tokens = Column(Integer, nullable=False)

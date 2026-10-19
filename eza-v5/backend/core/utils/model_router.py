@@ -118,7 +118,9 @@ class ModelRouter:
         temperature: float = 0.2,
         max_tokens: int = 512,
         timeout: Optional[float] = None,
-        retries: int = 2
+        retries: int = 2,
+        json_mode: bool = False,
+        json_schema: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """
         Generate response from specified model with retry mechanism
@@ -142,6 +144,8 @@ class ModelRouter:
             }
         """
         provider, actual_model = self._get_provider_from_model_id(model_id)
+        if (json_mode or json_schema) and provider != "openai":
+            raise ValueError("JSON mode requires the OpenAI adapter")
         timeout_seconds = timeout or self.timeout
         # Zero explicitly disables retries; keep the existing default of two.
         if type(retries) is not int or retries < 0:
@@ -171,7 +175,8 @@ class ModelRouter:
                         model=actual_model,
                         temperature=temperature,
                         max_tokens=max_tokens,
-                        timeout=timeout_seconds
+                        timeout=timeout_seconds,
+                        **({"json_schema": json_schema} if json_schema else {"json_mode": True} if json_mode else {})
                     )
                 elif provider == "groq":
                     result = await self.groq_client.generate(

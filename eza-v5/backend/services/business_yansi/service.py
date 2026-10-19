@@ -90,10 +90,10 @@ async def transition_knowledge(db,business_id,user_id,version_id,target,revision
     row.approved_by=uid(user_id) if target=='approved' else None if target=='draft' else row.approved_by
     await db.commit();await db.refresh(row);return row
 
-async def published_knowledge(db,business_id,snapshot=None):
+async def published_knowledge(db,business_id,snapshot=None,*,fresh=False):
     query=select(Knowledge).where(Knowledge.business_id==uid(business_id),Knowledge.status=='published',Knowledge.public_allowed.is_(True),Knowledge.approved_by.is_not(None))
     if snapshot is not None: query=query.where(Knowledge.id.in_([uid(v) for v in snapshot]))
-    return list((await db.scalars(query.order_by(Knowledge.id))).all())
+    return list((await db.scalars(query.order_by(Knowledge.id).execution_options(populate_existing=fresh))).all())
 
 def rank_sources(question,rows,limit=4):
     words=set(re.findall(r'[^\W_]{3,}', question.casefold(), re.UNICODE))
@@ -104,7 +104,7 @@ def rank_sources(question,rows,limit=4):
         if score: ranked.append((score,str(row.id),row))
     return [row for _,_,row in sorted(ranked,key=lambda r:(-r[0],r[1]))[:limit]]
 
-async def create_draft(db,business_id,user_id,title,summary,steps):
+async def create_draft(db,business_id,user_id,title,summary,steps,*,commit=True):
     await access(db,business_id,user_id,'editor')
     public_content(title,summary,*(s['question'] for s in steps),*(s['answer'] for s in steps))
     if len(steps)!=8: fail('eight_steps_required',422)
@@ -115,7 +115,10 @@ async def create_draft(db,business_id,user_id,title,summary,steps):
         if not any(step['answer'] in allowed[v].content for v in step['sources']): fail('answer_not_supported_by_source',422)
     snapshot=sorted({v for step in steps for v in step['sources']})
     row=Draft(business_id=uid(business_id),created_by=uid(user_id),title=title,summary=summary,steps=steps,knowledge_snapshot=snapshot,source_hash=source_hash(steps),status='draft',revision=1)
-    db.add(row);await db.commit();await db.refresh(row);return row
+    db.add(row)
+    if commit: await db.commit();await db.refresh(row)
+    else: await db.flush()
+    return row
 
 async def draft_row(db,business_id,draft_id,lock=False):
     query=select(Draft).where(Draft.id==uid(draft_id),Draft.business_id==uid(business_id))

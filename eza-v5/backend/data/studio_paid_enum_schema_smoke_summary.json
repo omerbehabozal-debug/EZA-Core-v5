@@ -1,0 +1,52 @@
+{
+  "authorized_cap_usd": "0.02",
+  "model": "openai/gpt-4.1-mini",
+  "rates": {
+    "inputPerMillion": "0.40",
+    "outputPerMillion": "1.60"
+  },
+  "scope": "synthetic_only_no_prod_db_or_api",
+  "calls": [
+    {
+      "kind": "topics-strict-enum",
+      "ok": true,
+      "error": null,
+      "finish_reason": "stop",
+      "input_tokens": 2182,
+      "output_tokens": 324,
+      "cost_usd": "0.0013912",
+      "provider_error_prefix": "",
+      "validation": "2_topics",
+      "topic_ids": [
+        "topic-1",
+        "topic-2"
+      ],
+      "enum_checks": {
+        "title_enum": [
+          "7641bf7748d7a7c0a0f60fed"
+        ],
+        "passage_enum_len": 8
+      }
+    },
+    {
+      "kind": "draft-strict-enum",
+      "ok": true,
+      "error": null,
+      "finish_reason": "stop",
+      "input_tokens": 1569,
+      "output_tokens": 301,
+      "cost_usd": "0.0011092",
+      "provider_error_prefix": "",
+      "validation": "8_steps_exact_passages",
+      "title": "Workshop design choices"
+    }
+  ],
+  "pass": true,
+  "total_cost_usd": "0.0025004",
+  "total_input_tokens": 3751,
+  "total_output_tokens": 625,
+  "provider_calls": 2,
+  "topics_ok": true,
+  "draft_ok": true,
+  "selected_topic_id": "topic-1"
+}
