@@ -25,7 +25,7 @@ class Limits:
 
 
 async def snapshot_sources(db, business_id, ids):
-    rows = await business.published_knowledge(db, business_id, [str(i) for i in ids])
+    rows = await business.published_knowledge(db, business_id, [str(i) for i in ids], fresh=True)
     if len(rows) != len(set(ids)):
         business.fail('studio_source_unavailable', 422)
     sources = []
@@ -59,7 +59,12 @@ async def revalidate(db, job):
 
 async def lock_business(db, business_id, user_id, role):
     # A future worker must recheck account activity, not just the stored actor ID.
+    from backend.models.production import User, Organization
+    from backend.models.business_yansi import BusinessMember
+    await db.get(User, business.uid(user_id), populate_existing=True)
     await business.actor(db, {'user_id': str(user_id)})
+    await db.get(BusinessMember, (business.uid(business_id), business.uid(user_id)), populate_existing=True)
+    await db.get(Organization, business.uid(business_id), populate_existing=True)
     await db.scalar(select(BusinessProfile).where(BusinessProfile.id == business.uid(business_id))
                     .with_for_update().execution_options(populate_existing=True))
     return await business.access(db, business_id, user_id, role)
@@ -77,6 +82,8 @@ async def create_job(db, business_id, user_id, body, kind, limits=Limits()):
     if existing:
         if existing.request_hash != request_hash:
             business.fail('studio_idempotency_conflict', 409)
+        from .studio_execution import recover
+        existing = await recover(db, existing)
         await revalidate(db, existing)
         return existing
     snapshot, fingerprint = await snapshot_sources(db, business_id, body.sourceVersionIds)
@@ -106,13 +113,17 @@ async def read_job(db, business_id, user_id, generation_id):
     row = await db.scalar(select(Job).where(Job.id == generation_id, Job.business_id == business.uid(business_id)))
     if not row:
         business.fail('studio_generation_not_found', 404)
+    from .studio_execution import recover
+    row = await recover(db, row)
     await revalidate(db, row)
     return row
 
 
 def response(row):
     return GenerationResponse(generationId=row.id, businessId=row.business_id, kind=row.kind,
-        status=row.status, snapshotHash=row.snapshot_hash, sources=[{'versionId': s['versionId'],
+        status={'pending': 'queued', 'succeeded': 'completed'}.get(row.status, row.status),
+        executionAvailable=bool(row.execution), result=(row.execution or {}).get('result') if row.status == 'succeeded' else None,
+        usageEstimated=bool((row.execution or {}).get('usageEstimated')), snapshotHash=row.snapshot_hash, sources=[{'versionId': s['versionId'],
         'version': s['version'], 'contentHash': s['contentHash']} for s in row.source_snapshot['sources']],
         model=row.model, promptVersion=row.prompt_version, attemptCount=row.attempts,
         maxAttempts=row.max_attempts, reservedInputTokens=row.reserved_input_tokens,

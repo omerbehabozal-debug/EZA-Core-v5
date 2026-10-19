@@ -1,4 +1,4 @@
-"""Studio Phase 1: persisted admission, explicit unavailable executor."""
+"""Studio admission plus opt-in bounded in-request execution; no background worker."""
 from uuid import UUID
 import os
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,7 +7,7 @@ from backend.auth.deps import get_current_user
 from backend.core.utils.dependencies import get_db
 from backend.core.schemas.business_studio import TopicsRequest, GenerationRequest, GenerationResponse
 from backend.services.business_yansi import service as business
-from backend.services.business_yansi import studio
+from backend.services.business_yansi import studio, studio_execution
 
 async def admission_available():
     # Existing Business can remain enabled before the additive Studio migration.
@@ -22,7 +22,8 @@ router = APIRouter(prefix='/{business_id}/studio', tags=['Business Studio'], dep
 async def topics(business_id: UUID, body: TopicsRequest, db=Depends(get_db), claims=Depends(get_current_user)):
     try:
         actor = await business.actor(db, claims)
-        return studio.response(await studio.create_job(db, business_id, actor.id, body, 'topics'))
+        job = await studio.create_job(db, business_id, actor.id, body, 'topics')
+        return studio.response(await studio_execution.execute(db, job))
     except Exception:
         await db.rollback()
         raise
@@ -32,7 +33,8 @@ async def topics(business_id: UUID, body: TopicsRequest, db=Depends(get_db), cla
 async def generations(business_id: UUID, body: GenerationRequest, db=Depends(get_db), claims=Depends(get_current_user)):
     try:
         actor = await business.actor(db, claims)
-        return studio.response(await studio.create_job(db, business_id, actor.id, body, 'draft'))
+        job = await studio.create_job(db, business_id, actor.id, body, 'draft')
+        return studio.response(await studio_execution.execute(db, job))
     except Exception:
         await db.rollback()
         raise
@@ -42,7 +44,8 @@ async def generations(business_id: UUID, body: GenerationRequest, db=Depends(get
 async def generation(business_id: UUID, generation_id: UUID, db=Depends(get_db), claims=Depends(get_current_user)):
     try:
         actor = await business.actor(db, claims)
-        return studio.response(await studio.read_job(db, business_id, actor.id, generation_id))
+        job = await studio.read_job(db, business_id, actor.id, generation_id)
+        return studio.response(await studio_execution.recover(db, job))
     except Exception:
         await db.rollback()
         raise
