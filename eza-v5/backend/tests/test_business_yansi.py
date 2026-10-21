@@ -128,6 +128,54 @@ async def test_delete_knowledge_soft_archives_by_version_id(sample):
     assert draft.status=='draft' and str(second.id) in draft.knowledge_snapshot
     assert str(first.id) not in draft.knowledge_snapshot
 
+_PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+    b"\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01"
+    b"\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
+@pytest.mark.asyncio
+async def test_brand_publisher_identity_is_per_business(sample, tmp_path, monkeypatch):
+    monkeypatch.setattr('backend.services.profile_avatar_store.resolve_profile_avatar_dir', lambda: tmp_path)
+    s = sample
+    second = await svc.create_business(s.db, s.admin, {
+        'organizationId': str(s.other.id),
+        'ownerId': str(s.outsider.id),
+        'slug': 'akdeniz',
+        'name': 'Akdeniz',
+    })
+    assert second.verified is False
+    logo = await svc.set_brand_logo(s.db, s.business.id, s.owner.id, _PNG_BYTES)
+    assert logo.logo_url and logo.logo_url.startswith('/api/public/profile-avatars/')
+    assert str(s.business.id) in logo.logo_url
+    with pytest.raises(HTTPException) as denied:
+        await svc.set_brand_logo(s.db, s.business.id, s.viewer.id, _PNG_BYTES)
+    assert denied.value.status_code == 403
+    with pytest.raises(HTTPException) as foreign:
+        await svc.set_brand_logo(s.db, second.id, s.owner.id, _PNG_BYTES)
+    assert foreign.value.status_code == 403
+    first_draft = BusinessYansiDraft(id=uuid.uuid4(), business_id=s.business.id, created_by=s.owner.id, title='BiligN', summary='', steps=[], knowledge_snapshot=[], source_hash='a'*64, status='published')
+    second_draft = BusinessYansiDraft(id=uuid.uuid4(), business_id=second.id, created_by=s.outsider.id, title='Akdeniz', summary='', steps=[], knowledge_snapshot=[], source_hash='b'*64, status='published')
+    s.db.add_all([first_draft, second_draft])
+    await s.db.flush()
+    s.db.add_all([
+        BusinessPublication(slug='brand-bilign', journey_version=1, business_id=s.business.id, draft_id=first_draft.id, knowledge_snapshot=[], published_by=s.owner.id),
+        BusinessPublication(slug='brand-akdeniz', journey_version=1, business_id=second.id, draft_id=second_draft.id, knowledge_snapshot=[], published_by=s.outsider.id),
+    ])
+    await s.db.commit()
+    bilign = await public_publisher(s.db, 'brand-bilign', 1)
+    akdeniz = await public_publisher(s.db, 'brand-akdeniz', 1)
+    assert bilign['displayName'] == 'BiligN' and bilign['verified'] is True and bilign['logoUrl'] == logo.logo_url
+    assert akdeniz['displayName'] == 'Akdeniz' and akdeniz['verified'] is False and akdeniz['logoUrl'] is None
+    assert str(s.owner.id) not in json.dumps(bilign)
+    assert str(s.outsider.email) not in json.dumps(akdeniz)
+    assert await public_publisher(s.db, 'personal-yansi', 1) is None
+    second.status = 'suspended'
+    await s.db.commit()
+    with pytest.raises(HTTPException):
+        await public_publisher(s.db, 'brand-akdeniz', 1)
+
 @pytest.mark.asyncio
 async def test_sensitive_source_not_published(sample):
     s=sample

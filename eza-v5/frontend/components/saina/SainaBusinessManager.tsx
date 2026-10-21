@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, type FormEvent } from 'react';
 import {
   businessRequest as api,
+  uploadBusinessLogo,
   isBusinessApiError,
   type Business,
   type Knowledge,
@@ -19,6 +20,7 @@ import BusinessYansiStudio from '@/components/saina/business-studio/BusinessYans
 import BusinessKnowledgePool from '@/components/saina/business-studio/BusinessKnowledgePool';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { buildProfileAvatarDisplaySrc } from '@/lib/eza/profile/avatarDisplayUrl';
 
 const tabs = ['Genel Bakış', 'Bilgi Havuzu', 'Yansı Stüdyosu', 'Yayınlar', 'Ayarlar'] as const;
 const LOGIN_MSG = 'Business yönetimi için giriş yapmalısın.';
@@ -33,17 +35,30 @@ function statusClass(status: string) {
   return `biz-status biz-status--${status}`;
 }
 
-function BrandMark({ name, logoUrl, size = 'nav' }: { name: string; logoUrl?: string | null; size?: 'nav' | 'hero' }) {
+function BrandMark({
+  name,
+  logoUrl,
+  cacheBust,
+  size = 'nav',
+  testId,
+}: {
+  name: string;
+  logoUrl?: string | null;
+  cacheBust?: string | number | null;
+  size?: 'nav' | 'hero';
+  testId?: string;
+}) {
   const cls = size === 'hero' ? 'biz-overview-logo' : 'biz-brand-mark';
-  if (logoUrl) {
+  const src = logoUrl ? buildProfileAvatarDisplaySrc(logoUrl, cacheBust ?? undefined) : '';
+  if (src) {
     return (
-      <div className={cls} aria-hidden>
-        <img src={logoUrl} alt="" />
+      <div className={cls} aria-hidden data-testid={testId}>
+        <img src={src} alt="" />
       </div>
     );
   }
   return (
-    <div className={cls} aria-hidden>
+    <div className={cls} aria-hidden data-testid={testId}>
       {(name.trim()[0] || 'B').toUpperCase()}
     </div>
   );
@@ -70,6 +85,8 @@ export default function SainaBusinessManager() {
   const [catalogState, setCatalogState] = useState<CatalogState>('idle');
   const [serviceMessage, setServiceMessage] = useState('');
   const [knowledgeUi, setKnowledgeUi] = useState({ formOpen: false, dirty: false });
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Draft | null>(null);
   const [editorialChat, setEditorialChat] = useState('');
   const [answer, setAnswer] = useState('');
@@ -185,6 +202,8 @@ export default function SainaBusinessManager() {
     setAnswer('');
     setEditorialChat('');
     setKnowledgeUi({ formOpen: false, dirty: false });
+    setLogoFile(null);
+    setLogoPreview(null);
     setEditDraft(null);
     setTab('Genel Bakış');
     if (selected) load(selected).catch((e) => setError(e.message));
@@ -284,7 +303,9 @@ export default function SainaBusinessManager() {
         onClick={() => setMenuOpen((v) => !v)}
       >
         <SainaAuthAccountMark user={user} />
-        <span className="biz-account-name">{displayName}</span>
+        <span className="biz-account-name" data-testid="biz-account-name">
+          {displayName}
+        </span>
       </button>
       {menuOpen ? (
         <div className="biz-account-dropdown" role="menu">
@@ -400,10 +421,17 @@ export default function SainaBusinessManager() {
     <main className="biz-panel">
       <header className="biz-panel-header">
         <div className="biz-brand-block">
-          <BrandMark name={business?.name || 'Business'} logoUrl={business?.logo_url} />
+          <BrandMark
+            name={business?.name || 'Business'}
+            logoUrl={business?.logo_url}
+            cacheBust={business?.updated_at}
+            testId="biz-panel-brand"
+          />
           <div className="biz-brand-copy">
             <p className="biz-brand-kicker">Business Yansı</p>
-            <p className="biz-brand-title">{business?.name || 'Yönetim'}</p>
+            <p className="biz-brand-title" data-testid="biz-panel-brand-name">
+              {business?.name || 'Yönetim'}
+            </p>
           </div>
         </div>
         <div className="biz-header-actions">
@@ -485,14 +513,14 @@ export default function SainaBusinessManager() {
                   <p className="biz-section-lead">Doğrulanmış marka bilgileri ve editoryal yayınlar</p>
                   <article className="biz-card">
                     <div className="biz-overview-hero">
-                      <BrandMark name={business.name} logoUrl={business.logo_url} size="hero" />
+                      <BrandMark name={business.name} logoUrl={business.logo_url} cacheBust={business.updated_at} size="hero" />
                       <div>
                         <h2>{business.name}</h2>
                         <p className="biz-overview-desc">{business.description || 'Açıklama henüz eklenmedi.'}</p>
                         <div className="biz-meta-row">
                           <span className={`biz-chip${business.verified || business.official ? ' biz-chip--gold' : ''}`}>
                             {business.official
-                              ? 'Resmî BiligN'
+                              ? 'Resmî Business'
                               : business.verified
                                 ? 'Doğrulanmış Business'
                                 : 'Doğrulama bekliyor'}
@@ -560,6 +588,13 @@ export default function SainaBusinessManager() {
                     canEdit={editor}
                     editDraft={editDraft}
                     onClearEdit={() => setEditDraft(null)}
+                    brand={{
+                      name: business.name,
+                      logoUrl: business.logo_url,
+                      cacheBust: business.updated_at,
+                      verified: business.verified,
+                      official: business.official,
+                    }}
                     onOpenKnowledgePool={() => goToTab('Bilgi Havuzu')}
                     onDraftSaved={async () => {
                       setEditDraft(null);
@@ -741,7 +776,16 @@ export default function SainaBusinessManager() {
                     <>
                       <form
                         className="biz-form"
-                        onSubmit={submit((data) => api(`${base}/settings`, 'PATCH', data))}
+                        onSubmit={submit(async (data) => {
+                          if (logoFile) await uploadBusinessLogo(selected, logoFile);
+                          await api(`${base}/settings`, 'PATCH', {
+                            name: data.name,
+                            description: data.description,
+                          });
+                          setLogoFile(null);
+                          setLogoPreview(null);
+                          setNotice('Marka kimliği kaydedildi.');
+                        })}
                       >
                         <label>
                           Marka adı
@@ -756,17 +800,50 @@ export default function SainaBusinessManager() {
                           />
                         </label>
                         <label>
-                          Logo URL
+                          Marka avatarı
                           <input
-                            name="logoUrl"
-                            aria-label="Logo URL"
-                            placeholder="https://…"
-                            defaultValue={business.logo_url || ''}
+                            aria-label="Marka avatarı"
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            data-testid="biz-brand-logo-file"
+                            onChange={(event) => {
+                              const file = event.target.files?.[0] || null;
+                              setLogoFile(file);
+                              setLogoPreview((current) => {
+                                if (current) URL.revokeObjectURL(current);
+                                return file ? URL.createObjectURL(file) : null;
+                              });
+                            }}
                           />
                         </label>
-                        <button type="submit" className="biz-btn-primary">
+                        <div className="biz-brand-logo-preview" data-testid="biz-brand-logo-preview">
+                          <BrandMark
+                            name={business.name}
+                            logoUrl={logoPreview || business.logo_url}
+                            cacheBust={logoPreview ? undefined : business.updated_at}
+                          />
+                          <span>{logoFile ? logoFile.name : business.logo_url ? 'Kayıtlı marka avatarı' : 'Varsayılan marka avatarı'}</span>
+                        </div>
+                        <button type="submit" className="biz-btn-primary" data-testid="biz-brand-save">
                           Marka kimliğini kaydet
                         </button>
+                        {business.logo_url ? (
+                          <button
+                            type="button"
+                            data-testid="biz-brand-logo-clear"
+                            onClick={() =>
+                              void run(() =>
+                                api(`${base}/settings`, 'PATCH', {
+                                  name: business.name,
+                                  description: business.description,
+                                  logoUrl: null,
+                                })
+                              )
+                            }
+                          >
+                            Avatarı kaldır
+                          </button>
+                        ) : null}
                       </form>
                       <article className="biz-card">
                         <h3>Yetkililer</h3>

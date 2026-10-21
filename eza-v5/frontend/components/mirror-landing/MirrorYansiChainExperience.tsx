@@ -1798,7 +1798,13 @@ export default function MirrorYansiChainExperience({
                   artifact={activeNode.artifact}
                   mobilePresentation={!isDesktop}
                   desktopIdentity={{
-                    businessLabel: activeNode.artifact.businessPublisher ? (activeNode.artifact.businessPublisher.official ? "Resmî BiligN · Business Yansı" : "Business Yansı") : undefined,
+                    businessLabel: activeNode.artifact.businessPublisher
+                      ? activeNode.artifact.businessPublisher.official
+                        ? "Resmî Business Yansı"
+                        : activeNode.artifact.businessPublisher.verified
+                          ? "Doğrulanmış Business Yansı"
+                          : "Business Yansı"
+                      : undefined,
                     title, displayName: activeNode.authorDisplayName, authorUserId: activeNode.artifact.authorUserId,
                     avatarUrl: activeNode.authorAvatarUrl ?? null, avatarRevision: activeNode.authorAvatarRevision,
                     honorific: activeNode.authorHonorific ?? null, timeLabel: publicMetaTime ?? null,

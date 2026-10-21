@@ -1,7 +1,7 @@
 import { getApiUrl } from '@/lib/apiUrl';
 import { getAuthToken } from '@/lib/eza/authTokenStore';
 
-export type Business = { id: string; name: string; slug: string; description: string; logo_url: string | null; verified: boolean; official: boolean; status: string };
+export type Business = { id: string; name: string; slug: string; description: string; logo_url: string | null; verified: boolean; official: boolean; status: string; updated_at?: string | null };
 export type Knowledge = {
   id: string;
   item_id: string;
@@ -182,6 +182,29 @@ export async function businessRequest<T>(path = '', method = 'GET', body?: unkno
         ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      cache: 'no-store',
+    });
+  } catch {
+    throw new BusinessApiError(0, 'network_error');
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new BusinessApiError(response.status, data?.detail ?? null);
+  }
+  return response.json();
+}
+
+export async function uploadBusinessLogo(businessId: string, file: File): Promise<Business> {
+  const token = getAuthToken();
+  if (!token) throw new Error('Business yönetimi için giriş yapmalısın.');
+  const body = new FormData();
+  body.append('file', file);
+  let response: Response;
+  try {
+    response = await fetch(getApiUrl().replace(/\/$/, '') + `/api/business-yansi/${businessId}/logo`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body,
       cache: 'no-store',
     });
   } catch {

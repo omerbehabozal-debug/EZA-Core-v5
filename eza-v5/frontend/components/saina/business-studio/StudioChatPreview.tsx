@@ -2,7 +2,16 @@
 
 import { useState } from 'react';
 import ChatBubble from '@/components/standalone/ChatBubble';
+import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
 import type { StudioEvidence } from '@/lib/eza/businessStudio';
+
+export type StudioBrand = {
+  name: string;
+  logoUrl?: string | null;
+  cacheBust?: string | number | null;
+  verified?: boolean;
+  official?: boolean;
+};
 
 export type StudioPreviewTurn = {
   question: string;
@@ -21,6 +30,7 @@ type Props = {
   onSummaryChange?: (value: string) => void;
   titleEditable?: boolean;
   disabled?: boolean;
+  brand?: StudioBrand | null;
 };
 
 function EvidencePanel({
@@ -51,11 +61,23 @@ export default function StudioChatPreview({
   onSummaryChange,
   titleEditable = false,
   disabled = false,
+  brand = null,
 }: Props) {
   const [openEvidence, setOpenEvidence] = useState<number | null>(null);
 
   return (
     <section className="biz-studio-chat" data-testid="biz-studio-chat-preview" aria-label="Yansı sohbet önizlemesi">
+      {brand ? (
+        <div className="biz-studio-publisher" data-testid="biz-studio-publisher">
+          <ProfileUserAvatar displayName={brand.name} avatarUrl={brand.logoUrl} cacheBust={brand.cacheBust ?? undefined} size="sm" alt="" />
+          <span className="biz-studio-publisher-name">{brand.name}</span>
+          {brand.official ? (
+            <span className="biz-chip biz-chip--gold">Resmî Business</span>
+          ) : brand.verified ? (
+            <span className="biz-chip biz-chip--gold">Doğrulanmış Business</span>
+          ) : null}
+        </div>
+      ) : null}
       <header className="biz-studio-chat-head">
         {titleEditable && onTitleChange ? (
           <div className="biz-studio-meta-edit">

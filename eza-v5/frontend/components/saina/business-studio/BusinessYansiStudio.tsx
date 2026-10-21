@@ -20,7 +20,7 @@ import {
   type StudioGeneration,
   type StudioTopic,
 } from '@/lib/eza/businessStudio';
-import StudioChatPreview from './StudioChatPreview';
+import StudioChatPreview, { type StudioBrand } from './StudioChatPreview';
 import StudioGenerationStatus from './StudioGenerationStatus';
 import StudioStepRail, { type StudioRailStep, type StudioRailStepId } from './StudioStepRail';
 
@@ -32,6 +32,7 @@ type Props = {
   editDraft?: Draft | null;
   onClearEdit?: () => void;
   onOpenKnowledgePool?: () => void;
+  brand?: StudioBrand | null;
 };
 
 type FlowPhase = 'sources' | 'topics' | 'chat' | 'preview';
@@ -54,6 +55,7 @@ export default function BusinessYansiStudio({
   editDraft = null,
   onClearEdit,
   onOpenKnowledgePool,
+  brand = null,
 }: Props) {
   const published = useMemo(() => publishedSources(knowledge), [knowledge]);
   const sourceTitles = useMemo(
@@ -655,6 +657,7 @@ export default function BusinessYansiStudio({
           {(draftResult || hasFilledDraft(steps, title) || editDraft) && !manualOpen ? (
             <>
               <StudioChatPreview
+                brand={brand}
                 title={title}
                 summary={summary}
                 turns={previewTurns}

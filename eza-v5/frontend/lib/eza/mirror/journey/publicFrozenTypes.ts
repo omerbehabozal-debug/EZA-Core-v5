@@ -13,8 +13,9 @@ export type BusinessPublisher = { businessId: string; slug: string; displayName:
 export function parseBusinessPublisher(value: unknown): BusinessPublisher | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const row = value as Record<string, unknown>;
-  if (typeof row.businessId !== 'string' || typeof row.slug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row.slug) || typeof row.displayName !== 'string' || !row.displayName.trim() || row.verified !== true) return undefined;
-  return { businessId: row.businessId, slug: row.slug, displayName: row.displayName.trim(), logoUrl: typeof row.logoUrl === 'string' ? row.logoUrl : null, verified: true, official: row.official === true };
+  if (typeof row.businessId !== 'string' || typeof row.slug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(row.slug) || typeof row.displayName !== 'string' || !row.displayName.trim() || typeof row.verified !== 'boolean') return undefined;
+  const verified = row.verified === true;
+  return { businessId: row.businessId, slug: row.slug, displayName: row.displayName.trim(), logoUrl: typeof row.logoUrl === 'string' ? row.logoUrl : null, verified, official: verified && row.official === true };
 }
 export type PublicFrozenJourneyArtifact = {
   businessPublisher?: BusinessPublisher;

@@ -19,7 +19,9 @@ async def public_publisher(db,slug,version):
     profile=await db.get(BusinessProfile,link.business_id)
     from backend.models.production import Organization
     organization=await db.get(Organization,link.business_id)
-    if not profile or profile.status!='active' or not profile.verified or not organization or organization.status!='active': fail('business_unavailable',404)
+    # Identity follows the brand even when verification is later revoked.
+    # The verified flag only controls the public badge, not the publisher name.
+    if not profile or profile.status!='active' or not organization or organization.status!='active': fail('business_unavailable',404)
     return publisher(profile)
 
 async def export_editorial_conversation(db,business_id,user_id,draft_id):

@@ -2706,6 +2706,25 @@
   background: #070b0d;
 }
 
+.biz-studio-publisher {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.85rem 1.1rem 0;
+}
+
+.biz-studio-publisher-name {
+  color: var(--biz-ink);
+  font-weight: 600;
+}
+
+.biz-brand-logo-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--biz-muted);
+}
+
 .biz-studio-chat-head {
   padding: 1rem 1.1rem;
   border-bottom: 1px solid var(--biz-border);

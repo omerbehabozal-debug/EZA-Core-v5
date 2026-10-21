@@ -490,4 +490,117 @@ describe('Business public identity', () => {
     expect(parsed?.businessPublisher?.official).toBe(true);
     expect(JSON.stringify(parsed)).not.toMatch(/private-source|private-owner|ezaSnapshot/);
   });
+
+  it('updates the panel brand mark from the business profile and leaves the signed-in user unchanged', async () => {
+    auth.user = {
+      email: 'owner@example.test',
+      user_id: 'u1',
+      role: 'user',
+      full_name: 'Tarık Ayşe',
+      public_avatar_url: '/api/public/profile-avatars/11111111-1111-4111-8111-111111111111.png',
+    } as typeof auth.user;
+    const brandLogo = '/api/public/profile-avatars/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png';
+    let profile = { ...business, updated_at: '2026-10-01T00:00:00Z' };
+    api.mockImplementation(async (path = '', method = 'GET', body?: unknown) => {
+      if (path === '') return { items: [profile], canProvision: false };
+      if (path === '/applications/mine') return { items: [] };
+      if (String(path).endsWith('/overview')) return { business: profile, role: 'owner', publications: [] };
+      if (String(path).endsWith('/members')) return { items: [] };
+      if (String(path).endsWith('/settings') && method === 'PATCH') {
+        const payload = body as { name?: string };
+        profile = {
+          ...profile,
+          name: String(payload.name || profile.name),
+          logo_url: brandLogo,
+          updated_at: '2026-10-02T00:00:00Z',
+        };
+        return profile;
+      }
+      return { items: [] };
+    });
+    render(<SainaBusinessManager />);
+    expect(await screen.findByTestId('biz-panel-brand-name')).toHaveTextContent('BiligN');
+    expect(screen.getByTestId('biz-panel-brand')).toHaveTextContent('B');
+    expect(screen.getByTestId('biz-panel-brand').querySelector('img')).toBeNull();
+    expect(screen.getByTestId('biz-account-name')).toHaveTextContent('Tarık Ayşe');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ayarlar' }));
+    fireEvent.change(screen.getByLabelText('Marka adı'), { target: { value: 'Akdeniz' } });
+    fireEvent.click(screen.getByTestId('biz-brand-save'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('biz-panel-brand-name')).toHaveTextContent('Akdeniz');
+    });
+    const brandImage = screen.getByTestId('biz-panel-brand').querySelector('img');
+    expect(brandImage).toHaveAttribute('src', expect.stringContaining('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png'));
+    expect(brandImage).toHaveAttribute('src', expect.stringContaining('v=2026-10-02'));
+    expect(screen.getByTestId('biz-panel-brand')).not.toHaveTextContent('A');
+    expect(screen.getByTestId('biz-account-name')).toHaveTextContent('Tarık Ayşe');
+    expect(screen.getByTestId('bilign-profile-avatar-photo')).toHaveAttribute(
+      'src',
+      expect.stringContaining('11111111-1111-4111-8111-111111111111.png')
+    );
+  });
+
+  it('lets the owner replace the brand avatar from settings', async () => {
+    api.mockImplementation(async (path = '') => {
+      if (path === '') return { items: [business], canProvision: false };
+      if (path === '/applications/mine') return { items: [] };
+      if (String(path).endsWith('/overview')) return { business, role: 'owner', publications: [] };
+      if (String(path).endsWith('/members')) return { items: [] };
+      return { items: [] };
+    });
+    render(<SainaBusinessManager />);
+    await screen.findByText('BiligN', { selector: 'h2' });
+    fireEvent.click(screen.getByRole('button', { name: 'Ayarlar' }));
+    expect(screen.getByLabelText('Marka avatarı')).toHaveAttribute('type', 'file');
+    expect(screen.getByTestId('biz-brand-logo-preview')).toHaveTextContent('Varsayılan marka avatarı');
+    expect(screen.queryByLabelText('Logo URL')).not.toBeInTheDocument();
+  });
+
+  it('keeps an unverified business publisher without a verified badge', () => {
+    const raw = {
+      slug: 'source',
+      journeyVersion: 1,
+      authorUserId: 'brand-b',
+      selectedCount: 8,
+      replayReady: true,
+      businessPublisher: {
+        businessId: 'brand-b',
+        slug: 'akdeniz',
+        displayName: 'Akdeniz',
+        logoUrl: null,
+        verified: false,
+        official: true,
+      },
+      steps: Array.from({ length: 8 }, (_, i) => ({
+        stepIndex: i + 1,
+        publicQuestion: 'Question',
+        publicAnswer: 'Answer',
+      })),
+    };
+    const parsed = parsePublicFrozenJourneyArtifact(raw);
+    expect(parsed?.businessPublisher?.displayName).toBe('Akdeniz');
+    expect(parsed?.businessPublisher?.verified).toBe(false);
+    expect(parsed?.businessPublisher?.official).toBe(false);
+    expect(parsed?.authorUserId).toBe('brand-b');
+  });
+
+  it('leaves personal Yansı author identity untouched', () => {
+    const raw = {
+      slug: 'source',
+      journeyVersion: 1,
+      authorUserId: 'person-1',
+      selectedCount: 8,
+      replayReady: true,
+      steps: Array.from({ length: 8 }, (_, i) => ({
+        stepIndex: i + 1,
+        publicQuestion: 'Question',
+        publicAnswer: 'Answer',
+      })),
+    };
+    const parsed = parsePublicFrozenJourneyArtifact(raw);
+    expect(parsed?.authorUserId).toBe('person-1');
+    expect(parsed?.businessPublisher).toBeUndefined();
+  });
 });

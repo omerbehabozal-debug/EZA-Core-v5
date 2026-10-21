@@ -616,7 +616,8 @@ async def _project_discover_page(
             item = item.model_copy(
                 update={
                     "authorDisplayName": brand["displayName"],
-                    "publicAvatarUrl": brand["logoUrl"],
+                    "publicAvatarUrl": brand["logoUrl"] or None,
+                    "publicAvatarRevision": 0,
                     "publicHonorific": None,
                     "publisherKind": "business",
                 }

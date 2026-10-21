@@ -297,6 +297,46 @@ describe('BusinessYansiStudio', () => {
     expect(onOpen).toHaveBeenCalled();
   });
 
+  it('shows the business brand, not a personal author, on preview', () => {
+    render(
+      <BusinessYansiStudio
+        businessId="biz-1"
+        knowledge={knowledge}
+        canEdit
+        onDraftSaved={vi.fn()}
+        brand={{
+          name: 'Akdeniz',
+          logoUrl: '/api/public/profile-avatars/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png',
+          cacheBust: '2026-10-02T00:00:00Z',
+          verified: false,
+          official: false,
+        }}
+        editDraft={{
+          id: 'draft-1',
+          title: 'Marka Yansısı',
+          summary: 'Özet',
+          status: 'draft',
+          revision: 1,
+          conversation_id: null,
+          steps: Array.from({ length: 8 }, () => ({
+            question: 'Soru',
+            answer: 'Cevap',
+            sources: ['kb-1'],
+          })),
+        }}
+      />
+    );
+    fireEvent.click(screen.getByTestId('biz-studio-toggle-manual'));
+    const publisher = screen.getByTestId('biz-studio-publisher');
+    expect(publisher).toHaveTextContent('Akdeniz');
+    expect(publisher).not.toHaveTextContent('Doğrulanmış');
+    expect(screen.queryByText('Tarık Ayşe')).not.toBeInTheDocument();
+    expect(within(publisher).getByTestId('bilign-profile-avatar-photo')).toHaveAttribute(
+      'src',
+      expect.stringContaining('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png')
+    );
+  });
+
   it('locks preview rail until a real draft exists', () => {
     render(
       <BusinessYansiStudio

@@ -61,6 +61,24 @@ async def create_business(db, admin, data):
     db.add(BusinessMember(business_id=org.id, user_id=owner.id, role='owner'))
     await db.commit(); await db.refresh(business); return business
 
+async def set_brand_logo(db, business_id, user_id, image_bytes: bytes):
+    """Store a brand avatar with the existing profile-avatar pipeline. Owner only."""
+    from backend.services.profile_avatar_store import MAX_PROFILE_AVATAR_BYTES, save_profile_avatar_bytes
+
+    business = await access(db, business_id, user_id, 'owner')
+    if not image_bytes:
+        fail('avatar_empty', 400)
+    if len(image_bytes) > MAX_PROFILE_AVATAR_BYTES:
+        fail('avatar_too_large', 400)
+    try:
+        public_url, _, _ = save_profile_avatar_bytes(image_bytes, str(business.id))
+    except ValueError as exc:
+        fail(str(exc), 400)
+    business.logo_url = public_url
+    await db.commit()
+    await db.refresh(business)
+    return business
+
 async def list_knowledge(db, business_id):
     return list((await db.scalars(select(Knowledge).where(Knowledge.business_id == uid(business_id)).order_by(Knowledge.created_at.desc()))).all())
 

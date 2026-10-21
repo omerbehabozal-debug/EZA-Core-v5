@@ -2,7 +2,7 @@
 import uuid
 from typing import Literal
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from backend.auth.deps import get_current_user, security
@@ -30,7 +30,7 @@ class Create(Body):
     @field_validator('logoUrl')
     @classmethod
     def logo(cls,v):
-        if v and not (v.startswith('https://') or v.startswith('/static/profile-avatars/')): raise ValueError('public_https_logo_required')
+        if v and not (v.startswith('https://') or v.startswith('/static/profile-avatars/') or v.startswith('/api/public/profile-avatars/')): raise ValueError('public_https_logo_required')
         return v
 class Settings(Body):
     name: str=Field(min_length=1,max_length=120)
@@ -229,7 +229,14 @@ async def overview(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_c
     return {'business':record(business),'role':(await db.get(BusinessMember,(business_id,user.id))).role,'publications':publications}
 @router.patch('/{business_id}/settings')
 async def settings(business_id:uuid.UUID,body:Settings,db=Depends(get_db),claims=Depends(get_current_user)):
-    _,row=await manager(db,claims,business_id,'owner');row.name=body.name;row.description=body.description;row.logo_url=body.logoUrl;await db.commit();return await recorded(db,row)
+    _,row=await manager(db,claims,business_id,'owner');row.name=body.name;row.description=body.description
+    if 'logoUrl' in body.model_fields_set: row.logo_url=body.logoUrl
+    await db.commit();return await recorded(db,row)
+@router.post('/{business_id}/logo')
+async def upload_logo(business_id:uuid.UUID,file:UploadFile=File(...),db=Depends(get_db),claims=Depends(get_current_user)):
+    """Owner uploads a brand avatar through the existing profile-avatar store."""
+    user=await svc.actor(db,claims)
+    return await recorded(db,await svc.set_brand_logo(db,business_id,user.id,await file.read()))
 @router.get('/{business_id}/members')
 async def members(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
     await manager(db,claims,business_id,'owner');return {'items':[record(row) for row in (await db.scalars(select(BusinessMember).where(BusinessMember.business_id==business_id))).all()]}
@@ -280,7 +287,7 @@ async def withdraw(business_id:uuid.UUID,slug:str,db=Depends(get_db),claims=Depe
     node=await db.scalar(select(MirrorNetworkNode).where(MirrorNetworkNode.slug==slug).with_for_update());node.visibility='private';await db.commit();return {'ok':True}
 @router.get('/public/{slug}')
 async def public_profile(slug:str,db=Depends(get_db)):
-    profile=await db.scalar(select(BusinessProfile).where(BusinessProfile.slug==slug,BusinessProfile.status=='active',BusinessProfile.verified.is_(True)))
+    profile=await db.scalar(select(BusinessProfile).where(BusinessProfile.slug==slug,BusinessProfile.status=='active'))
     if not profile:svc.fail('business_not_found',404)
     from backend.models.production import Organization
     organization=await db.get(Organization,profile.id)
