@@ -13,7 +13,7 @@ from sqlalchemy import select, func
 from backend.tests.test_business_studio import env, sample, request
 from backend.models.business_studio import BusinessStudioGeneration as Job, BusinessStudioUsage as Usage
 from backend.models.business_yansi import BusinessYansiDraft
-from backend.core.schemas.business_studio import GenerationRequest
+from backend.core.schemas.business_studio import GenerationRequest, TopicsRequest
 from backend.services.business_yansi import studio, studio_execution as execution, studio_generation as generation
 
 
@@ -398,6 +398,151 @@ async def test_source_revocation_prevents_even_repair_retry(ready):
     row=await execution.execute(s.db,job,router=provider)
     assert row.status=='failed' and row.attempts==1 and row.error_code=='studio_snapshot_stale'
     assert provider.generate.await_count==1 and row.input_tokens==100
+
+def test_job_caps_are_unchanged():
+    limits = studio.Limits()
+    assert limits.input_tokens == 20000 and limits.output_tokens == 6000 and limits.max_attempts == 2
+    assert limits.job_cost == Decimal('.10') and limits.daily_cost == Decimal('1.00')
+    assert limits.daily_tokens == 260000 and limits.daily_jobs == 10
+
+
+def test_gpt_41_mini_count_uses_o200k_and_includes_schema_once():
+    import tiktoken
+    prompt = 'catalog only, no schema copy'
+    schema = {'type': 'object', 'title': 'unique-schema-marker'}
+    counted = execution.input_token_count('openai/gpt-4.1-mini', prompt, schema)
+    encoder = tiktoken.encoding_for_model('gpt-4.1-mini')
+    assert encoder.name == 'o200k_base'
+    assert counted > len(encoder.encode(prompt)) + execution._TOKEN_MARGIN
+    assert 'unique-schema-marker' not in prompt
+
+
+def _paragraph(seed, target=3400):
+    sentence = f"Kaynak {seed} maddesi atölyenin doğrulanmış ürün bakımı ve onarım yolunu ayrıntılı biçimde açıklar."
+    parts = []
+    while sum(len(part) + 1 for part in parts) < target:
+        parts.append(sentence)
+    text = " ".join(parts)
+    if len(text) > 3900:
+        text = text[:3890].rsplit(" ", 1)[0]
+    if not text.endswith("."):
+        text += "."
+    return text
+
+
+@pytest.mark.asyncio
+async def test_five_sources_fit_one_attempt_without_a_second_call(ready, monkeypatch):
+    from backend.tests.test_business_yansi import source
+    s = ready
+    monkeypatch.setenv('BILIGN_STUDIO_MODEL', 'openai/gpt-4.1-mini')
+    monkeypatch.setenv('BILIGN_STUDIO_PRICES_JSON', json.dumps({
+        'openai/gpt-4.1-mini': {'inputPerMillion': '0.40', 'outputPerMillion': '1.60'}}))
+    rows = []
+    for index in range(5):
+        content = "\n\n".join([
+            f"Kısa başlık {index} atölye kaydı ve ürün notu.",
+            _paragraph(f"{index}a"),
+            _paragraph(f"{index}b"),
+            _paragraph(f"{index}c"),
+        ])
+        rows.append(await source(s, content=content, title=f"Kaynak {index}", source=f"Kaynak notu {index}"))
+    body = TopicsRequest(
+        idempotencyKey='five-source-topics-01', sourceVersionIds=[row.id for row in rows])
+    job = await studio.create_job(s.db, s.business.id, s.owner.id, body, 'topics')
+    assert job.reserved_input_tokens == 20000 and Decimal(str(job.cost_limit_usd)) == Decimal('0.10')
+    passages = generation.catalog(job.source_snapshot)
+    short = [key for key, item in passages.items() if len(item['text'].strip()) <= 200]
+    eligible = [key for key, item in passages.items() if generation.answer_eligible(item)]
+    produced = {'topics': [
+        {'titlePassageId': short[0], 'descriptionPassageId': short[0], 'answerPassageIds': eligible[:8]},
+        {'titlePassageId': short[1], 'descriptionPassageId': short[1], 'answerPassageIds': eligible[:8]},
+    ]}
+    provider = fake(reply(produced))
+    row = await execution.execute(s.db, job, router=provider)
+    assert row.status == 'succeeded' and row.attempts == 1 and provider.generate.await_count == 1
+    assert row.execution['promptVersion'] == 'business-studio-extractive-v3'
+    reserve_in = row.execution['reserveIn']
+    assert 10000 < reserve_in <= 20000
+    assert reserve_in * row.max_attempts > 20000
+    assert Decimal(row.execution['reserveCost']) < Decimal('.10')
+    prompt = provider.generate.await_args.kwargs['prompt']
+    schema = provider.generate.await_args.kwargs['json_schema']
+    assert '$defs' not in prompt and '$defs' in schema
+    assert schema['$defs']['Topic']['properties']['answerPassageIds']['items']['enum']
+    assert row.input_tokens == 100 and row.output_tokens == 100 and row.execution['usageEstimated'] is False
+
+
+@pytest.mark.asyncio
+async def test_oversized_prompt_stops_before_provider(ready, monkeypatch):
+    s = ready
+    monkeypatch.setenv('BILIGN_STUDIO_MODEL', 'openai/gpt-4.1-mini')
+    monkeypatch.setenv('BILIGN_STUDIO_PRICES_JSON', json.dumps({
+        'openai/gpt-4.1-mini': {'inputPerMillion': '0.40', 'outputPerMillion': '1.60'}}))
+    passages = ["Kısa başlık atölye kaydı ve ürün notu."]
+    passages += [("汉" * 2500) + f" item {index} one two three four five." for index in range(8)]
+    s.knowledge.content = "\n\n".join(passages)
+    assert len(s.knowledge.content.encode('utf-8')) <= 64000
+    await s.db.commit()
+    job = await studio.create_job(s.db, s.business.id, s.owner.id, request(s), 'topics')
+    provider = fake()
+    row = await execution.execute(s.db, job, router=provider)
+    assert row.status == 'blocked' and row.error_code == 'studio_attempt_budget_exceeded'
+    assert row.attempts == 0 and row.input_tokens == 0 and row.cost_usd == 0
+    provider.generate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_retry_skipped_when_remainder_cannot_hold_another_call(ready):
+    s = ready
+    job = await studio.create_job(s.db, s.business.id, s.owner.id, request(s), 'topics')
+    bad = reply('not JSON')
+    bad['usage'] = {'prompt_tokens': 19000, 'completion_tokens': 100}
+    provider = fake(bad, reply(topics_output(generation.catalog(job.source_snapshot))))
+    row = await execution.execute(s.db, job, router=provider)
+    assert provider.generate.await_count == 1
+    assert row.status == 'failed' and row.attempts == 1 and row.error_code == 'studio_invalid_model_output'
+    assert row.input_tokens == 19000 and row.output_tokens == 100 and row.execution['usageEstimated'] is False
+    assert row.execution['reserveIn'] < 19000
+    assert row.reserved_input_tokens - row.input_tokens < row.execution['reserveIn']
+
+
+@pytest.mark.asyncio
+async def test_real_usage_above_reservation_stays_inside_cap(ready):
+    s = ready
+    job = await studio.create_job(s.db, s.business.id, s.owner.id, request(s), 'topics')
+    provider = fake(reply(topics_output(generation.catalog(job.source_snapshot)),
+                           usage={'prompt_tokens': 8000, 'completion_tokens': 40}))
+    row = await execution.execute(s.db, job, router=provider)
+    assert row.status == 'succeeded' and row.attempts == 1 and provider.generate.await_count == 1
+    assert row.execution['reserveIn'] < 8000
+    assert row.input_tokens == 8000 and row.output_tokens == 40 and row.execution['usageEstimated'] is False
+    ledger = await s.db.get(Usage, (row.id, 1))
+    assert ledger.input_tokens == 8000 and ledger.output_tokens == 40 and ledger.estimated is False
+    assert ledger.cost_usd == execution.cost(8000, 40, row.execution['rates'])
+
+
+@pytest.mark.asyncio
+async def test_token_count_failure_blocks_before_provider(ready, monkeypatch):
+    import tiktoken
+    s = ready
+    monkeypatch.setattr(tiktoken, 'encoding_for_model', lambda model: (_ for _ in ()).throw(KeyError(model)))
+    job = await studio.create_job(s.db, s.business.id, s.owner.id, request(s), 'topics')
+    provider = fake()
+    row = await execution.execute(s.db, job, router=provider)
+    assert row.status == 'blocked' and row.error_code == 'studio_token_count_unavailable'
+    assert row.attempts == 0 and row.cost_usd == 0
+    provider.generate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_daily_dollar_cap_still_blocks_admission(ready):
+    from dataclasses import replace
+    s = ready
+    limits = replace(studio.Limits(), daily_cost=Decimal('0.05'))
+    with pytest.raises(HTTPException) as error:
+        await studio.create_job(s.db, s.business.id, s.owner.id, request(s), 'topics', limits)
+    assert error.value.status_code == 429 and error.value.detail['code'] == 'studio_business_budget_exceeded'
+
 
 @pytest.mark.asyncio
 async def test_crlf_and_original_evidence_whitespace_remain_exact(ready):

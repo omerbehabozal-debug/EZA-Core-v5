@@ -33,6 +33,38 @@ def cost(tokens_in, tokens_out, rates):
     return ((tokens_in * Decimal(rates[0]) + tokens_out * Decimal(rates[1])) / Decimal(1000000)).quantize(Decimal('.00000001'), rounding=ROUND_UP)
 
 
+# ChatML framing the encoder does not see, plus a fixed pad for response-format wrapper drift.
+_CHAT_OVERHEAD = 3 * 2 + 3
+_TOKEN_MARGIN = 128
+
+
+def _money(value):
+    return Decimal(str(value))
+
+
+def response_format(schema):
+    return {'type': 'json_schema', 'json_schema': {'name': 'business_studio', 'strict': True, 'schema': schema}}
+
+
+def input_token_count(model, prompt, schema):
+    """o200k count of every Studio request input. Fail closed if it cannot be counted."""
+    try:
+        import tiktoken
+        from backend.core.llm.providers.openai_client import JSON_SCHEMA_SYSTEM_MESSAGE
+        if not isinstance(model, str) or '/' not in model:
+            raise KeyError(model)
+        encoder = tiktoken.encoding_for_model(model.split('/', 1)[1])
+        pieces = (JSON_SCHEMA_SYSTEM_MESSAGE, prompt, json.dumps(response_format(schema), ensure_ascii=False, separators=(',', ':')))
+        counted = sum(len(encoder.encode(piece)) for piece in pieces) + _CHAT_OVERHEAD + _TOKEN_MARGIN
+        if counted < 1:
+            raise ValueError('empty count')
+        return counted
+    except HTTPException:
+        raise
+    except Exception:
+        business.fail('studio_token_count_unavailable', 503)
+
+
 async def selected_topic(db, job):
     if job.kind != 'draft':
         return None
@@ -63,12 +95,12 @@ async def prepare(db, job, limits):
         topic = await selected_topic(db, job)
         rates = configuration(job.model)
         text = generation.prompt(job.kind, passages, job.request_payload.get('topicHint', ''), topic)
-        # UTF-8 bytes plus framing is a deliberately conservative input token bound.
         schema = generation.output_schema(job.kind, passages, topic)
-        reserve_in = len(text.encode('utf-8')) + len(json.dumps(schema).encode('utf-8')) + 1024
+        # One attempt must fit the existing job caps. The repair attempt is gated later.
+        reserve_in = input_token_count(job.model, text, schema)
         reserve_out = job.reserved_output_tokens // job.max_attempts
         reserve_cost = cost(reserve_in, reserve_out, rates)
-        if reserve_in * job.max_attempts > job.reserved_input_tokens or reserve_cost * job.max_attempts > job.cost_limit_usd:
+        if reserve_in > job.reserved_input_tokens or reserve_out > job.reserved_output_tokens or reserve_cost > job.cost_limit_usd:
             business.fail('studio_attempt_budget_exceeded', 429)
     except HTTPException as error:
         job.error_code = error.detail['code']
@@ -95,16 +127,34 @@ async def prepare(db, job, limits):
     return job, (text, passages, topic) if claim.rowcount == 1 else None
 
 
-def usage(result, execution):
+def usage(result, execution, job):
+    """Record provider tokens when they fit the job cap. Otherwise keep a bounded estimated charge."""
     if (result or {}).get('skipped') is True:
         return 0, 0, Decimal('0'), False
+    room_in = job.reserved_input_tokens - job.input_tokens
+    room_out = job.reserved_output_tokens - job.output_tokens
+    room_cost = _money(job.cost_limit_usd) - _money(job.cost_usd)
     reported = (result or {}).get('usage') or {}
     ni, no = reported.get('prompt_tokens'), reported.get('completion_tokens')
-    known = type(ni) is int and type(no) is int and 0 <= ni <= execution['reserveIn'] and 0 <= no <= execution['reserveOut']
+    known = type(ni) is int and type(no) is int and ni >= 0 and no >= 0
     if known:
-        return ni, no, cost(ni, no, execution['rates']), False
-    # Ambiguous provider failures MUST NOT be recorded as a free call or retried.
-    return execution['reserveIn'], execution['reserveOut'], Decimal(execution['reserveCost']), True
+        charge = cost(ni, no, execution['rates'])
+        if ni <= room_in and no <= room_out and charge <= room_cost:
+            return ni, no, charge, False
+        # Real usage would break the persisted cap. Keep the books inside it and do not retry.
+        return min(ni, room_in), min(no, room_out), min(charge, room_cost), True
+    reserve_in, reserve_out = execution['reserveIn'], execution['reserveOut']
+    reserve_cost = _money(execution['reserveCost'])
+    if reserve_in <= room_in and reserve_out <= room_out and reserve_cost <= room_cost:
+        return reserve_in, reserve_out, reserve_cost, True
+    return room_in, room_out, min(room_cost, cost(room_in, room_out, execution['rates'])), True
+
+
+def retry_fits(execution, job):
+    """A repair call starts only when the remainder can hold another full reservation."""
+    return (execution['reserveIn'] <= job.reserved_input_tokens - job.input_tokens
+            and execution['reserveOut'] <= job.reserved_output_tokens - job.output_tokens
+            and _money(execution['reserveCost']) <= _money(job.cost_limit_usd) - _money(job.cost_usd))
 
 
 async def settle(db, snapshot, result, parsed, error, *, allow_retry=False):
@@ -117,7 +167,7 @@ async def settle(db, snapshot, result, parsed, error, *, allow_retry=False):
         db.expunge(job); await db.commit()
         return job
     execution = dict(job.execution)
-    ni, no, charge, estimated = usage(result, execution)
+    ni, no, charge, estimated = usage(result, execution, job)
     candidate, draft_data = None, None
     try:
         # Recheck before every automatic retry as well as before accepting output.
@@ -154,8 +204,9 @@ async def settle(db, snapshot, result, parsed, error, *, allow_retry=False):
         input_tokens=ni, output_tokens=no, cost_usd=charge, outcome=outcome, error_code=error, estimated=estimated))
     job.input_tokens += ni; job.output_tokens += no; job.cost_usd += charge
     job.error_code = error
-    # Only known-usage invalid model output gets an automatic repair attempt.
-    retry = bool(error and allow_retry and not estimated and job.attempts < job.max_attempts)
+    # Only known-usage invalid model output gets an automatic repair attempt,
+    # and only when the remainder can pay for another full reservation.
+    retry = bool(error and allow_retry and not estimated and job.attempts < job.max_attempts and retry_fits(execution, job))
     deadline = job.deadline_at.replace(tzinfo=timezone.utc) if job.deadline_at.tzinfo is None else job.deadline_at
     retry = retry and datetime.now(timezone.utc) < deadline
     if retry:
