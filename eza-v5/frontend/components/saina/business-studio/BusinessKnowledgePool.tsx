@@ -82,7 +82,7 @@ export default function BusinessKnowledgePool({
       const c = (row.category || '').trim();
       if (c) set.add(c);
     }
-    return [...set].sort((a, b) => a.localeCompare(b, 'tr'));
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'tr'));
   }, [active]);
 
   const rows = useMemo(() => {
