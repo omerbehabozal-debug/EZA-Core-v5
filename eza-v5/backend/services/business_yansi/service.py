@@ -82,6 +82,11 @@ async def set_brand_logo(db, business_id, user_id, image_bytes: bytes):
 async def list_knowledge(db, business_id):
     return list((await db.scalars(select(Knowledge).where(Knowledge.business_id == uid(business_id)).order_by(Knowledge.created_at.desc()))).all())
 
+async def _sync_knowledge_index(db, versions):
+    """Queue derived chunks after the source row is saved. No embedding call here."""
+    from backend.services.business_yansi import rag
+    await rag.on_versions_changed(db, versions)
+
 async def create_knowledge(db, business_id, user_id, data):
     """Save knowledge into the brand pool.
 
@@ -118,7 +123,12 @@ async def create_knowledge(db, business_id, user_id, data):
         status='published',
         revision=1,
     )
-    db.add(row);await db.commit();await db.refresh(row);return row
+    db.add(row)
+    affected = [*others, row]
+    await db.commit(); await db.refresh(row)
+    await _sync_knowledge_index(db, affected)
+    await db.refresh(row)
+    return row
 
 async def transition_knowledge(db,business_id,user_id,version_id,target,revision):
     await access(db,business_id,user_id,'owner' if target in {'approved','published','archived'} else 'editor')
@@ -127,6 +137,7 @@ async def transition_knowledge(db,business_id,user_id,version_id,target,revision
     if not row: fail('knowledge_not_found',404)
     if row.revision!=revision: fail('revision_conflict',409)
     if target not in TRANSITIONS.get(row.status,set()): fail('invalid_transition',409)
+    others=[]
     if target=='published':
         if not row.public_allowed or not row.approved_by: fail('public_approval_required',422)
         from backend.services.mirror.journey_step_sanitization import _flags_for_text
@@ -135,7 +146,10 @@ async def transition_knowledge(db,business_id,user_id,version_id,target,revision
         for other in others: other.status='archived';other.revision+=1
     row.status=target;row.revision+=1
     row.approved_by=uid(user_id) if target=='approved' else None if target=='draft' else row.approved_by
-    await db.commit();await db.refresh(row);return row
+    await db.commit();await db.refresh(row)
+    await _sync_knowledge_index(db, [*others, row])
+    await db.refresh(row)
+    return row
 
 async def delete_knowledge(db, business_id, user_id, version_id, revision):
     """Soft-delete one knowledge version by id (archive). Other titles/items untouched."""
@@ -151,10 +165,14 @@ async def delete_knowledge(db, business_id, user_id, version_id, revision):
     if row.revision != revision:
         fail('revision_conflict', 409)
     if row.status == 'archived':
+        await _sync_knowledge_index(db, [row])
+        await db.refresh(row)
         return row
     row.status = 'archived'
     row.revision += 1
     await db.commit()
+    await db.refresh(row)
+    await _sync_knowledge_index(db, [row])
     await db.refresh(row)
     return row
 

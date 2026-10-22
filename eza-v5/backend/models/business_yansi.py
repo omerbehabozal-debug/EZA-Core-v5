@@ -1,9 +1,47 @@
 """Business profiles extend existing Organization IDs; roles stay domain-specific."""
+import json
 import uuid
 from sqlalchemy import Column, String, Text, Boolean, Integer, DateTime, ForeignKey, JSON, UniqueConstraint, CheckConstraint
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql import func
+from sqlalchemy.types import TypeDecorator, UserDefinedType
 from backend.core.utils.dependencies import Base
+
+class Vector1536(UserDefinedType):
+    """PostgreSQL pgvector column. SQLite tests store the same value as text."""
+    cache_ok = True
+    def get_col_spec(self, **kw):
+        return "vector(1536)"
+
+@compiles(Vector1536, "sqlite")
+def _sqlite_vector(type_, compiler, **kw):
+    return "TEXT"
+
+class EmbeddingVector(TypeDecorator):
+    impl = Text
+    cache_ok = True
+    def load_dialect_impl(self, dialect):
+        if dialect.name == "postgresql":
+            return dialect.type_descriptor(Vector1536())
+        return dialect.type_descriptor(Text())
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, str):
+            value = json.loads(value)
+        if not isinstance(value, list):
+            raise ValueError("embedding must be a list")
+        return "[" + ",".join(format(float(item), ".8f") for item in value) + "]"
+    def process_result_value(self, value, dialect):
+        if value is None or value == "":
+            return None
+        if isinstance(value, list):
+            return [float(item) for item in value]
+        text = str(value).strip()
+        if text.startswith("[") and text.endswith("]"):
+            return [float(item) for item in text[1:-1].split(",") if item != ""]
+        return json.loads(text)
 
 class Timestamps:
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -46,6 +84,28 @@ class BusinessKnowledgeVersion(Timestamps, Base):
     revision = Column(Integer, nullable=False, default=1)
     __table_args__ = (UniqueConstraint('business_id','item_id','version', name='uq_business_knowledge_version'),
         CheckConstraint("status IN ('draft','review','approved','published','archived')", name='ck_business_knowledge_status'))
+
+class BusinessKnowledgeChunk(Timestamps, Base):
+    """Derived retrieval rows. The knowledge version remains the source of truth."""
+    __tablename__ = 'business_knowledge_chunks'
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    business_id = Column(UUID(as_uuid=True), ForeignKey('business_profiles.id'), nullable=False, index=True)
+    knowledge_version_id = Column(UUID(as_uuid=True), ForeignKey('business_knowledge_versions.id'), nullable=False, index=True)
+    item_id = Column(UUID(as_uuid=True), nullable=False)
+    chunk_index = Column(Integer, nullable=False)
+    text = Column(Text, nullable=False)
+    content_hash = Column(String(64), nullable=False)
+    embedding = Column(EmbeddingVector)
+    embedding_model = Column(String(64))
+    token_count = Column(Integer, nullable=False, default=0)
+    index_status = Column(String(16), nullable=False, default='pending')
+    attempts = Column(Integer, nullable=False, default=0)
+    last_error = Column(String(80))
+    indexed_at = Column(DateTime(timezone=True))
+    __table_args__ = (
+        UniqueConstraint('knowledge_version_id', 'chunk_index', name='uq_business_knowledge_chunk'),
+        CheckConstraint("index_status IN ('pending','ready','failed','retired')", name='ck_business_knowledge_chunk_status'),
+    )
 
 class BusinessYansiDraft(Timestamps, Base):
     __tablename__ = 'business_yansi_drafts'

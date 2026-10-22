@@ -88,3 +88,4 @@ tests/test_discover_quota_guard.py
 tests/test_relationship_map_access.py
 tests/test_visual_source.py
 tests/test_consume_usage_atomic.py
+tests/test_business_rag.py

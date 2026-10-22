@@ -29,6 +29,7 @@ from backend.routers import business_yansi as routes
 @pytest_asyncio.fixture
 async def sample(monkeypatch):
     monkeypatch.setenv('BILIGN_BUSINESS_ENABLED','true')
+    monkeypatch.setenv('BILIGN_BUSINESS_RAG_ENABLED','false')
     engine=create_async_engine('sqlite+aiosqlite:///:memory:')
     tables=[User.__table__,UserCapability.__table__,Organization.__table__,OrganizationUser.__table__,StandaloneConversation.__table__,StandaloneConversationMessage.__table__,MirrorNetworkNode.__table__,BusinessProfile.__table__,BusinessMember.__table__,BusinessKnowledgeVersion.__table__,BusinessYansiDraft.__table__,BusinessPublication.__table__,BusinessBrandApplication.__table__,BusinessApplicationEvent.__table__]
     async with engine.begin() as connection:await connection.run_sync(lambda c:Base.metadata.create_all(c,tables=tables))
