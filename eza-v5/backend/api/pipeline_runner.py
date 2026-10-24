@@ -19,7 +19,7 @@ from backend.core.engines.legal_risk import analyze_legal_risk
 from backend.core.engines.psych_pressure import analyze_psychological_pressure
 from backend.policy_engine.evaluator import evaluate_policies, get_policy_flags, calculate_score_adjustment
 from backend.config import get_settings
-from backend.core.utils.model_router import ModelRouter
+from backend.core.utils.model_router import ModelRouter, coerce_public_chat_model
 from backend.core.llm.output_merger import merge_ensemble_outputs
 from backend.telemetry.service import record_telemetry_event
 from backend.behavioral.interaction import analyze_interaction_turn
@@ -148,11 +148,8 @@ async def run_full_pipeline(
                 max_tokens = settings.STANDALONE_MAX_TOKENS if mode == "standalone" else settings.PROXY_MAX_TOKENS
                 timeout = settings.LLM_TIMEOUT_SECONDS
                 
-                # Use ModelRouter for mode-based routing
-                # Routing rules:
-                # - standalone: ensemble (OpenAI + Mistral + Groq)
-                # - proxy: OpenAI tek
-                # - proxy-lite: OpenAI tek
+                # Standalone chat is a single OpenAI call, including an empty or
+                # retired model id. Proxy and proxy-lite keep route_by_mode.
                 llm_router = ModelRouter()
                 llm_prompt = (
                     flatten_history_to_prompt(user_input, chat_history)
@@ -160,7 +157,8 @@ async def run_full_pipeline(
                     else user_input
                 )
 
-                if mode == "standalone" and analysis_model:
+                if mode == "standalone":
+                    analysis_model = coerce_public_chat_model(analysis_model)
                     router_result = await llm_router.generate(
                         prompt=llm_prompt,
                         model_id=analysis_model,

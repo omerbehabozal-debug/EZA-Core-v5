@@ -14,7 +14,7 @@ import {
   SAINA_MENU_ACCOUNT,
   SAINA_SAFE_MODE_LABEL,
 } from '@/lib/eza/sainaCopy';
-import { DEFAULT_ANALYSIS_MODEL_ID, STANDALONE_ANALYSIS_MODELS } from '@/lib/standaloneModels';
+import { DEFAULT_ANALYSIS_MODEL_ID } from '@/lib/standaloneModels';
 import SainaPageTopBar from '@/components/saina/SainaPageTopBar';
 import SainaCommandPalette from '@/components/saina/SainaCommandPalette';
 import { useSainaCommandShortcut } from '@/hooks/useSainaCommandShortcut';
@@ -342,14 +342,16 @@ describe('Phase 8.8F profile side panel', () => {
   });
 
   it('keeps model selection and logout working', () => {
-    const nextModel = STANDALONE_ANALYSIS_MODELS[1];
     const { onAnalysisModelChange } = openMenu();
     fireEvent.click(screen.getByTestId('saina-profile-nav-settings'));
 
     expect(screen.getByText(SAINA_ANALYSIS_MODEL_LABEL)).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('saina-profile-model-trigger'));
-    fireEvent.click(screen.getByTestId(`saina-profile-model-${nextModel.id}`));
-    expect(onAnalysisModelChange).toHaveBeenCalledWith(nextModel.id);
+    expect(screen.getByTestId(`saina-profile-model-${DEFAULT_ANALYSIS_MODEL_ID}`)).toBeInTheDocument();
+    expect(screen.queryByText('Mistral')).not.toBeInTheDocument();
+    expect(screen.queryByText('Llama 3')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId(`saina-profile-model-${DEFAULT_ANALYSIS_MODEL_ID}`));
+    expect(onAnalysisModelChange).toHaveBeenCalledWith(DEFAULT_ANALYSIS_MODEL_ID);
 
     fireEvent.click(screen.getByTestId('saina-profile-back'));
     fireEvent.click(screen.getByTestId('saina-profile-logout'));

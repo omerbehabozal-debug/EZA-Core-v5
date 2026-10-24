@@ -12,11 +12,19 @@ export const STORAGE_KEY_ANALYSIS_MODEL = 'eza_standalone_analysis_model';
 
 export const STANDALONE_ANALYSIS_MODELS: StandaloneAnalysisModel[] = [
   { id: 'openai/gpt-4o-mini', label: 'GPT-4o', provider: 'OpenAI' },
-  { id: 'mistral/mistral-7b-instruct', label: 'Mistral', provider: 'Mistral AI' },
-  { id: 'groq/llama3-8b-tool-use', label: 'Llama 3', provider: 'Groq' },
 ];
 
 export const DEFAULT_ANALYSIS_MODEL_ID = STANDALONE_ANALYSIS_MODELS[0].id;
+
+function isRetiredAnalysisModel(id: string): boolean {
+  const normalized = id.trim().toLowerCase();
+  return (
+    normalized.startsWith('groq/') ||
+    normalized.startsWith('groq-') ||
+    normalized.startsWith('mistral/') ||
+    normalized.startsWith('mistral-')
+  );
+}
 
 export function getAnalysisModelById(id: string): StandaloneAnalysisModel {
   return (
@@ -29,6 +37,9 @@ export function readStoredAnalysisModel(): string {
   try {
     const raw = localStorage.getItem(STORAGE_KEY_ANALYSIS_MODEL);
     if (raw && STANDALONE_ANALYSIS_MODELS.some((m) => m.id === raw)) return raw;
+    if (raw && isRetiredAnalysisModel(raw)) {
+      writeStoredAnalysisModel(DEFAULT_ANALYSIS_MODEL_ID);
+    }
   } catch {
     /* ignore */
   }

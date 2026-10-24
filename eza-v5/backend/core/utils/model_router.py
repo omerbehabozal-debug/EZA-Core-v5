@@ -19,6 +19,21 @@ from backend.config import get_settings
 
 logger = logging.getLogger(__name__)
 
+PUBLIC_CHAT_MODEL_ID = "openai/gpt-4o-mini"
+
+
+def coerce_public_chat_model(model_id: Optional[str]) -> str:
+    """Use an explicit OpenAI id. Empty and retired public ids become GPT-4o mini.
+
+    BiligN chat and Yansı must not send Groq or Mistral. Another openai/ id is
+    preserved so an existing OpenAI selection is unchanged.
+    """
+    text = (model_id or "").strip()
+    lowered = text.lower()
+    if lowered.startswith("openai/") or lowered.startswith("openai-"):
+        return text
+    return PUBLIC_CHAT_MODEL_ID
+
 
 class ModelRouter:
     """

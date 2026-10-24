@@ -53,7 +53,7 @@ import {
   SAINA_TAGLINE,
   SAINA_USER_LABEL,
 } from '@/lib/eza/sainaCopy';
-import { DEFAULT_ANALYSIS_MODEL_ID, STANDALONE_ANALYSIS_MODELS } from '@/lib/standaloneModels';
+import { DEFAULT_ANALYSIS_MODEL_ID } from '@/lib/standaloneModels';
 import SainaStandaloneShell from '@/components/saina/SainaStandaloneShell';
 import SainaComposer from '@/components/saina/SainaComposer';
 import SainaCinematicScene from '@/components/saina/SainaCinematicScene';
@@ -227,9 +227,8 @@ describe('SainaStandaloneShell (Sprint B.2B)', () => {
     expect(onSafeOnlyModeChange).toHaveBeenCalledWith(true);
   });
 
-  it('changes analysis model from profile menu', () => {
+  it('offers only the OpenAI analysis model from profile menu', () => {
     const onAnalysisModelChange = vi.fn();
-    const nextModel = STANDALONE_ANALYSIS_MODELS[1];
     render(
       <SainaStandaloneShell
         {...settingsProps}
@@ -240,8 +239,11 @@ describe('SainaStandaloneShell (Sprint B.2B)', () => {
     fireEvent.click(screen.getByTestId('saina-profile-menu-trigger'));
     fireEvent.click(screen.getByTestId('saina-profile-nav-settings'));
     fireEvent.click(screen.getByTestId('saina-profile-model-trigger'));
-    fireEvent.click(screen.getByTestId(`saina-profile-model-${nextModel.id}`));
-    expect(onAnalysisModelChange).toHaveBeenCalledWith(nextModel.id);
+    expect(screen.getByTestId(`saina-profile-model-${DEFAULT_ANALYSIS_MODEL_ID}`)).toBeInTheDocument();
+    expect(screen.queryByText('Mistral')).not.toBeInTheDocument();
+    expect(screen.queryByText('Llama 3')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId(`saina-profile-model-${DEFAULT_ANALYSIS_MODEL_ID}`));
+    expect(onAnalysisModelChange).toHaveBeenCalledWith(DEFAULT_ANALYSIS_MODEL_ID);
   });
 
   it('keeps mirror collapsed by default', () => {

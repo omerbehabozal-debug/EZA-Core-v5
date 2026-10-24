@@ -48,10 +48,10 @@ async def _grounded_answer(question,history,model=None,provider=None):
             'Return only JSON {"quotes":[{"sourceId":"...","quote":"exact source substring"}]}. '
             'Return {"quotes":[]} when not supported. No other text.\n'+
             json.dumps({'question':question,'sources':history.sources},ensure_ascii=False))
+    from backend.core.utils.model_router import ModelRouter, coerce_public_chat_model
     if provider is None:
-        from backend.core.utils.model_router import ModelRouter
         provider=ModelRouter().generate
-    result=await provider(prompt=prompt,model_id=model or 'openai/gpt-4o-mini',temperature=0,max_tokens=700,timeout=30)
+    result=await provider(prompt=prompt,model_id=coerce_public_chat_model(model),temperature=0,max_tokens=700,timeout=30)
     quotes=validate_quotes(result.get('output','') if result.get('ok') else '',history.sources)
     if not quotes: return {'assistant_answer':NO_INFORMATION,'sources':[],'business_grounded':True}
     sources=[];parts=[]

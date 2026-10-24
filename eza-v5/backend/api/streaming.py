@@ -26,7 +26,7 @@ from backend.behavioral.interaction import analyze_interaction_turn
 from backend.config import get_settings
 from backend.core.engines.model_router import LLM_API_KEY, LLM_MODEL, OPENAI_BASE_URL
 from backend.core.openai.diagnostic import parse_openai_http_error
-from backend.core.utils.model_router import ModelRouter
+from backend.core.utils.model_router import ModelRouter, coerce_public_chat_model
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +125,7 @@ async def stream_standalone_response(
     - data: {"done": true, "assistant_score": 42, "user_score": 85}
     """
     from backend.services.business_yansi.answers import BusinessHistory, answer
+    analysis_model = coerce_public_chat_model(analysis_model)
     if isinstance(chat_history, BusinessHistory):
         data = await answer(query, chat_history, analysis_model)
         if persistence is not None:
