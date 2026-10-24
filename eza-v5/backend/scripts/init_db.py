@@ -16,7 +16,8 @@ from sqlalchemy import select
 from backend.models.role import Role
 from backend.models.user import LegacyUser as User
 from backend.core.utils.security import get_password_hash
-from backend.core.utils.dependencies import Base, DATABASE_URL
+from backend.core.utils.dependencies import DATABASE_URL, apply_startup_schema
+from backend.config import get_settings
 
 
 async def init_roles(session: AsyncSession):
@@ -89,7 +90,7 @@ async def main():
     
     # Create tables
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(lambda sync: apply_startup_schema(sync, get_settings()))
         print("Database tables created")
     
     # Initialize roles

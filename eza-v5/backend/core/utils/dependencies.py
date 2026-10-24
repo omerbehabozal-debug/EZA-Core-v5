@@ -76,10 +76,36 @@ async def get_db() -> AsyncSession:
             await session.close()
 
 
+# Alembic owns this table. Startup create_all must not invent it, with or without the RAG flag.
+ALEMBIC_OWNED_TABLES = frozenset({"business_knowledge_chunks"})
+
+
+def startup_create_all_tables():
+    """Tables a non-production bootstrap may ensure. The RAG chunk table is never included."""
+    return [table for table in Base.metadata.sorted_tables if table.name not in ALEMBIC_OWNED_TABLES]
+
+
+def apply_startup_schema(connection, settings):
+    """Create missing legacy tables outside production. Returns whether create_all ran.
+
+    Production keeps existing tables and does not invent Alembic-managed schema.
+    business_knowledge_chunks is excluded in every environment. If its migration
+    has not been applied, the application still starts; RAG calls report
+    schema_missing and do not create the table.
+    """
+    from backend.config import is_production_settings
+
+    if is_production_settings(settings):
+        return False
+    Base.metadata.create_all(connection, tables=startup_create_all_tables())
+    return True
+
+
 async def init_db():
     """Initialize database tables (including production models)"""
     import logging
     from sqlalchemy import text
+    from backend.config import get_settings
     
     # Import all models to ensure they are registered with SQLAlchemy
     from backend.models.production import (
@@ -112,7 +138,7 @@ async def init_db():
     from backend.models.application import Application
     
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(lambda sync: apply_startup_schema(sync, get_settings()))
         
         # Add missing User model columns (is_active, is_internal_test_user)
         try:
