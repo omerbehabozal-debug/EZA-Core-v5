@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import zlib
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -13,6 +14,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.account.quota_events import (
+    BUSINESS_BRAND_MESSAGE,
     CHAT_MESSAGE,
     DISCOVER_CONVERSATION_STARTED,
     VISUAL_EVENT_TYPES,
@@ -280,6 +282,119 @@ async def record_account_usage_event(
     db.add(event)
     await db.flush()
     return event
+
+
+BUSINESS_BRAND_DAILY_LIMIT = 20
+_BRAND_LOCKS: dict[str, asyncio.Lock] = {}
+_BRAND_LOCK_GUARD = asyncio.Lock()
+
+
+async def _brand_process_lock(user_id: str, business_id: str) -> asyncio.Lock:
+    key = f"{user_id}:{business_id}"
+    async with _BRAND_LOCK_GUARD:
+        lock = _BRAND_LOCKS.get(key)
+        if lock is None:
+            lock = asyncio.Lock()
+            _BRAND_LOCKS[key] = lock
+        return lock
+
+
+async def consume_business_brand_message(
+    db: AsyncSession,
+    *,
+    user_id: str,
+    business_id: str,
+    source_id: str | None,
+    now: datetime | None = None,
+) -> UsageConsumeResult:
+    """One accepted Business message for this user and brand.
+
+    The personal chat counter is a different event type. The same source id
+    does not count twice. The lock is held until this transaction commits,
+    which matches the chat endpoint committing the allowance before generation.
+    """
+    brand = str(business_id).strip()
+    if not user_id or not brand:
+        raise ValueError("user_id and business_id are required")
+    current = now or datetime.now(timezone.utc)
+    since = utc_day_start(current)
+    normalized_source = (source_id or "").strip()
+    stored_source = f"{brand}:{normalized_source}" if normalized_source else None
+    lock = await _brand_process_lock(str(user_id), brand)
+    async with lock:
+        await _acquire_subject_quota_lock(
+            db,
+            user_id=str(user_id),
+            guest_fingerprint=None,
+            event_type=f"{BUSINESS_BRAND_MESSAGE}:{brand}",
+        )
+        if stored_source:
+            existing = await _find_usage_event_by_source(
+                db,
+                event_type=BUSINESS_BRAND_MESSAGE,
+                user_id=str(user_id),
+                guest_fingerprint=None,
+                source_id=stored_source,
+            )
+            if existing is not None:
+                return UsageConsumeResult(event=existing, created=False)
+        used = await _count_brand_messages(db, user_id=str(user_id), business_id=brand, since=since)
+        if used >= BUSINESS_BRAND_DAILY_LIMIT:
+            raise UsageQuotaExceeded(
+                reason="business_brand_daily_limit_reached",
+                tier=AccountTier.FREE,
+                upgrade_required=False,
+            )
+        event = AccountUsageEvent(
+            user_id=str(user_id),
+            guest_fingerprint=None,
+            event_type=BUSINESS_BRAND_MESSAGE,
+            source_id=stored_source,
+            event_metadata={"business_id": brand},
+            created_at=current,
+        )
+        db.add(event)
+        try:
+            async with db.begin_nested():
+                await db.flush()
+        except IntegrityError:
+            raced = None
+            if stored_source:
+                raced = await _find_usage_event_by_source(
+                    db,
+                    event_type=BUSINESS_BRAND_MESSAGE,
+                    user_id=str(user_id),
+                    guest_fingerprint=None,
+                    source_id=stored_source,
+                )
+            if raced is not None:
+                return UsageConsumeResult(event=raced, created=False)
+            raise UsageQuotaExceeded(
+                reason="business_brand_daily_limit_reached",
+                tier=AccountTier.FREE,
+                upgrade_required=False,
+            )
+        await db.commit()
+        return UsageConsumeResult(event=event, created=True)
+
+
+async def _count_brand_messages(
+    db: AsyncSession,
+    *,
+    user_id: str,
+    business_id: str,
+    since: datetime,
+) -> int:
+    result = await db.execute(
+        select(AccountUsageEvent.event_metadata).where(
+            and_(
+                AccountUsageEvent.user_id == str(user_id),
+                AccountUsageEvent.event_type == BUSINESS_BRAND_MESSAGE,
+                AccountUsageEvent.created_at >= since,
+            )
+        )
+    )
+    return sum(1 for meta in result.scalars() if (meta or {}).get("business_id") == str(business_id))
 
 
 async def count_usage_events(

@@ -1,5 +1,4 @@
 """Public BiligN chat and Yansı stay on OpenAI when an old model id arrives."""
-import json
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -63,22 +62,17 @@ async def test_standalone_pipeline_skips_ensemble_for_empty_and_retired_models()
 
 
 @pytest.mark.asyncio
-async def test_yansi_retired_model_is_sent_to_openai_provider():
+async def test_yansi_retired_model_does_not_call_a_quote_provider():
     sources = [{"id": "a", "title": "Yansı", "text": "Yansı bir deneyimdir.", "source": "Ürün", "version": 1}]
     history = BusinessHistory([], "tenant-a", sources)
-    provider = AsyncMock(
-        return_value={
-            "ok": True,
-            "output": json.dumps({"quotes": [{"sourceId": "a", "quote": "Yansı bir deneyimdir."}]}),
-        }
-    )
+    provider = AsyncMock()
     groq = AsyncMock(side_effect=AssertionError("groq"))
     mistral = AsyncMock(side_effect=AssertionError("mistral"))
     with patch.object(GroqClient, "generate", groq), patch.object(MistralClient, "generate", mistral):
         result = await answer(
             "Yansı nedir?", history, model="groq/llama3-8b-tool-use", provider=provider
         )
-    assert "Kaynak:" in result["assistant_answer"]
-    assert provider.await_args.kwargs["model_id"] == PUBLIC_CHAT_MODEL_ID
+    assert result["assistant_answer"] == "Bu yanıt yolu şu anda kapalı."
+    provider.assert_not_called()
     groq.assert_not_called()
     mistral.assert_not_called()

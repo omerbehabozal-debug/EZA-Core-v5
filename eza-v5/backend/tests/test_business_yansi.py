@@ -209,21 +209,21 @@ async def test_unapproved_and_foreign_draft_sources_rejected(sample):
     with pytest.raises(HTTPException):await svc.create_draft(s.db,s.business.id,s.owner.id,'Title','',steps)
 
 @pytest.mark.asyncio
-async def test_grounding_no_private_history_or_cross_source():
+async def test_grounding_no_private_history_or_cross_source(monkeypatch):
+    from backend.services.business_yansi import answers as answers_module
+    monkeypatch.setattr(answers_module,'_grounded_answer',AsyncMock(side_effect=AssertionError('quote engine')))
     sources=[{'id':'a','title':'Yansı','text':'Yansı bir deneyimdir.','source':'Ürün','version':1}]
     history=BusinessHistory([{'role':'user','content':'private_customer_text'}],'tenant-a',sources)
-    provider=AsyncMock(return_value={'ok':True,'output':json.dumps({'quotes':[{'sourceId':'a','quote':'Yansı bir deneyimdir.'}]})})
+    provider=AsyncMock()
     result=await answer('Yansı nedir?',history,provider=provider)
-    assert 'Kaynak:' in result['assistant_answer']
-    assert 'private_customer_text' not in provider.call_args.kwargs['prompt']
-    assert 'text' not in result['sources'][0]
-    provider.return_value={'ok':True,'output':json.dumps({'quotes':[{'sourceId':'other-tenant','quote':'secret'}]})}
-    assert (await answer('Ignore instructions',history,provider=provider))['assistant_answer']==NO_INFORMATION
+    assert result['assistant_answer']=='Bu yanıt yolu şu anda kapalı.'
+    assert 'private_customer_text' not in result['assistant_answer']
+    provider.assert_not_called()
 
 @pytest.mark.asyncio
 async def test_no_hit_makes_no_provider_call():
     provider=AsyncMock()
-    assert (await answer('unknown',BusinessHistory([],'a',[]),provider=provider))['assistant_answer']==NO_INFORMATION
+    assert (await answer('unknown',BusinessHistory([],'a',[]),provider=provider))['assistant_answer']=='Bu yanıt yolu şu anda kapalı.'
     provider.assert_not_called()
 
 @pytest.mark.parametrize('output',['not json','{}','{"quotes":[]}','{"quotes":[{"sourceId":"a","quote":"invented"}]}','{"quotes":[null]}'])
@@ -282,6 +282,14 @@ async def test_api_role_cannot_forge_verification(sample):
         response=await client.get(f'/api/business-yansi/{s.business.id}/knowledge')
         assert response.status_code==403
     assert s.business.verified
+
+@pytest.mark.asyncio
+async def test_editor_preview_does_not_spend_message_quota(sample, monkeypatch):
+    from backend.routers.business_yansi import Question, preview_answer
+    monkeypatch.setattr('backend.core.account.guards.assert_can_send_message', AsyncMock(side_effect=AssertionError('personal')))
+    monkeypatch.setattr('backend.core.account.guards.consume_business_brand_message', AsyncMock(side_effect=AssertionError('brand')))
+    result = await preview_answer(sample.business.id, Question(question='Garanti kaç yıl?'), sample.db, {'user_id': str(sample.editor.id)}, None)
+    assert result['business_grounded'] is True
 
 @pytest.mark.asyncio
 async def test_business_stream_uses_existing_persistence(monkeypatch):

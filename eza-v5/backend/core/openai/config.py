@@ -12,34 +12,73 @@ from backend.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-_KEY_PATTERN = re.compile(r"sk-[a-zA-Z0-9_-]{8,}")
+# Match old sk- keys, sk-proj- keys, and short accidental copies. Hyphen stays inside the token.
+_KEY_PATTERN = re.compile(r"sk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_\-]{3,}")
+_EMPTY_KEY = {
+    "apiKeyPresent": False,
+    "apiKeyPrefix": None,
+    "apiKeyFingerprint": None,
+    "apiKeyLength": 0,
+    "apiKeyFormatValid": False,
+}
+
+
+def _secret_body(key: str) -> str:
+    for label in ("sk-proj-", "sk-svcacct-", "sk-admin-", "sk-"):
+        if key.startswith(label):
+            return key[len(label):]
+    return key
+
+
+def _exposes_secret(key: str, shown: Optional[str]) -> bool:
+    if not shown or not key:
+        return False
+    if key in shown:
+        return True
+    secret = _secret_body(key)
+    hidden = secret[:-4] if len(secret) > 4 else secret
+    return bool(hidden) and hidden in shown
 
 
 def mask_api_key(api_key: Optional[str]) -> Dict[str, Any]:
-    """Return safe fingerprint fields for an API key."""
+    """Return a fingerprint that never contains the full key or its hidden body."""
     key = (api_key or "").strip()
     if not key:
-        return {
-            "apiKeyPresent": False,
-            "apiKeyPrefix": None,
-            "apiKeyFingerprint": None,
-            "apiKeyLength": 0,
-            "apiKeyFormatValid": False,
-        }
+        return dict(_EMPTY_KEY)
 
-    prefix = key.split("-", 2)
-    if len(prefix) >= 2:
-        api_prefix = f"{prefix[0]}-{prefix[1]}"
+    if key.startswith("sk-proj-") and len(key) >= 24:
+        label = "sk-proj"
+        format_valid = True
+    elif key.startswith("sk-") and key.count("-") == 1 and len(key) >= 20:
+        label = "sk"
+        format_valid = True
     else:
-        api_prefix = key[:7] if len(key) >= 7 else key[:3]
+        label = None
+        format_valid = False
 
-    tail = key[-6:] if len(key) >= 6 else key
-    fingerprint = f"{api_prefix}...{tail}"
-    format_valid = key.startswith("sk-") and len(key) >= 20
+    tail = None
+    if label:
+        secret = _secret_body(key)
+        if len(secret) >= 16:
+            tail = secret[-4:]
+    if label and tail:
+        fingerprint = f"{label}-…{tail}"
+        prefix = label
+    elif label:
+        fingerprint = f"{label}-…"
+        prefix = label
+    else:
+        fingerprint = "redacted"
+        prefix = None
+
+    if _exposes_secret(key, fingerprint) or _exposes_secret(key, prefix):
+        fingerprint = "redacted"
+        prefix = None
+        format_valid = False
 
     return {
         "apiKeyPresent": True,
-        "apiKeyPrefix": api_prefix,
+        "apiKeyPrefix": prefix,
         "apiKeyFingerprint": fingerprint,
         "apiKeyLength": len(key),
         "apiKeyFormatValid": format_valid,

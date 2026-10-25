@@ -21,10 +21,10 @@ def _spans(text):
     return spans
 
 
-def _inside(pos, spans):
+def _span_at(pos, spans):
     for start, end in spans:
         if start < pos < end:
-            return end
+            return start, end
     return None
 
 
@@ -44,14 +44,20 @@ def _split_block(text, hard):
                 parts.append(tail)
             break
         limit = start + hard
-        forced = _inside(limit, spans)
-        if forced is not None:
-            cut = forced
+        span = _span_at(limit, spans)
+        if span is not None:
+            span_start, span_end = span
+            if span_end - span_start <= hard and span_start > start:
+                cut = span_start
+            elif span_end <= start + hard:
+                cut = span_end
+            else:
+                cut = start + hard
         else:
             sentence = None
             space = None
             for index in range(limit, start, -1):
-                if _inside(index, spans):
+                if _span_at(index, spans):
                     continue
                 previous = text[index - 1]
                 if previous in ".!?…" and index < len(text) and text[index].isspace():
@@ -130,18 +136,43 @@ def _pack(blocks, target, overlap, hard):
     return chunks
 
 
+def product_codes(text):
+    """Product-code tokens. A later split may divide a code that does not fit one chunk."""
+    return [match.group(0) for match in _CODE.finditer(text or "")]
+
+
 def split_knowledge(title, category, content, *, target_chars=DEFAULT_TARGET, overlap_chars=DEFAULT_OVERLAP, hard_max_chars=DEFAULT_HARD):
-    """Return chunk texts. Each chunk keeps the title so headings survive the split."""
+    """Return chunk texts. Each finished chunk, including its title, stays within hard_max_chars.
+
+    Product codes and numbers stay whole when they fit in the body budget. A token longer
+    than that budget is split: the size limit wins over keeping the code intact.
+    A header that already fills the limit is kept as its own truncated chunk; the body
+    then continues without repeating that header.
+    """
     body = (content or "").strip()
     if not body:
         return []
     header = (title or "").strip()
     if category and str(category).strip():
         header = (header + "\n" + str(category).strip()).strip()
-    chunks = []
-    for piece in _pack(_blocks(body, hard_max_chars), target_chars, overlap_chars, hard_max_chars):
+    if header and len(header) >= hard_max_chars:
+        chunks = [header[:hard_max_chars]]
+        header = ""
+        budget = hard_max_chars
+    elif header:
+        budget = hard_max_chars - len(header) - 1
+        chunks = []
+    else:
+        budget = hard_max_chars
+        chunks = []
+    if budget < 1:
+        budget = 1
+    for piece in _pack(_blocks(body, budget), min(target_chars, budget), overlap_chars, budget):
         if header and not piece.startswith(header):
-            chunks.append(header + "\n" + piece)
+            text = header + "\n" + piece
         else:
-            chunks.append(piece)
+            text = piece
+        if len(text) > hard_max_chars:
+            text = text[:hard_max_chars]
+        chunks.append(text)
     return chunks

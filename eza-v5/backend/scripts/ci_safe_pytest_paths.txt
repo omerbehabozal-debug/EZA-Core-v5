@@ -89,3 +89,14 @@ tests/test_relationship_map_access.py
 tests/test_visual_source.py
 tests/test_consume_usage_atomic.py
 tests/test_business_rag.py
+tests/test_business_rag_postgres.py
+tests/test_business_rag_answers.py
+tests/test_business_rag_orchestrator.py
+tests/test_business_rag_live_path.py
+tests/test_business_context_builder.py
+tests/test_business_package_answers.py
+tests/test_business_brand_quota.py
+tests/test_business_yansi.py
+tests/test_public_chat_model.py
+tests/test_startup_schema_guard.py
+tests/test_openai_diagnostic.py

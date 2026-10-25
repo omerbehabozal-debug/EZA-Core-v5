@@ -18,13 +18,26 @@ jobs:
 
     services:
       postgres:
-        image: postgres:15
+        image: pgvector/pgvector:pg15
         env:
           POSTGRES_USER: eza_ci
           POSTGRES_DB: eza_ci
           POSTGRES_HOST_AUTH_METHOD: trust
         ports:
           - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U eza_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      postgres_plain:
+        image: postgres:15
+        env:
+          POSTGRES_USER: eza_ci
+          POSTGRES_DB: eza_ci
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5433:5432
         options: >-
           --health-cmd "pg_isready -U eza_ci"
           --health-interval 10s
@@ -55,6 +68,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/eza-v5
           # Disposable GitHub service DB for migration reproducibility (not production).
           EZA_MIGRATION_TEST_DATABASE_URL: postgresql+psycopg2://eza_ci@localhost:5432/eza_ci
+          EZA_MIGRATION_PLAIN_DATABASE_URL: postgresql+psycopg2://eza_ci@localhost:5433/eza_ci
         run: |
           set -euo pipefail
           python -c "import backend,sys; print('backend=', backend.__file__); print('python=', sys.version)"

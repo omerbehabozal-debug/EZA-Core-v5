@@ -310,13 +310,8 @@ async def remove_member(business_id:uuid.UUID,user_id:uuid.UUID,db=Depends(get_d
 @router.post('/{business_id}/preview-answer')
 async def preview_answer(business_id:uuid.UUID,body:Question,db=Depends(get_db),claims=Depends(get_current_user),credentials=Depends(security)):
     await manager(db,claims,business_id,'editor')
-    from backend.core.account.guards import assert_can_send_message
     from backend.services.business_yansi.answers import BusinessHistory,answer
-    await assert_can_send_message(db,message_text=body.question,credentials=credentials,guest_token=None,source_id=str(uuid.uuid4()))
-    await db.commit()
-    rows=svc.rank_sources(body.question,await svc.published_knowledge(db,business_id))
-    sources=[{'id':str(r.id),'title':r.title,'text':r.content,'source':r.source,'version':r.version} for r in rows]
-    return await answer(body.question,BusinessHistory([],business_id,sources))
+    return await answer(body.question,BusinessHistory([],business_id,[]),db=db)
 
 
 # Child routes inherit the Business feature gate; existing endpoints are unchanged.

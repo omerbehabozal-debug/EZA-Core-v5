@@ -16,7 +16,9 @@ from backend.core.account.quota_events import (
 from backend.core.account.subject import AccountSubject, resolve_account_subject
 from backend.core.account.tiers import AccountTier, get_entitlements_for_tier, resolve_user_account_tier
 from backend.core.account.usage_service import (
+    UsageQuotaExceeded,
     build_account_usage_snapshot,
+    consume_business_brand_message,
     record_account_usage_event,
 )
 from backend.auth.mirror_entitlement import normalize_mirror_plan
@@ -131,6 +133,66 @@ async def assert_can_send_message(
         )
 
     return subject
+
+
+async def enforce_standalone_message_quota(
+    db: AsyncSession,
+    *,
+    message_text: str,
+    credentials: HTTPAuthorizationCredentials | None,
+    guest_token: str | None,
+    chat_history: Any,
+    source_id: str | None = None,
+    now: Any = None,
+) -> AccountSubject:
+    """Personal chat keeps its tier counter. A Business Yansı uses the brand pool.
+
+    Guests stay on the existing guest ceiling. That ceiling is not replaced by
+    the per-brand allowance. The editor preview does not call this.
+    """
+    from backend.services.business_yansi.answers import BusinessHistory
+
+    subject = await resolve_account_subject(
+        db,
+        credentials=credentials,
+        guest_token=guest_token,
+    )
+    if isinstance(chat_history, BusinessHistory) and subject.is_authenticated:
+        message = (message_text or "").strip()
+        if not message:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"allowed": False, "reason": "empty_message"},
+            )
+        entitlements = get_entitlements_for_tier(subject.tier)
+        if len(message) > entitlements["maxMessageChars"]:
+            raise _quota_denied(
+                reason="message_too_long",
+                tier=subject.tier,
+                upgrade_required=subject.tier != AccountTier.PREMIUM,
+            )
+        try:
+            await consume_business_brand_message(
+                db,
+                user_id=str(subject.user_id),
+                business_id=str(chat_history.business_id),
+                source_id=source_id,
+                now=now,
+            )
+        except UsageQuotaExceeded as exc:
+            raise _quota_denied(
+                reason=exc.reason,
+                tier=subject.tier,
+                upgrade_required=False,
+            ) from exc
+        return subject
+    return await assert_can_send_message(
+        db,
+        message_text=message_text,
+        credentials=credentials,
+        guest_token=guest_token,
+        source_id=source_id,
+    )
 
 
 def _subject_from_user(user: User) -> AccountSubject:

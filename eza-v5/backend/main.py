@@ -65,7 +65,7 @@ from backend.security.production_surface import (
 from backend.security.public_demo_guard import enforce_public_demo_limits
 from backend.auth.api_key import require_api_key
 from backend.auth.deps import security
-from backend.core.account.guards import assert_can_send_message
+from backend.core.account.guards import assert_can_send_message, enforce_standalone_message_quota
 from backend.services.mirror_network.yansi_own_continuation import (
     record_own_continuation_started_best_effort,
 )
@@ -499,11 +499,13 @@ async def standalone_endpoint(
     from backend.services.mirror_network.public_replay_continuation import resolve_generation_replay_history
     chat_history = await resolve_generation_replay_history(db, request, persistence)
 
-    await assert_can_send_message(
+    await enforce_standalone_message_quota(
         db,
         message_text=request.query_value,
         credentials=credentials,
         guest_token=x_guest_token,
+        chat_history=chat_history,
+        source_id=request.clientUserMessageId,
     )
     await db.commit()
     await record_own_continuation_started_best_effort(
@@ -638,11 +640,13 @@ async def standalone_stream_endpoint(
     from backend.services.mirror_network.public_replay_continuation import resolve_generation_replay_history
     chat_history = await resolve_generation_replay_history(db, request, persistence)
 
-    await assert_can_send_message(
+    await enforce_standalone_message_quota(
         db,
         message_text=request.query_value,
         credentials=credentials,
         guest_token=x_guest_token,
+        chat_history=chat_history,
+        source_id=request.clientUserMessageId,
     )
     await db.commit()
     await record_own_continuation_started_best_effort(

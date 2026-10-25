@@ -5,6 +5,7 @@ import asyncio
 from typing import Optional, Dict, Any
 import httpx
 from backend.config import get_settings
+from backend.core.openai.config import sanitize_text
 
 
 # Shared with Studio token accounting. Studio counts this message; do not diverge.
@@ -94,7 +95,10 @@ class OpenAIClient:
                         "finish_reason": data["choices"][0].get("finish_reason")
                     }
                 else:
-                    error_msg = f"OpenAI API error: {response.status_code} - {response.text}"
+                    body = sanitize_text(response.text or "")[:240]
+                    error_msg = f"OpenAI API error: {response.status_code}"
+                    if body:
+                        error_msg = f"{error_msg} - {body}"
                     return {
                         "ok": False,
                         "output": None,
@@ -115,7 +119,7 @@ class OpenAIClient:
             return {
                 "ok": False,
                 "output": None,
-                "error": f"OpenAI API error: {str(e)}",
+                "error": sanitize_text(f"OpenAI API error: {e}")[:240],
                 "provider": "openai",
                 "model_name": model
             }

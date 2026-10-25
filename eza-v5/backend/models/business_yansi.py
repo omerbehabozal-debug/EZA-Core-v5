@@ -1,5 +1,7 @@
 """Business profiles extend existing Organization IDs; roles stay domain-specific."""
 import json
+import math
+import struct
 import uuid
 from sqlalchemy import Column, String, Text, Boolean, Integer, DateTime, ForeignKey, JSON, UniqueConstraint, CheckConstraint
 from sqlalchemy.dialects.postgresql import UUID
@@ -18,6 +20,53 @@ class Vector1536(UserDefinedType):
 def _sqlite_vector(type_, compiler, **kw):
     return "TEXT"
 
+_FLOAT32_MAX = 3.4028234663852886e38
+
+
+def _finite_float32(number):
+    """Value pgvector can store. None when float32 would be NaN, infinite, or out of range."""
+    if math.isnan(number) or math.isinf(number) or abs(number) > _FLOAT32_MAX:
+        return None
+    try:
+        stored = struct.unpack("<f", struct.pack("<f", float(number)))[0]
+    except OverflowError:
+        return None
+    if math.isnan(stored) or math.isinf(stored):
+        return None
+    return stored
+
+
+def canonical_embedding(value):
+    """Text that will be stored. None when the stored vector would be invalid or all zeros."""
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            value = json.loads(text)
+        except json.JSONDecodeError:
+            if text.startswith("[") and text.endswith("]"):
+                value = [item for item in text[1:-1].split(",") if item != ""]
+            else:
+                return None
+    if not isinstance(value, (list, tuple)) or len(value) != 1536:
+        return None
+    rendered = []
+    for item in value:
+        if isinstance(item, bool) or not isinstance(item, (int, float, str)):
+            return None
+        try:
+            number = float(item)
+        except (TypeError, ValueError):
+            return None
+        stored = _finite_float32(number)
+        if stored is None:
+            return None
+        rendered.append(format(stored, ".8f"))
+    if all(part in {"0.00000000", "-0.00000000"} for part in rendered):
+        return None
+    return "[" + ",".join(rendered) + "]"
+
 class EmbeddingVector(TypeDecorator):
     impl = Text
     cache_ok = True
@@ -28,11 +77,10 @@ class EmbeddingVector(TypeDecorator):
     def process_bind_param(self, value, dialect):
         if value is None:
             return None
-        if isinstance(value, str):
-            value = json.loads(value)
-        if not isinstance(value, list):
-            raise ValueError("embedding must be a list")
-        return "[" + ",".join(format(float(item), ".8f") for item in value) + "]"
+        rendered = canonical_embedding(value)
+        if rendered is None:
+            raise ValueError("embedding is not a finite 1536-d vector")
+        return rendered
     def process_result_value(self, value, dialect):
         if value is None or value == "":
             return None
@@ -102,9 +150,16 @@ class BusinessKnowledgeChunk(Timestamps, Base):
     attempts = Column(Integer, nullable=False, default=0)
     last_error = Column(String(80))
     indexed_at = Column(DateTime(timezone=True))
+    claim_token = Column(UUID(as_uuid=True))
+    claim_owner = Column(String(64))
+    lease_expires_at = Column(DateTime(timezone=True))
+    next_attempt_at = Column(DateTime(timezone=True))
     __table_args__ = (
         UniqueConstraint('knowledge_version_id', 'chunk_index', name='uq_business_knowledge_chunk'),
-        CheckConstraint("index_status IN ('pending','ready','failed','retired')", name='ck_business_knowledge_chunk_status'),
+        CheckConstraint(
+            "index_status IN ('pending','leased','ready','failed','exhausted','retired')",
+            name='ck_business_knowledge_chunk_status',
+        ),
     )
 
 class BusinessYansiDraft(Timestamps, Base):

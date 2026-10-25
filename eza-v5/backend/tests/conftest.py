@@ -553,6 +553,7 @@ _ACCOUNT_QUOTA_TEST_MODULES = frozenset({
     "test_relationship_map_access",
     "test_visual_source",
     "test_consume_usage_atomic",
+    "test_business_brand_quota",
 })
 
 
@@ -596,6 +597,11 @@ def _ci_stub_account_usage(request):
         ),
         patch(
             "backend.main.assert_can_send_message",
+            new_callable=AsyncMock,
+            return_value=subject,
+        ),
+        patch(
+            "backend.main.enforce_standalone_message_quota",
             new_callable=AsyncMock,
             return_value=subject,
         ),

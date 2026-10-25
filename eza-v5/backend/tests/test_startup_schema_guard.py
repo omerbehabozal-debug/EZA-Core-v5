@@ -40,11 +40,17 @@ def test_rag_flag_defaults_off(monkeypatch):
     assert enabled() is False
 
 
-def test_release_does_not_include_later_rag_engines():
-    with pytest.raises(ModuleNotFoundError):
-        importlib.import_module("backend.services.business_yansi.grounded_answers")
-    with pytest.raises(ModuleNotFoundError):
-        importlib.import_module("backend.services.business_yansi.retrieval")
+def test_release_answers_through_the_orchestrator_and_keeps_flags_off(monkeypatch):
+    import inspect
+
+    from backend.services.business_yansi.answers import answer
+    from backend.services.business_yansi.grounded_answers import answers_enabled
+
+    importlib.import_module("backend.services.business_yansi.business_rag_orchestrator")
+    importlib.import_module("backend.services.business_yansi.retrieval")
+    monkeypatch.delenv("BILIGN_BUSINESS_RAG_ANSWERS_ENABLED", raising=False)
+    assert answers_enabled() is False
+    assert "_grounded_answer(" not in inspect.getsource(answer)
 
 
 def test_studio_and_mirror_do_not_use_public_chat_coercion():

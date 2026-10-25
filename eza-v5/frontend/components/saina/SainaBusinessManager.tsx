@@ -712,7 +712,7 @@ export default function SainaBusinessManager() {
                           })}
                         >
                           <p className="biz-section-lead" style={{ marginBottom: 0 }}>
-                            Mevcut mesaj kotası uygulanır. Bu alan Yansı oluşturma akışından bağımsızdır.
+                            Bu önizleme ziyaretçi mesaj hakkını harcamaz. Yansı oluşturma akışından bağımsızdır.
                           </p>
                           <input name="question" placeholder="Sorun" required />
                           <button type="submit">Cevabı önizle</button>

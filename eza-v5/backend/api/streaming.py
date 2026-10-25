@@ -127,7 +127,7 @@ async def stream_standalone_response(
     from backend.services.business_yansi.answers import BusinessHistory, answer
     analysis_model = coerce_public_chat_model(analysis_model)
     if isinstance(chat_history, BusinessHistory):
-        data = await answer(query, chat_history, analysis_model)
+        data = await answer(query, chat_history, analysis_model, db=db_session)
         if persistence is not None:
             from backend.services.standalone.generation_persistence import persist_assistant_turn_after_generation, build_completion_persistence_status
             from backend.services.standalone.generation_persistence import update_user_turn_evaluation

@@ -4090,6 +4090,14 @@ html:has(.saina-page) body {
   opacity: 0.75;
 }
 
+.saina-business-answer-note {
+  margin: 0.45rem 0.75rem 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  text-align: center;
+  color: rgba(244, 240, 232, 0.62);
+}
+
 .saina-composer-zone {
   position: relative;
   z-index: 7;

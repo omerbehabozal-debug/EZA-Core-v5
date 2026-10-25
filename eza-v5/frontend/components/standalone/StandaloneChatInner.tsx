@@ -21,6 +21,7 @@ import { useMirrorPendingReply, type MirrorPendingDelivery } from '@/components/
 import YansiPersonalReplayHistory from '@/components/mirror-landing/YansiPersonalReplayHistory';
 import { replaySelection } from '@/lib/eza/mirror-network/publicReplayContinuation';
 import SainaComposer from '@/components/saina/SainaComposer';
+import BusinessAnswerNotice from '@/components/saina/BusinessAnswerNotice';
 import type { SainaNotificationItem } from '@/components/saina/SainaNotificationsDropdown';
 import JourneyWindowDecisionBanner from '@/components/mirror/JourneyWindowDecisionBanner';
 import JourneyGenerationStatus from '@/components/mirror/JourneyGenerationStatus';
@@ -2380,6 +2381,7 @@ export default function StandaloneChatInner() {
         </div>
       ) : null}
       <SainaComposer onSend={async (text) => { await handleSend(text); }} isLoading={isLoading} disabled={composerDisabled} />
+      {activeArchive?.publicReplayContext?.businessPublisher ? <BusinessAnswerNotice /> : null}
     </>
   );
 

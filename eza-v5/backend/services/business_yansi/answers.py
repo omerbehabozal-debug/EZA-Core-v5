@@ -1,5 +1,10 @@
-"""Server-bound retrieval. The model selects verifiable excerpts, never free claims."""
+"""Business Yansı answers go through the RAG orchestrator for every brand.
+
+The quote helpers below are not a fallback. A closed flag, a missing
+database, or an insufficient package returns the orchestrator's own result.
+"""
 import json
+import os
 from sqlalchemy import select
 from backend.models.business_yansi import BusinessPublication, BusinessProfile
 from backend.models.production import Organization
@@ -60,16 +65,52 @@ async def _grounded_answer(question,history,model=None,provider=None):
         parts.append(text+'\n\nKaynak: '+source['title']+' (v'+str(source['version'])+') — '+source['source'])
     return {'assistant_answer':'\n\n'.join(parts),'sources':[{k:v for k,v in s.items() if k!='text'} for s in sources],'business_grounded':True}
 
+async def _live_embedder(text, *, timeout):
+    from backend.core.llm.providers.openai_client import OpenAIClient
+    client = OpenAIClient()
+    client.timeout = timeout
+    return await client.embed_texts([text])
+
+async def _live_provider(prompt, *, timeout, max_tokens):
+    from backend.core.llm.providers.openai_client import OpenAIClient
+    client = OpenAIClient()
+    return await client.generate(prompt, 'gpt-4o-mini', temperature=0.2, max_tokens=max_tokens, timeout=timeout, json_mode=True)
+
+def _flag(name):
+    return os.environ.get(name, '').strip().lower() in {'1', 'true', 'yes', 'on'}
+
+async def _orchestrated(question, history, provider, db):
+    from .business_rag_orchestrator import run_business_rag
+    if not isinstance(history, BusinessHistory):
+        return {'assistant_answer': NO_INFORMATION, 'sources': [], 'business_grounded': True, 'reason': 'not_business'}
+    flags_open = _flag('BILIGN_BUSINESS_RAG_ENABLED') and _flag('BILIGN_BUSINESS_RAG_ANSWERS_ENABLED')
+    if not flags_open:
+        produced = await run_business_rag(object(), history.business_id, question, history=list(history), provider=provider)
+    elif db is not None:
+        produced = await run_business_rag(db, history.business_id, question, history=list(history), provider=provider or _live_provider, embedder=_live_embedder)
+    else:
+        from backend.core.utils.dependencies import AsyncSessionLocal
+        async with AsyncSessionLocal() as owned:
+            produced = await run_business_rag(owned, history.business_id, question, history=list(history), provider=provider or _live_provider, embedder=_live_embedder)
+    return {
+        'assistant_answer': produced['assistant_answer'],
+        'sources': produced.get('sources') or [],
+        'business_grounded': True,
+        'reason': produced.get('reason'),
+        'status': produced.get('status'),
+    }
+
 async def run_business_or_standard_pipeline(*,user_input,mode,chat_history=None,**kwargs):
     if mode!='standalone' or not isinstance(chat_history,BusinessHistory):
         from backend.api.pipeline_runner import run_full_pipeline
         return await run_full_pipeline(user_input=user_input,mode=mode,chat_history=chat_history,**kwargs)
     from backend.core.schemas.pipeline import PipelineResponse
-    data=await answer(user_input,chat_history,kwargs.get('analysis_model'))
+    data=await answer(user_input,chat_history,kwargs.get('analysis_model'),db=kwargs.get('db_session'))
     return PipelineResponse(ok=True,mode='standalone',data=data)
 
-async def answer(question,history,model=None,provider=None):
-    data=await _grounded_answer(question,history,model,provider)
+async def answer(question,history,model=None,provider=None,*,db=None):
+    del model
+    data=await _orchestrated(question,history,provider,db)
     # Evaluate only this customer's new interaction. Never reuse source EZA.
     from backend.core.engines.input_analyzer import analyze_input
     from backend.core.engines.output_analyzer import analyze_output
