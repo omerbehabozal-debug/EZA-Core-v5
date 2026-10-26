@@ -97,6 +97,7 @@ tests/test_business_context_builder.py
 tests/test_business_package_answers.py
 tests/test_business_brand_quota.py
 tests/test_business_brand_assets.py
+tests/test_business_brand_library.py
 tests/test_business_yansi.py
 tests/test_public_chat_model.py
 tests/test_startup_schema_guard.py

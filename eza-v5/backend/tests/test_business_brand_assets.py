@@ -305,7 +305,6 @@ def test_answer_and_draft_modules_do_not_import_brand_assets():
         "services/business_yansi/business_rag_orchestrator.py",
         "services/business_yansi/publication.py",
         "services/business_yansi/studio_generation.py",
-        "routers/business_yansi.py",
     ):
         text = (root / relative).read_text(encoding="utf-8")
         assert "brand_assets" not in text

@@ -10,6 +10,7 @@ import {
   type Draft,
   type Publication,
   type BrandApplication,
+  type BrandAsset,
 } from '@/lib/eza/businessYansi';
 import { useAuth } from '@/context/AuthContext';
 import SainaBusinessGate from '@/components/saina/SainaBusinessGate';
@@ -18,11 +19,12 @@ import { SAINA_PLATFORM_ADMIN_ROUTE } from '@/lib/eza/sainaRoutes';
 import SainaAuthAccountMark from '@/components/saina/SainaAuthAccountMark';
 import BusinessYansiStudio from '@/components/saina/business-studio/BusinessYansiStudio';
 import BusinessKnowledgePool from '@/components/saina/business-studio/BusinessKnowledgePool';
+import BusinessAssetLibrary from '@/components/saina/business-studio/BusinessAssetLibrary';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { buildProfileAvatarDisplaySrc } from '@/lib/eza/profile/avatarDisplayUrl';
 
-const tabs = ['Genel Bakış', 'Bilgi Havuzu', 'Yansı Stüdyosu', 'Yayınlar', 'Ayarlar'] as const;
+const tabs = ['Genel Bakış', 'Bilgi Havuzu', 'İçerik Kütüphanesi', 'Yansı Stüdyosu', 'Yayınlar', 'Ayarlar'] as const;
 const LOGIN_MSG = 'Business yönetimi için giriş yapmalısın.';
 
 type CatalogState = 'idle' | 'loading' | 'ready' | 'unavailable' | 'blocked';
@@ -74,6 +76,7 @@ export default function SainaBusinessManager() {
   const [business, setBusiness] = useState<Business | null>(null);
   const [role, setRole] = useState('viewer');
   const [knowledge, setKnowledge] = useState<Knowledge[]>([]);
+  const [assets, setAssets] = useState<BrandAsset[]>([]);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [publications, setPublications] = useState<Publication[]>([]);
   const [tab, setTab] = useState<(typeof tabs)[number]>('Genel Bakış');
@@ -85,6 +88,7 @@ export default function SainaBusinessManager() {
   const [catalogState, setCatalogState] = useState<CatalogState>('idle');
   const [serviceMessage, setServiceMessage] = useState('');
   const [knowledgeUi, setKnowledgeUi] = useState({ formOpen: false, dirty: false });
+  const [assetUi, setAssetUi] = useState({ formOpen: false, dirty: false });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Draft | null>(null);
@@ -113,10 +117,11 @@ export default function SainaBusinessManager() {
   }
 
   async function load(id: string) {
-    const [overview, kb, studio] = await Promise.all([
+    const [overview, kb, studio, library] = await Promise.all([
       api<{ business: Business; role: string; publications: Publication[] }>(`/${id}/overview`),
       api<{ items: Knowledge[] }>(`/${id}/knowledge`),
       api<{ items: Draft[] }>(`/${id}/drafts`),
+      api<{ items: BrandAsset[] }>(`/${id}/assets`),
     ]);
     const memberRows =
       overview.role === 'owner'
@@ -127,6 +132,7 @@ export default function SainaBusinessManager() {
     setRole(overview.role);
     setPublications(overview.publications);
     setKnowledge(kb.items);
+    setAssets(library.items);
     setDrafts(studio.items);
     setMembers(memberRows);
   }
@@ -196,12 +202,14 @@ export default function SainaBusinessManager() {
     // Clear previous tenant data immediately so brand switches never flash foreign content.
     setBusiness(null);
     setKnowledge([]);
+    setAssets([]);
     setDrafts([]);
     setPublications([]);
     setMembers([]);
     setAnswer('');
     setEditorialChat('');
     setKnowledgeUi({ formOpen: false, dirty: false });
+    setAssetUi({ formOpen: false, dirty: false });
     setLogoFile(null);
     setLogoPreview(null);
     setEditDraft(null);
@@ -213,6 +221,10 @@ export default function SainaBusinessManager() {
     if (tab === 'Bilgi Havuzu' && knowledgeUi.formOpen && knowledgeUi.dirty && next !== 'Bilgi Havuzu') {
       if (!window.confirm('Kaydedilmemiş değişiklikler var. Çıkmak istiyor musunuz?')) return;
       setKnowledgeUi({ formOpen: false, dirty: false });
+    }
+    if (tab === 'İçerik Kütüphanesi' && assetUi.formOpen && assetUi.dirty && next !== 'İçerik Kütüphanesi') {
+      if (!window.confirm('Kaydedilmemiş değişiklikler var. Çıkmak istiyor musunuz?')) return;
+      setAssetUi({ formOpen: false, dirty: false });
     }
     setTab(next);
   }
@@ -575,6 +587,20 @@ export default function SainaBusinessManager() {
                       await api(`${base}/knowledge/${row.id}`, 'DELETE', { revision: row.revision });
                       setNotice('Bilgi silindi.');
                     });
+                  }}
+                />
+              )}
+
+              {tab === 'İçerik Kütüphanesi' && (
+                <BusinessAssetLibrary
+                  businessId={selected}
+                  assets={assets}
+                  knowledge={knowledge}
+                  canEdit={editor}
+                  busy={busy}
+                  onUiStateChange={setAssetUi}
+                  onChanged={async () => {
+                    if (selected) await load(selected);
                   }}
                 />
               )}

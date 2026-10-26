@@ -603,4 +603,74 @@ describe('Business public identity', () => {
     expect(parsed?.authorUserId).toBe('person-1');
     expect(parsed?.businessPublisher).toBeUndefined();
   });
+
+  it('shows brand media in the library and asks to reconfirm a new knowledge version', async () => {
+    api.mockImplementation(async (path = '') => {
+      if (path === '') return { items: [business], canProvision: false };
+      if (path === '/applications/mine') return { items: [] };
+      if (String(path).endsWith('/overview')) return { business, role: 'editor', publications: [] };
+      if (String(path).endsWith('/knowledge')) {
+        return {
+          items: [{
+            id: 'knowledge-2',
+            item_id: 'item-1',
+            title: 'Saatler',
+            category: '',
+            content: 'Atölye cumartesi de açıktır.',
+            source: 'Güncel duyuru',
+            public_allowed: true,
+            status: 'published',
+            version: 2,
+            revision: 1,
+          }],
+        };
+      }
+      if (String(path).endsWith('/assets')) {
+        return {
+          items: [{
+            id: 'asset-1',
+            business_id: 'business-a',
+            asset_type: 'place',
+            title: 'Atölye',
+            caption: 'Karaköy',
+            locator_kind: null,
+            locator: null,
+            latitude: '41.025000',
+            longitude: '28.974000',
+            public_allowed: true,
+            status: 'published',
+            revision: 2,
+            links: [{
+              id: 'link-1',
+              item_id: 'item-1',
+              confirmed_version_id: 'knowledge-1',
+              status: 'active',
+              knowledge_title: 'Saatler',
+              knowledge_status: 'archived',
+              current_published_version_id: 'knowledge-2',
+              confirmation_current: false,
+            }],
+          }],
+        };
+      }
+      return { items: [] };
+    });
+    render(<SainaBusinessManager />);
+    await screen.findByText('BiligN', { selector: 'h2' });
+    fireEvent.click(screen.getByRole('button', { name: 'İçerik Kütüphanesi' }));
+    expect(await screen.findByRole('heading', { name: 'Atölye' })).toBeInTheDocument();
+    expect(screen.getByText('41.025000, 28.974000')).toBeInTheDocument();
+    expect(screen.getByText('Bilgi yeni sürüme geçti. İlişkiyi yeniden onaylayın.')).toBeInTheDocument();
+    expect(screen.queryByText(/fiyat|stok|sepet|ödeme/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '+ Yeni içerik' }));
+    expect(screen.getByLabelText('İçerik türü')).toBeInTheDocument();
+    for (const label of ['Görsel', 'Video', 'Konum', 'Bağlantı']) {
+      expect(screen.getByRole('option', { name: label })).toBeInTheDocument();
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Vazgeç' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Düzenle' }));
+    expect(screen.getByLabelText('Enlem')).toHaveValue('41.025000');
+    expect(screen.getByRole('checkbox', { name: /Saatler/ })).not.toBeChecked();
+    expect(screen.getByText('Yeni sürüm için yeniden onay gerekir.')).toBeInTheDocument();
+  });
 });

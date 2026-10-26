@@ -2,7 +2,8 @@
 import uuid
 from typing import Literal
 from datetime import datetime
-from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from backend.auth.deps import get_current_user, security
@@ -13,6 +14,8 @@ from backend.services.business_yansi import service as svc
 from backend.services.business_yansi import applications as apps
 from backend.services.business_yansi import platform_admin as padmin
 from backend.services.business_yansi.publication import enabled, publisher, export_editorial_conversation, publish_draft
+from backend.services.business_yansi import brand_asset_library as assets
+from backend.services.profile_avatar_store import MAX_PROFILE_AVATAR_BYTES
 from backend.security.rate_limit import rate_limit_business_application
 
 async def available():
@@ -44,6 +47,22 @@ class Verify(Body):
 class Member(Body):
     userId: uuid.UUID
     role: Literal['editor','viewer']
+class AssetWrite(Body):
+    assetType: Literal['video','place','link']
+    title: str=Field(min_length=1,max_length=160)
+    caption: str=Field(default='',max_length=500)
+    publicAllowed: bool=False
+    locator: str|None=Field(default=None,max_length=1000)
+    latitude: str|None=Field(default=None,max_length=32)
+    longitude: str|None=Field(default=None,max_length=32)
+class AssetUpdate(AssetWrite):
+    revision: int=Field(ge=1)
+    assetType: Literal['video','place','link','image']='image'
+class AssetLinks(Body):
+    knowledgeVersionIds: list[uuid.UUID]=Field(default_factory=list,max_length=32)
+    revision: int=Field(ge=1)
+class AssetArchive(Body):
+    revision: int=Field(ge=1)
 class KnowledgeCreate(Body):
     itemId: uuid.UUID|None=None
     title: str=Field(min_length=1,max_length=160)
@@ -249,6 +268,55 @@ async def member(business_id:uuid.UUID,body:Member,db=Depends(get_db),claims=Dep
     if row:row.role=body.role
     else:row=BusinessMember(business_id=business_id,user_id=body.userId,role=body.role);db.add(row)
     await db.commit();return await recorded(db,row)
+def _asset_payload(body):
+    return {'asset_type':body.assetType,'title':body.title,'caption':body.caption,'public_allowed':body.publicAllowed,'locator':body.locator,'latitude':body.latitude,'longitude':body.longitude,'revision':getattr(body,'revision',None)}
+async def _read_image(upload:UploadFile):
+    data=await upload.read(MAX_PROFILE_AVATAR_BYTES+1)
+    if len(data)>MAX_PROFILE_AVATAR_BYTES: svc.fail('asset_file_too_large',400)
+    return data
+@router.get('/{business_id}/assets')
+async def brand_library(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
+    user=await svc.actor(db,claims)
+    return {'items':await assets.list_assets(db,business_id,user.id)}
+@router.post('/{business_id}/assets')
+async def add_brand_asset(business_id:uuid.UUID,body:AssetWrite,db=Depends(get_db),claims=Depends(get_current_user)):
+    user=await svc.actor(db,claims)
+    row=await assets.create_asset(db,business_id,user.id,_asset_payload(body))
+    return await _asset_view(db,business_id,row.id)
+@router.post('/{business_id}/assets/image')
+async def add_brand_image(business_id:uuid.UUID,file:UploadFile=File(...),title:str=Form(...),caption:str=Form(''),publicAllowed:str=Form('false'),db=Depends(get_db),claims=Depends(get_current_user)):
+    user=await svc.actor(db,claims)
+    row=await assets.create_asset(db,business_id,user.id,{'asset_type':'image','title':title,'caption':caption,'public_allowed':publicAllowed.lower() in {'1','true','on','yes'}},image_bytes=await _read_image(file))
+    return await _asset_view(db,business_id,row.id)
+@router.patch('/{business_id}/assets/{asset_id}')
+async def edit_brand_asset(business_id:uuid.UUID,asset_id:uuid.UUID,body:AssetUpdate,db=Depends(get_db),claims=Depends(get_current_user)):
+    user=await svc.actor(db,claims)
+    row=await assets.update_asset(db,business_id,user.id,asset_id,_asset_payload(body))
+    return await _asset_view(db,business_id,row.id)
+@router.post('/{business_id}/assets/{asset_id}/image')
+async def replace_brand_image(business_id:uuid.UUID,asset_id:uuid.UUID,file:UploadFile=File(...),title:str=Form(...),caption:str=Form(''),publicAllowed:str=Form('false'),revision:int=Form(...),db=Depends(get_db),claims=Depends(get_current_user)):
+    user=await svc.actor(db,claims)
+    row=await assets.update_asset(db,business_id,user.id,asset_id,{'asset_type':'image','title':title,'caption':caption,'public_allowed':publicAllowed.lower() in {'1','true','on','yes'},'revision':revision},image_bytes=await _read_image(file))
+    return await _asset_view(db,business_id,row.id)
+@router.post('/{business_id}/assets/{asset_id}/links')
+async def confirm_brand_asset_links(business_id:uuid.UUID,asset_id:uuid.UUID,body:AssetLinks,db=Depends(get_db),claims=Depends(get_current_user)):
+    user=await svc.actor(db,claims)
+    row=await assets.set_links(db,business_id,user.id,asset_id,body.knowledgeVersionIds,body.revision)
+    return await _asset_view(db,business_id,row.id)
+@router.post('/{business_id}/assets/{asset_id}/archive')
+async def archive_brand_asset(business_id:uuid.UUID,asset_id:uuid.UUID,body:AssetArchive,db=Depends(get_db),claims=Depends(get_current_user)):
+    user=await svc.actor(db,claims)
+    row=await assets.archive_asset(db,business_id,user.id,asset_id,body.revision)
+    return await _asset_view(db,business_id,row.id)
+@router.get('/{business_id}/assets/{asset_id}/content')
+async def brand_asset_content(business_id:uuid.UUID,asset_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
+    user=await svc.actor(db,claims)
+    data,mime=await assets.stored_preview(db,business_id,user.id,asset_id)
+    return Response(content=data,media_type=mime,headers={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'})
+async def _asset_view(db,business_id,asset_id):
+    for item in await assets.listed_assets(db,business_id):
+        if item['id']==str(asset_id): return item
+    svc.fail('asset_not_found',404)
 @router.get('/{business_id}/knowledge')
 async def knowledge(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
     await manager(db,claims,business_id);return {'items':[record(row) for row in await svc.list_knowledge(db,business_id)]}

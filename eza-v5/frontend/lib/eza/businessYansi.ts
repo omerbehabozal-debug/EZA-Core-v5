@@ -2,6 +2,33 @@ import { getApiUrl } from '@/lib/apiUrl';
 import { getAuthToken } from '@/lib/eza/authTokenStore';
 
 export type Business = { id: string; name: string; slug: string; description: string; logo_url: string | null; verified: boolean; official: boolean; status: string; updated_at?: string | null };
+export type BrandAssetLink = {
+  id: string;
+  item_id: string;
+  confirmed_version_id: string;
+  status: string;
+  knowledge_title: string;
+  knowledge_status: string | null;
+  current_published_version_id: string | null;
+  confirmation_current: boolean;
+};
+
+export type BrandAsset = {
+  id: string;
+  business_id: string;
+  asset_type: 'image' | 'video' | 'place' | 'link';
+  title: string;
+  caption: string;
+  locator_kind: 'https' | 'storage' | null;
+  locator: string | null;
+  latitude: string | null;
+  longitude: string | null;
+  public_allowed: boolean;
+  status: string;
+  revision: number;
+  links: BrandAssetLink[];
+};
+
 export type Knowledge = {
   id: string;
   item_id: string;
@@ -215,4 +242,67 @@ export async function uploadBusinessLogo(businessId: string, file: File): Promis
     throw new BusinessApiError(response.status, data?.detail ?? null);
   }
   return response.json();
+}
+
+async function sendBrandForm<T>(path: string, body: FormData): Promise<T> {
+  const token = getAuthToken();
+  if (!token) throw new Error('Business yönetimi için giriş yapmalısın.');
+  let response: Response;
+  try {
+    response = await fetch(getApiUrl().replace(/\/$/, '') + '/api/business-yansi' + path, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body,
+      cache: 'no-store',
+    });
+  } catch {
+    throw new BusinessApiError(0, 'network_error');
+  }
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new BusinessApiError(response.status, data?.detail ?? null);
+  }
+  return response.json();
+}
+
+export async function uploadBrandImage(
+  businessId: string,
+  file: File,
+  fields: { title: string; caption: string; publicAllowed: boolean },
+): Promise<BrandAsset> {
+  const body = new FormData();
+  body.append('file', file);
+  body.append('title', fields.title);
+  body.append('caption', fields.caption);
+  body.append('publicAllowed', fields.publicAllowed ? 'true' : 'false');
+  return sendBrandForm(`/${businessId}/assets/image`, body);
+}
+
+export async function replaceBrandImage(
+  businessId: string,
+  assetId: string,
+  file: File,
+  fields: { title: string; caption: string; publicAllowed: boolean; revision: number },
+): Promise<BrandAsset> {
+  const body = new FormData();
+  body.append('file', file);
+  body.append('title', fields.title);
+  body.append('caption', fields.caption);
+  body.append('publicAllowed', fields.publicAllowed ? 'true' : 'false');
+  body.append('revision', String(fields.revision));
+  return sendBrandForm(`/${businessId}/assets/${assetId}/image`, body);
+}
+
+export async function fetchBrandAssetPreview(businessId: string, assetId: string): Promise<string> {
+  const token = getAuthToken();
+  if (!token) throw new Error('Business yönetimi için giriş yapmalısın.');
+  const response = await fetch(
+    getApiUrl().replace(/\/$/, '') + `/api/business-yansi/${businessId}/assets/${assetId}/content`,
+    { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' },
+  );
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new BusinessApiError(response.status, data?.detail ?? null);
+  }
+  return URL.createObjectURL(await response.blob());
 }
