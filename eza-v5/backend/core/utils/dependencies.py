@@ -76,12 +76,18 @@ async def get_db() -> AsyncSession:
             await session.close()
 
 
-# Alembic owns this table. Startup create_all must not invent it, with or without the RAG flag.
-ALEMBIC_OWNED_TABLES = frozenset({"business_knowledge_chunks"})
+# Alembic owns these tables. Startup create_all must not invent them.
+ALEMBIC_OWNED_TABLES = frozenset({
+    "business_knowledge_chunks",
+    "business_brand_assets",
+    "business_knowledge_asset_links",
+})
 
 
 def startup_create_all_tables():
-    """Tables a non-production bootstrap may ensure. The RAG chunk table is never included."""
+    """Tables a non-production bootstrap may ensure. Alembic-owned tables are never included."""
+    import backend.models.business_brand_assets  # noqa: F401  registers metadata before the filter
+
     return [table for table in Base.metadata.sorted_tables if table.name not in ALEMBIC_OWNED_TABLES]
 
 
@@ -89,9 +95,9 @@ def apply_startup_schema(connection, settings):
     """Create missing legacy tables outside production. Returns whether create_all ran.
 
     Production keeps existing tables and does not invent Alembic-managed schema.
-    business_knowledge_chunks is excluded in every environment. If its migration
-    has not been applied, the application still starts; RAG calls report
-    schema_missing and do not create the table.
+    The chunk table and brand-asset tables are excluded in every environment.
+    If the chunk migration has not been applied, the application still starts;
+    RAG calls report schema_missing and do not create the table.
     """
     from backend.config import is_production_settings
 

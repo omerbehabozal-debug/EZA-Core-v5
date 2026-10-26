@@ -93,6 +93,8 @@ def test_startup_does_not_create_chunk_table_and_production_skips_bootstrap():
     from types import SimpleNamespace
     names = {table.name for table in startup_create_all_tables()}
     assert "business_knowledge_chunks" not in names
+    assert "business_brand_assets" not in names
+    assert "business_knowledge_asset_links" not in names
     assert "business_knowledge_versions" in names
     assert apply_startup_schema(None, SimpleNamespace(ENV="production", EZA_ENV=None)) is False
     assert apply_startup_schema(None, SimpleNamespace(ENV="dev", EZA_ENV="prod")) is False

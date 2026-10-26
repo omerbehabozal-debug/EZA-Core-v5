@@ -130,8 +130,11 @@ class BusinessKnowledgeVersion(Timestamps, Base):
     created_by = Column(UUID(as_uuid=True), ForeignKey('production_users.id'), nullable=False)
     approved_by = Column(UUID(as_uuid=True), ForeignKey('production_users.id'))
     revision = Column(Integer, nullable=False, default=1)
-    __table_args__ = (UniqueConstraint('business_id','item_id','version', name='uq_business_knowledge_version'),
-        CheckConstraint("status IN ('draft','review','approved','published','archived')", name='ck_business_knowledge_status'))
+    __table_args__ = (
+        UniqueConstraint('business_id','item_id','version', name='uq_business_knowledge_version'),
+        UniqueConstraint('id','business_id','item_id', name='uq_business_knowledge_version_tenant'),
+        CheckConstraint("status IN ('draft','review','approved','published','archived')", name='ck_business_knowledge_status'),
+    )
 
 class BusinessKnowledgeChunk(Timestamps, Base):
     """Derived retrieval rows. The knowledge version remains the source of truth."""
