@@ -379,6 +379,134 @@ async def test_other_brand_video_cannot_become_the_cover(sample, asset_dir):
     assert rejected.value.detail["code"] == "sealed_media_unavailable"
 
 
+async def _approve(sample, draft):
+    for state in ("review", "approved"):
+        actor = sample.owner.id if state == "approved" else sample.editor.id
+        draft = await svc.transition_draft(sample.db, sample.business.id, actor, draft.id, state, draft.revision)
+    return draft
+
+
+@pytest.mark.asyncio
+async def test_a_seal_written_under_the_brand_lock_blocks_the_url(sample, asset_dir, monkeypatch):
+    """A seal that becomes visible before the write must stop that write.
+
+    SQLite does not honor row locks, so this interleaves the seal inside the
+    same brand lock the update already holds. PostgreSQL holds that lock until
+    commit, which is what closes the real race.
+    """
+    from contextlib import asynccontextmanager
+
+    knowledge = await source(sample, title="Atolye", content="Atolye filmi kaydi burada durur.")
+    video = await _asset(
+        sample, knowledge, asset_type="video", title="Atolye filmi", caption="",
+        locator="https://cdn.bilign.example/atolye.mp4", public_allowed=True,
+    )
+    draft = await svc.create_draft(sample.db, sample.business.id, sample.editor.id, "Atolye filmi", "Atolye filmi", _steps(knowledge))
+    real_lock = media.business_media_lock
+
+    @asynccontextmanager
+    async def seal_before_the_write(db, business_id):
+        async with real_lock(db, business_id):
+            fresh = await db.get(draft.__class__, draft.id)
+            plan = {"coverAssetId": fresh.media_plan.get("coverAssetId"), "blocks": fresh.media_plan.get("blocks") or [], "seal": None}
+            plan["seal"] = media.media_seal(plan)
+            fresh.media_plan = plan
+            await db.flush()
+            yield
+
+    monkeypatch.setattr(media, "business_media_lock", seal_before_the_write)
+    with pytest.raises(HTTPException) as blocked:
+        await library.update_asset(sample.db, sample.business.id, sample.editor.id, video.id, {
+            "title": video.title, "locator": "https://cdn.bilign.example/yaris.mp4",
+            "public_allowed": True, "revision": video.revision,
+        })
+    assert blocked.value.detail["code"] == "sealed_media_immutable"
+    await sample.db.refresh(video)
+    assert video.locator == "https://cdn.bilign.example/atolye.mp4"
+    assert media.media_seal({"coverAssetId": str(video.id), "blocks": draft.media_plan["blocks"]}) == media.media_seal(draft.media_plan)
+
+
+@pytest.mark.asyncio
+async def test_sealed_image_link_and_place_content_stay_fixed(sample, asset_dir, monkeypatch):
+    knowledge = await source(sample, title="Atolye", content="Atolye filmi kaydi burada durur.")
+    image = await _asset(sample, knowledge, asset_type="image", title="Atolye gorseli", caption="", public_allowed=True, image_bytes=_PNG)
+    link = await _asset(sample, knowledge, asset_type="link", title="Atolye sitesi", locator="https://bilign.example/atolye", public_allowed=True)
+    place = await _asset(
+        sample, knowledge, asset_type="place", title="Atolye yeri", caption="Kadikoy",
+        latitude="40.990000", longitude="29.020000", public_allowed=True,
+    )
+    draft = await svc.create_draft(
+        sample.db, sample.business.id, sample.editor.id, "Atolye gorseli", "Atolye gorseli", _steps(knowledge),
+        media_choices=[[
+            {"type": "image", "assetId": str(image.id)},
+            {"type": "link", "assetId": str(link.id)},
+            {"type": "map", "assetId": str(place.id)},
+        ]] + [[] for _ in range(7)],
+        cover_asset_id=image.id,
+    )
+    draft = await _approve(sample, draft)
+    sealed = draft.media_plan["seal"]
+    writes = []
+    real_store = library.store_image
+
+    def spy_store(business_id, image_bytes):
+        writes.append(image_bytes)
+        return real_store(business_id, image_bytes)
+
+    monkeypatch.setattr(library, "store_image", spy_store)
+    with pytest.raises(HTTPException) as image_blocked:
+        await library.update_asset(
+            sample.db, sample.business.id, sample.editor.id, image.id,
+            {"title": image.title, "public_allowed": True, "revision": image.revision},
+            image_bytes=_PNG + b"x",
+        )
+    assert image_blocked.value.detail["code"] == "sealed_media_immutable"
+    assert writes == []
+    await sample.db.refresh(image)
+    assert image.locator.endswith(".png")
+    renamed = await library.update_asset(sample.db, sample.business.id, sample.editor.id, image.id, {
+        "title": "Atolye gorseli notu", "caption": "ayni dosya", "public_allowed": True, "revision": image.revision,
+    })
+    assert renamed.title == "Atolye gorseli notu" and renamed.locator == image.locator
+    with pytest.raises(HTTPException) as link_blocked:
+        await library.update_asset(sample.db, sample.business.id, sample.editor.id, link.id, {
+            "title": link.title, "locator": "https://bilign.example/baska", "public_allowed": True, "revision": link.revision,
+        })
+    assert link_blocked.value.detail["code"] == "sealed_media_immutable"
+    await sample.db.refresh(link)
+    assert link.locator == "https://bilign.example/atolye"
+    with pytest.raises(HTTPException) as place_blocked:
+        await library.update_asset(sample.db, sample.business.id, sample.editor.id, place.id, {
+            "title": place.title, "caption": place.caption, "latitude": "41.010000", "longitude": "29.030000",
+            "public_allowed": True, "revision": place.revision,
+        })
+    assert place_blocked.value.detail["code"] == "sealed_media_immutable"
+    await sample.db.refresh(place)
+    assert str(place.latitude).startswith("40.990")
+    fresh = await library.create_asset(sample.db, sample.business.id, sample.editor.id, {
+        "asset_type": "link", "title": "Yeni atolye sitesi", "locator": "https://bilign.example/yeni", "public_allowed": True,
+    })
+    assert fresh.id != link.id
+    await sample.db.refresh(draft)
+    assert draft.media_plan["coverAssetId"] == str(image.id)
+    assert draft.media_plan["seal"] == sealed
+    assert sealed == media.media_seal(draft.media_plan)
+    other = await svc.create_business(sample.db, sample.admin, {
+        "organizationId": str(sample.other.id), "ownerId": str(sample.outsider.id), "slug": "baska-medya", "name": "Baska Medya",
+    })
+    with pytest.raises(HTTPException) as foreign:
+        await library.update_asset(sample.db, other.id, sample.outsider.id, link.id, {
+            "title": "Disaridan", "locator": "https://akdeniz.example/atolye", "public_allowed": True, "revision": link.revision,
+        })
+    assert foreign.value.detail["code"] == "asset_not_found"
+    revoked = await library.update_asset(sample.db, sample.business.id, sample.editor.id, image.id, {
+        "title": renamed.title, "caption": renamed.caption, "public_allowed": False, "revision": renamed.revision,
+    })
+    assert revoked.public_allowed is False and revoked.locator == image.locator
+    archived = await library.archive_asset(sample.db, sample.business.id, sample.editor.id, link.id, link.revision)
+    assert archived.status == "archived" and archived.locator == "https://bilign.example/atolye"
+
+
 def test_video_cover_keeps_the_seal_formula_and_rejects_unsafe_urls():
     from types import SimpleNamespace
 

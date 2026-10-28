@@ -224,23 +224,25 @@ async def draft_row(db,business_id,draft_id,lock=False):
 
 async def transition_draft(db,business_id,user_id,draft_id,target,revision):
     await access(db,business_id,user_id,'owner' if target=='approved' else 'editor')
-    row=await draft_row(db,business_id,draft_id,True)
-    if row.revision!=revision: fail('revision_conflict',409)
-    if target not in TRANSITIONS.get(row.status,set()) or target=='published': fail('invalid_transition',409)
-    if target=='approved':
-        if len(await published_knowledge(db,business_id,row.knowledge_snapshot))!=len(row.knowledge_snapshot): fail('source_snapshot_unavailable',409)
-        if row.media_plan is not None:
-            from backend.services.business_yansi.studio_media import assert_live_plan, media_seal
-            await assert_live_plan(db,business_id,row.steps,row.media_plan)
-            plan={'coverAssetId':row.media_plan.get('coverAssetId'),'blocks':row.media_plan.get('blocks') or [],'seal':None}
-            plan['seal']=media_seal(plan)
-            row.media_plan=plan
-        row.approved_by=uid(user_id)
-    elif target=='draft':
-        row.approved_by=None
-        if isinstance(row.media_plan,dict):
-            row.media_plan={'coverAssetId':row.media_plan.get('coverAssetId'),'blocks':row.media_plan.get('blocks') or [],'seal':None}
-    row.status=target;row.revision+=1;await db.commit();await db.refresh(row);return row
+    from backend.services.business_yansi.studio_media import business_media_lock
+    async with business_media_lock(db,business_id):
+        row=await draft_row(db,business_id,draft_id,True)
+        if row.revision!=revision: fail('revision_conflict',409)
+        if target not in TRANSITIONS.get(row.status,set()) or target=='published': fail('invalid_transition',409)
+        if target=='approved':
+            if len(await published_knowledge(db,business_id,row.knowledge_snapshot))!=len(row.knowledge_snapshot): fail('source_snapshot_unavailable',409)
+            if row.media_plan is not None:
+                from backend.services.business_yansi.studio_media import assert_live_plan, media_seal
+                await assert_live_plan(db,business_id,row.steps,row.media_plan)
+                plan={'coverAssetId':row.media_plan.get('coverAssetId'),'blocks':row.media_plan.get('blocks') or [],'seal':None}
+                plan['seal']=media_seal(plan)
+                row.media_plan=plan
+            row.approved_by=uid(user_id)
+        elif target=='draft':
+            row.approved_by=None
+            if isinstance(row.media_plan,dict):
+                row.media_plan={'coverAssetId':row.media_plan.get('coverAssetId'),'blocks':row.media_plan.get('blocks') or [],'seal':None}
+        row.status=target;row.revision+=1;await db.commit();await db.refresh(row);return row
 
 async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,steps,cover_asset_id=None):
     await access(db,business_id,user_id,'editor')

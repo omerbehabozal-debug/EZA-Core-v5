@@ -154,4 +154,69 @@ describe('business video cover', () => {
     expect(screen.getByTestId('yansi-cover-video')).toHaveAttribute('src', film);
     expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute('src', scene);
   });
+
+  it('keeps the next mobile video when the card changes from A to B', () => {
+    const next = 'https://cdn.bilign.example/baska.mp4';
+    const { rerender } = render(
+      <MirrorYansiSceneCrossfade sceneImageUrl={scene} videoSrc={film} presentation="mobile-fullscreen" activeIdentity="atolye" />
+    );
+    rerender(
+      <MirrorYansiSceneCrossfade sceneImageUrl={scene} videoSrc={next} presentation="mobile-fullscreen" activeIdentity="baska" />
+    );
+    expect(screen.getByTestId('yansi-cover-video')).toHaveAttribute('src', next);
+    expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute('src', scene);
+  });
+
+  it('returns to video A after a fast mobile A to B to A change', () => {
+    const next = 'https://cdn.bilign.example/baska.mp4';
+    const view = (src: string, identity: string) => (
+      <MirrorYansiSceneCrossfade sceneImageUrl={scene} videoSrc={src} presentation="mobile-fullscreen" activeIdentity={identity} />
+    );
+    const { rerender } = render(view(film, 'atolye'));
+    rerender(view(next, 'baska'));
+    rerender(view(film, 'atolye'));
+    expect(screen.getByTestId('yansi-cover-video')).toHaveAttribute('src', film);
+    expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute('src', scene);
+  });
+
+  it('ignores a late autoplay rejection from the previous mobile video', async () => {
+    const next = 'https://cdn.bilign.example/baska.mp4';
+    const rejected: Array<(reason?: unknown) => void> = [];
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejected.push(reject);
+        })
+    );
+    const { rerender } = render(
+      <MirrorYansiSceneCrossfade sceneImageUrl={scene} videoSrc={film} presentation="mobile-fullscreen" activeIdentity="atolye" />
+    );
+    await waitFor(() => expect(rejected.length).toBeGreaterThan(0));
+    rerender(
+      <MirrorYansiSceneCrossfade sceneImageUrl={scene} videoSrc={next} presentation="mobile-fullscreen" activeIdentity="baska" />
+    );
+    await waitFor(() => expect(rejected.length).toBeGreaterThan(1));
+    rejected[0](new Error('old'));
+    await waitFor(() => expect(screen.getByTestId('yansi-cover-video')).toHaveAttribute('src', next));
+    expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute('src', scene);
+  });
+
+  it('isolates a late desktop autoplay rejection from the next video', async () => {
+    const next = 'https://cdn.bilign.example/baska.mp4';
+    const other = { ...videoCover, assetId: '44444444-4444-4444-8444-444444444444', href: next };
+    const rejected: Array<(reason?: unknown) => void> = [];
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejected.push(reject);
+        })
+    );
+    const { rerender } = render(<YansiDesktopReelSurface node={node(videoCover)} role="current" />);
+    await waitFor(() => expect(rejected.length).toBeGreaterThan(0));
+    rerender(<YansiDesktopReelSurface node={node(other)} role="current" />);
+    await waitFor(() => expect(rejected.length).toBeGreaterThan(1));
+    rejected[0](new Error('old'));
+    await waitFor(() => expect(screen.getByTestId('yansi-cover-video')).toHaveAttribute('src', next));
+    expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute('src', scene);
+  });
 });

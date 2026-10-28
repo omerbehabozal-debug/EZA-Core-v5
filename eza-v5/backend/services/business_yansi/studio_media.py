@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from contextlib import asynccontextmanager
 
 from sqlalchemy import select
 from sqlalchemy.exc import OperationalError, ProgrammingError
@@ -211,13 +212,13 @@ def _plan_uses_asset(plan, asset_id):
         return True
     for step in plan.get("blocks") or []:
         for block in step or []:
-            if isinstance(block, dict) and block.get("type") == "video" and str(block.get("assetId") or "") == asset_id:
+            if isinstance(block, dict) and str(block.get("assetId") or "") == asset_id:
                 return True
     return False
 
 
-async def video_content_is_sealed(db, business_id, asset_id):
-    """True when a sealed plan still shows this video. The locator must stay put."""
+async def sealed_content_uses_asset(db, business_id, asset_id):
+    """True when a sealed draft or a publication still shows this asset."""
     from backend.models.business_yansi import BusinessPublication
     from backend.models.business_yansi import BusinessYansiDraft
 
@@ -232,6 +233,21 @@ async def video_content_is_sealed(db, business_id, asset_id):
         if _plan_uses_asset(plan, token):
             return True
     return False
+
+
+@asynccontextmanager
+async def business_media_lock(db, business_id):
+    """Hold the brand row until the content change or the seal commits.
+
+    Every writer takes this lock first, then its own draft, asset, or publication row.
+    That order stops an asset update from landing after a seal that it did not see.
+    """
+    from backend.models.business_yansi import BusinessProfile
+
+    row = await db.scalar(select(BusinessProfile).where(BusinessProfile.id == uid(business_id)).with_for_update())
+    if row is None:
+        fail("business_not_found", 404)
+    yield row
 
 
 async def assert_live_plan(db, business_id, steps, plan):

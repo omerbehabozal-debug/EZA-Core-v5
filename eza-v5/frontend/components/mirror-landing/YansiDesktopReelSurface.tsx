@@ -18,7 +18,8 @@ import {
 import { authorProfilePath } from '@/lib/eza/mirror-network/fetchAuthorPublished';
 import { assertYansiAtomicIdentity } from '@/lib/eza/mirror/journey/yansiAtomicIdentity';
 import type { PublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
-import { businessCoverUrl, businessCoverVideoUrl, releaseCoverVideo } from '@/lib/eza/mirror/journey/businessMedia';
+import { businessCoverUrl, businessCoverVideoUrl } from '@/lib/eza/mirror/journey/businessMedia';
+import { useCoverVideoPlayback } from '@/lib/eza/mirror/journey/coverVideoPlayback';
 import { buildYansiPublicHref } from '@/lib/eza/mirror-network/yansiPublicDepth';
 import {
   formatKatkiReelCount,
@@ -96,9 +97,12 @@ export default function YansiDesktopReelSurface({
   const videoCover = businessCoverVideoUrl(node.artifact.businessMedia);
   const sceneUrl = brandCover || (node.artifact.sceneImageUrl || '').trim();
   const [videoFailed, setVideoFailed] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const videoSession = useRef(0);
   const playCoverVideo = role === 'current' && Boolean(videoCover) && !videoFailed;
+  const { videoRef, onError: onCoverVideoError } = useCoverVideoPlayback(
+    playCoverVideo,
+    videoCover,
+    () => setVideoFailed(true)
+  );
   const summary = (node.artifact.publicSummary || '').trim();
   const publicMetaTime = node.artifact.publishedAt
     ? formatYansiHeroMetaTime(node.artifact.publishedAt)
@@ -117,24 +121,6 @@ export default function YansiDesktopReelSurface({
   useEffect(() => {
     setVideoFailed(false);
   }, [slug, videoCover]);
-
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el || !playCoverVideo) return;
-    const mine = videoSession.current + 1;
-    videoSession.current = mine;
-    el.muted = true;
-    const pending = el.play();
-    if (pending && typeof pending.then === 'function') {
-      pending.catch(() => {
-        if (videoSession.current === mine) setVideoFailed(true);
-      });
-    }
-    return () => {
-      if (videoSession.current === mine) videoSession.current = 0;
-      releaseCoverVideo(el);
-    };
-  }, [playCoverVideo, videoCover]);
   const fromTransform = yansiReelSurfaceTransform(role, direction, false, reducedMotion);
   const toTransform = yansiReelSurfaceTransform(role, direction, true, reducedMotion);
   const fromOpacity = yansiReelSurfaceOpacity(role, false, reducedMotion);
@@ -229,6 +215,7 @@ export default function YansiDesktopReelSurface({
               ) : null}
               {playCoverVideo && videoCover ? (
                 <video
+                  key={videoCover}
                   ref={videoRef}
                   className="yansi-desktop-scene-image pointer-events-none"
                   src={videoCover}
@@ -239,9 +226,7 @@ export default function YansiDesktopReelSurface({
                   preload="none"
                   poster={sceneUrl || undefined}
                   data-testid="yansi-cover-video"
-                  onError={() => {
-                    if (videoSession.current !== 0) setVideoFailed(true);
-                  }}
+                  onError={onCoverVideoError}
                 />
               ) : null}
             </>

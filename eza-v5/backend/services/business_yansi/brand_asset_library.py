@@ -29,8 +29,8 @@ def _locator_for(business_id, digest: str, extension: str) -> str:
     return f"brand-assets/{business_id}/{digest}.{extension}"
 
 
-def store_image(business_id, image_bytes: bytes) -> str:
-    """Save original image bytes. Reuses the avatar format check and size limit, without cropping."""
+def image_locator(business_id, image_bytes: bytes) -> str:
+    """Validate image bytes and return the storage key. Does not write the file."""
     if not image_bytes:
         fail("asset_file_empty", 400)
     if len(image_bytes) > MAX_PROFILE_AVATAR_BYTES:
@@ -40,9 +40,16 @@ def store_image(business_id, image_bytes: bytes) -> str:
         fail("asset_file_rejected", 400)
     business = str(uid(business_id))
     digest = hashlib.sha256(image_bytes).hexdigest()
-    locator = _locator_for(business, digest, _MIME_EXT[mime])
+    return _locator_for(business, digest, _MIME_EXT[mime])
+
+
+def store_image(business_id, image_bytes: bytes) -> str:
+    """Save original image bytes. Reuses the avatar format check and size limit, without cropping."""
+    locator = image_locator(business_id, image_bytes)
+    business = str(uid(business_id))
+    name = locator.rsplit("/", 1)[-1]
     root = asset_root().resolve()
-    target = (root / business / f"{digest}.{_MIME_EXT[mime]}").resolve()
+    target = (root / business / name).resolve()
     if root != target and root not in target.parents:
         fail("asset_file_rejected", 400)
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -107,6 +114,23 @@ async def _asset_row(db, business_id, asset_id, lock=False):
     if not row:
         fail("asset_not_found", 404)
     return row
+
+
+def _same_coord(left, right) -> bool:
+    if left is None or right is None:
+        return left is None and right is None
+    return Decimal(str(left)).quantize(Decimal("0.000001")) == Decimal(str(right)).quantize(Decimal("0.000001"))
+
+
+def content_fields_changed(row, fields) -> bool:
+    """True when the published bytes, URL, or map position would change.
+
+    Title and caption stay editable. A new file, URL, or coordinate needs a new asset id
+    once a sealed draft or publication still shows this one.
+    """
+    if row.asset_type == "place":
+        return not _same_coord(row.latitude, fields.get("latitude")) or not _same_coord(row.longitude, fields.get("longitude"))
+    return (fields.get("locator") or None) != (row.locator or None)
 
 
 def _apply_fields(row, fields, user_id, public_allowed):
@@ -205,38 +229,45 @@ async def create_asset(db, business_id, user_id, data, *, image_bytes=None):
 
 async def update_asset(db, business_id, user_id, asset_id, data, *, image_bytes=None):
     await access(db, business_id, user_id, "editor")
-    row = await _asset_row(db, business_id, asset_id, True)
-    if row.revision != data["revision"]:
-        fail("revision_conflict", 409)
-    if row.status == "archived":
-        fail("archived_asset", 409)
-    locator = row.locator
-    kind = row.locator_kind
-    if row.asset_type == "image" and image_bytes:
-        locator = store_image(business_id, image_bytes)
-        kind = "storage"
-    elif row.asset_type in {"video", "link"} and data.get("locator"):
-        locator = data["locator"]
-        kind = "https"
-    fields = normalize_asset(
-        business_id=business_id,
-        asset_type=row.asset_type,
-        title=data["title"],
-        caption=data.get("caption") or None,
-        locator=locator,
-        locator_kind=kind,
-        latitude=data.get("latitude", row.latitude),
-        longitude=data.get("longitude", row.longitude),
-    )
-    if row.asset_type == "video" and fields["locator"] != row.locator:
-        from backend.services.business_yansi.studio_media import video_content_is_sealed
-        if await video_content_is_sealed(db, business_id, row.id):
-            fail("sealed_media_immutable", 409)
-    _apply_fields(row, fields, user_id, data.get("public_allowed", False))
-    row.revision += 1
-    await db.commit()
-    await db.refresh(row)
-    return row
+    from backend.services.business_yansi.studio_media import business_media_lock, sealed_content_uses_asset
+
+    # Profile row first, then this asset. Approval and publish take the same first lock.
+    async with business_media_lock(db, business_id):
+        row = await _asset_row(db, business_id, asset_id, True)
+        if row.revision != data["revision"]:
+            fail("revision_conflict", 409)
+        if row.status == "archived":
+            fail("archived_asset", 409)
+        locator = row.locator
+        kind = row.locator_kind
+        pending_image = None
+        if row.asset_type == "image" and image_bytes:
+            locator = image_locator(business_id, image_bytes)
+            kind = "storage"
+            pending_image = image_bytes
+        elif row.asset_type in {"video", "link"} and data.get("locator"):
+            locator = data["locator"]
+            kind = "https"
+        fields = normalize_asset(
+            business_id=business_id,
+            asset_type=row.asset_type,
+            title=data["title"],
+            caption=data.get("caption") or None,
+            locator=locator,
+            locator_kind=kind,
+            latitude=data.get("latitude", row.latitude),
+            longitude=data.get("longitude", row.longitude),
+        )
+        if content_fields_changed(row, fields):
+            if await sealed_content_uses_asset(db, business_id, row.id):
+                fail("sealed_media_immutable", 409)
+            if pending_image is not None:
+                store_image(business_id, pending_image)
+        _apply_fields(row, fields, user_id, data.get("public_allowed", False))
+        row.revision += 1
+        await db.commit()
+        await db.refresh(row)
+        return row
 
 
 async def archive_asset(db, business_id, user_id, asset_id, revision):

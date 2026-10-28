@@ -8,9 +8,9 @@
  * Layers stay spatially locked; chat changes depth, not composition.
  */
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { releaseCoverVideo } from '@/lib/eza/mirror/journey/businessMedia';
+import { useCoverVideoPlayback } from '@/lib/eza/mirror/journey/coverVideoPlayback';
 
 export type MirrorYansiScenePresentation = 'mobile-fullscreen' | 'desktop-immersive';
 
@@ -108,31 +108,16 @@ export default function MirrorYansiSceneCrossfade({
   const immersive = presentation === 'desktop-immersive';
   const nextVideo = (videoSrc || '').trim() || null;
   const [videoFailed, setVideoFailed] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const videoSession = useRef(0);
   const playCoverVideo = Boolean(nextVideo) && !videoFailed;
+  const { videoRef, onError: onCoverVideoError } = useCoverVideoPlayback(
+    playCoverVideo,
+    nextVideo,
+    () => setVideoFailed(true)
+  );
 
   useEffect(() => {
     setVideoFailed(false);
   }, [nextVideo, nextIdentity]);
-
-  useEffect(() => {
-    const el = videoRef.current;
-    if (!el || !playCoverVideo) return;
-    const mine = videoSession.current + 1;
-    videoSession.current = mine;
-    el.muted = true;
-    const pending = el.play();
-    if (pending && typeof pending.then === 'function') {
-      pending.catch(() => {
-        if (videoSession.current === mine) setVideoFailed(true);
-      });
-    }
-    return () => {
-      if (videoSession.current === mine) videoSession.current = 0;
-      releaseCoverVideo(el);
-    };
-  }, [playCoverVideo, nextVideo]);
 
   useLayoutEffect(() => {
     const identityChanged = nextIdentity !== frontIdentity;
@@ -201,6 +186,7 @@ export default function MirrorYansiSceneCrossfade({
       ) : null}
       {playCoverVideo && nextVideo ? (
         <video
+          key={nextVideo}
           ref={videoRef}
           className="pointer-events-none absolute inset-0 h-full w-full object-cover"
           src={nextVideo}
@@ -211,9 +197,7 @@ export default function MirrorYansiSceneCrossfade({
           preload="none"
           poster={front || undefined}
           data-testid="yansi-cover-video"
-          onError={() => {
-            if (videoSession.current !== 0) setVideoFailed(true);
-          }}
+          onError={onCoverVideoError}
         />
       ) : null}
       <div

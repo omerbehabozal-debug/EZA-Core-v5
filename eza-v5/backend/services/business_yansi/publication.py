@@ -45,23 +45,24 @@ async def export_editorial_conversation(db,business_id,user_id,draft_id):
 async def publish_draft(db,business_id,user_id,draft_id,slug,revision):
     business=await access(db,business_id,user_id,'owner')
     if not business.verified: fail('business_verification_required',409)
-    await db.scalar(select(BusinessProfile).where(BusinessProfile.id==uid(business_id)).with_for_update())
-    draft=await draft_row(db,business_id,draft_id,True)
-    if draft.revision!=revision or draft.status!='approved' or not draft.approved_by or not draft.conversation_id: fail('approved_editorial_source_required',409)
-    if len(await published_knowledge(db,business_id,draft.knowledge_snapshot))!=len(draft.knowledge_snapshot): fail('source_snapshot_unavailable',409)
-    node=await db.scalar(select(MirrorNetworkNode).where(MirrorNetworkNode.slug==slug).with_for_update())
-    conversation=await db.get(StandaloneConversation,draft.conversation_id)
-    if not node or node.user_id!=draft.created_by or str(node.conversation_id) not in {str(conversation.id),conversation.client_conversation_id} or node.visibility!='private' or node.safety_status!='open': fail('private_owned_yansi_required',409)
-    from backend.services.mirror_network.frozen_journey_artifact import get_frozen_journey_artifact, to_public_frozen_journey_artifact
-    internal=await get_frozen_journey_artifact(db,slug=slug,journey_version=node.journey_version)
-    frozen=to_public_frozen_journey_artifact(internal) if internal else None
-    expected=[(s['question'],s['answer']) for s in draft.steps]
-    if not frozen or len(frozen['steps'])!=8 or [(s['publicQuestion'],s['publicAnswer']) for s in frozen['steps']]!=expected: fail('sealed_draft_mismatch',409)
-    if draft.media_plan is not None:
-        from backend.services.business_yansi.studio_media import assert_live_plan, media_seal
-        if draft.media_plan.get('seal') != media_seal(draft.media_plan): fail('sealed_media_mismatch',409)
-        await assert_live_plan(db,business_id,draft.steps,draft.media_plan)
-    if await db.get(BusinessPublication,(slug,node.journey_version)): fail('publication_already_bound',409)
-    db.add(BusinessPublication(slug=slug,journey_version=node.journey_version,business_id=uid(business_id),draft_id=draft.id,knowledge_snapshot=draft.knowledge_snapshot,media_plan=draft.media_plan,published_by=uid(user_id)))
-    node.visibility='public';draft.status='published';draft.revision+=1
-    await db.commit();return node
+    from backend.services.business_yansi.studio_media import business_media_lock
+    async with business_media_lock(db,business_id):
+        draft=await draft_row(db,business_id,draft_id,True)
+        if draft.revision!=revision or draft.status!='approved' or not draft.approved_by or not draft.conversation_id: fail('approved_editorial_source_required',409)
+        if len(await published_knowledge(db,business_id,draft.knowledge_snapshot))!=len(draft.knowledge_snapshot): fail('source_snapshot_unavailable',409)
+        node=await db.scalar(select(MirrorNetworkNode).where(MirrorNetworkNode.slug==slug).with_for_update())
+        conversation=await db.get(StandaloneConversation,draft.conversation_id)
+        if not node or node.user_id!=draft.created_by or str(node.conversation_id) not in {str(conversation.id),conversation.client_conversation_id} or node.visibility!='private' or node.safety_status!='open': fail('private_owned_yansi_required',409)
+        from backend.services.mirror_network.frozen_journey_artifact import get_frozen_journey_artifact, to_public_frozen_journey_artifact
+        internal=await get_frozen_journey_artifact(db,slug=slug,journey_version=node.journey_version)
+        frozen=to_public_frozen_journey_artifact(internal) if internal else None
+        expected=[(s['question'],s['answer']) for s in draft.steps]
+        if not frozen or len(frozen['steps'])!=8 or [(s['publicQuestion'],s['publicAnswer']) for s in frozen['steps']]!=expected: fail('sealed_draft_mismatch',409)
+        if draft.media_plan is not None:
+            from backend.services.business_yansi.studio_media import assert_live_plan, media_seal
+            if draft.media_plan.get('seal') != media_seal(draft.media_plan): fail('sealed_media_mismatch',409)
+            await assert_live_plan(db,business_id,draft.steps,draft.media_plan)
+        if await db.get(BusinessPublication,(slug,node.journey_version)): fail('publication_already_bound',409)
+        db.add(BusinessPublication(slug=slug,journey_version=node.journey_version,business_id=uid(business_id),draft_id=draft.id,knowledge_snapshot=draft.knowledge_snapshot,media_plan=draft.media_plan,published_by=uid(user_id)))
+        node.visibility='public';draft.status='published';draft.revision+=1
+        await db.commit();return node
