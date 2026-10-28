@@ -6,6 +6,7 @@ Redis-based rate limiting with in-memory fallback
 
 from typing import Optional
 from fastapi import Request, HTTPException, status
+import asyncio
 import logging
 import time
 
@@ -254,3 +255,34 @@ async def rate_limit_ops_client(request: Request) -> None:
 def reset_in_memory_rate_limits_for_tests() -> None:
     """Test helper — clear in-memory buckets (does not touch Redis)."""
     _in_memory_limits.clear()
+
+
+async def consume_rate_bucket(bucket: str, limit: int, window: int, key_prefix: str) -> None:
+    """Count one event for an explicit bucket.
+
+    Redis is shared by every worker. If Redis cannot be reached, the same
+    window is enforced only inside this process.
+    """
+    key = f"{key_prefix}:{bucket}"
+    current_time = time.time()
+    try:
+        redis_client = await asyncio.wait_for(get_redis(), 0.3)
+        if redis_client:
+            pipe = redis_client.pipeline()
+            pipe.zremrangebyscore(key, 0, current_time - window)
+            pipe.zcard(key)
+            pipe.zadd(key, {str(current_time): current_time})
+            pipe.expire(key, window)
+            results = await pipe.execute()
+            if results[1] >= limit:
+                raise RateLimitError(f"Rate limit exceeded: {limit} requests per {window} seconds")
+            return
+    except RateLimitError:
+        raise
+    except Exception as exc:
+        logger.warning("Redis rate bucket failed, using in-memory fallback: %s", exc)
+    stamps = _in_memory_limits.setdefault(key, [])
+    _in_memory_limits[key] = [stamp for stamp in stamps if stamp > current_time - window]
+    if len(_in_memory_limits[key]) >= limit:
+        raise RateLimitError(f"Rate limit exceeded: {limit} requests per {window} seconds")
+    _in_memory_limits[key].append(current_time)

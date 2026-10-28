@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import os
 import uuid
+import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass
 from typing import AsyncIterator, Protocol
 from urllib.parse import quote, urlsplit
@@ -19,6 +20,7 @@ from backend.services.business_yansi.service import fail, uid
 
 
 PART_BYTES = 5 * 1024 * 1024
+ABORT_TIMEOUT_SECONDS = 5
 
 
 @dataclass(frozen=True)
@@ -43,7 +45,7 @@ class VideoObjectStore(Protocol):
 
     async def get_range(self, key: str, start: int, end_inclusive: int) -> bytes: ...
 
-    async def copy_if_absent(self, source: str, dest: str, sha256: str) -> str: ...
+    async def copy_if_absent(self, source: str, dest: str, sha256: str, *, size: int) -> str: ...
 
     async def delete(self, key: str) -> None: ...
 
@@ -115,14 +117,24 @@ class MemoryVideoStore:
             raise VideoStorageError("range_unavailable")
         return row[0][start : end_inclusive + 1]
 
-    async def copy_if_absent(self, source: str, dest: str, sha256: str) -> str:
+    async def read_chunks(self, key: str, size: int, chunk: int = 65536):
+        offset = 0
+        while offset < size:
+            end = min(size - 1, offset + chunk - 1)
+            data = await self.get_range(key, offset, end)
+            if len(data) != end - offset + 1:
+                raise VideoStorageError("range_unavailable")
+            yield data
+            offset += len(data)
+
+    async def copy_if_absent(self, source: str, dest: str, sha256: str, *, size: int) -> str:
         async with self._lock:
             src = self.objects.get(source)
-            if src is None or src[1] != sha256:
+            if src is None or src[1] != sha256 or len(src[0]) != size:
                 raise VideoStorageError("source_missing")
             existing = self.objects.get(dest)
             if existing is not None:
-                if existing[1] != sha256:
+                if existing[1] != sha256 or len(existing[0]) != size:
                     raise VideoObjectImmutable(dest)
                 return "exists"
             self.objects[dest] = src
@@ -182,6 +194,17 @@ def authorization_header(*, access_key: str, secret: str, region: str, amz_date:
     return f"AWS4-HMAC-SHA256 Credential={access_key}/{scope}, SignedHeaders={signed_names}, Signature={signature}"
 
 
+def s3_result_ok(body: bytes, result_name: str) -> bool:
+    """HTTP 200 is not success when the body is an S3 error document."""
+    if not body or len(body) > 65536 or b"<!DOCTYPE" in body[:80].upper() or b"<Error" in body:
+        return False
+    try:
+        root = ElementTree.fromstring(body)
+    except ElementTree.ParseError:
+        return False
+    return root.tag.rsplit("}", 1)[-1] == result_name
+
+
 class S3VideoStore:
     """HTTPS S3-compatible client. Payload hash is UNSIGNED-PAYLOAD so the body can stream."""
 
@@ -235,7 +258,7 @@ class S3VideoStore:
 
     async def write_stream(self, key: str, chunks: AsyncIterator[bytes]) -> ObjectStat:
         opened = await self._send("POST", self._path(key, query="uploads"))
-        if opened.status != 200 or not opened.upload_id:
+        if opened.status != 200 or not opened.upload_id or (opened.body and b"<Error" in opened.body):
             raise VideoStorageError("multipart_open_failed")
         upload_id = opened.upload_id
         parts: list[tuple[int, str]] = []
@@ -265,14 +288,18 @@ class S3VideoStore:
                 body=_complete_xml(parts).encode("utf-8"),
                 extra={"content-type": "application/xml"},
             )
-            if completed.status != 200:
+            if completed.status != 200 or not s3_result_ok(completed.body, "CompleteMultipartUploadResult"):
                 raise VideoStorageError("multipart_complete_failed")
-        except Exception:
-            try:
-                await self._send("DELETE", self._path(key, query=f"uploadId={upload_id}"))
-            except Exception:
-                pass
-            raise
+            stored = await self.head(key)
+            if stored is None or stored.size != size:
+                raise VideoStorageError("multipart_complete_failed")
+        except BaseException as original:
+            current = asyncio.current_task()
+            if current is not None:
+                while current.cancelling():
+                    current.uncancel()
+            await _abandon_upload(self, key, upload_id)
+            raise original
         return ObjectStat(key, size, hasher.hexdigest())
 
     async def _put_part(self, key: str, upload_id: str, number: int, body: bytes) -> str:
@@ -299,10 +326,10 @@ class S3VideoStore:
             raise VideoStorageError("range_unavailable")
         return response.body
 
-    async def copy_if_absent(self, source: str, dest: str, sha256: str) -> str:
+    async def copy_if_absent(self, source: str, dest: str, sha256: str, *, size: int) -> str:
         current = await self.head(dest)
         if current is not None:
-            if current.sha256 != sha256:
+            if current.sha256 != sha256 or current.size != size:
                 raise VideoObjectImmutable(dest)
             return "exists"
         response = await self._send(
@@ -317,10 +344,15 @@ class S3VideoStore:
         )
         if response.status == 412:
             current = await self.head(dest)
-            if current is None or current.sha256 != sha256:
+            if current is None or current.sha256 != sha256 or current.size != size:
                 raise VideoObjectImmutable(dest)
             return "exists"
-        if response.status != 200:
+        if response.status != 200 or not s3_result_ok(response.body, "CopyObjectResult"):
+            await _delete_quietly(self, dest)
+            raise VideoStorageError("copy_failed")
+        current = await self.head(dest)
+        if current is None or current.sha256 != sha256 or current.size != size:
+            await _delete_quietly(self, dest)
             raise VideoStorageError("copy_failed")
         return "created"
 
@@ -338,6 +370,25 @@ class S3VideoStore:
 def _complete_xml(parts: list[tuple[int, str]]) -> str:
     body = "".join(f"<Part><PartNumber>{number}</PartNumber><ETag>{etag}</ETag></Part>" for number, etag in parts)
     return f"<CompleteMultipartUpload>{body}</CompleteMultipartUpload>"
+
+
+async def _abandon_upload(store: S3VideoStore, key: str, upload_id: str) -> None:
+    """Bound the cleanup. Cancellation is raised again by the caller."""
+    try:
+        await asyncio.wait_for(
+            store._send("DELETE", store._path(key, query=f"uploadId={upload_id}")),
+            ABORT_TIMEOUT_SECONDS,
+        )
+    except BaseException:
+        pass
+    await _delete_quietly(store, key)
+
+
+async def _delete_quietly(store: S3VideoStore, key: str) -> None:
+    try:
+        await asyncio.wait_for(store.delete(key), ABORT_TIMEOUT_SECONDS)
+    except BaseException:
+        pass
 
 
 def video_store_from_env() -> S3VideoStore:

@@ -1,15 +1,28 @@
-"""Read an MP4 container without loading the media payload.
+"""Read an MP4 container, then require a real H.264 sample.
 
-mdat is skipped. moov is capped. Codec and duration come from the video track.
+mdat is not treated as proof. moov is capped. ffprobe must then report H.264
+and at least one decoded frame. Production hosts need ffprobe on PATH.
 """
 from __future__ import annotations
 
+import asyncio
+import json
+import os
+import shutil
+import sys
+import tempfile
 from dataclasses import dataclass
 
 from backend.services.business_yansi.service import fail
 
 
 MAX_MOOV_BYTES = 2 * 1024 * 1024
+MAX_BOXES = 256
+MAX_RANGE_READS = 48
+MAX_RANGE_BYTES = MAX_MOOV_BYTES + 256 * 1024
+PROBE_TIMEOUT_SECONDS = 20
+_VISUAL_PREFIX = 66
+_SPILL_CHUNK = 64 * 1024
 
 
 @dataclass(frozen=True)
@@ -24,15 +37,21 @@ class Mp4Source:
         self.key = key
         self.size = size
         self.pos = 0
+        self.boxes = 0
+        self.reads = 0
+        self.read_bytes = 0
+
+    def charge_box(self) -> None:
+        self.boxes += 1
+        if self.boxes > MAX_BOXES:
+            fail("video_file_rejected", 422)
 
     async def read(self, count: int) -> bytes:
         if count < 0 or self.pos + count > self.size:
             fail("video_file_rejected", 422)
         if count == 0:
             return b""
-        data = await self.store.get_range(self.key, self.pos, self.pos + count - 1)
-        if len(data) != count:
-            fail("video_file_rejected", 422)
+        data = await self._fetch(self.pos, count)
         self.pos += count
         return data
 
@@ -40,6 +59,16 @@ class Mp4Source:
         if count < 0 or self.pos + count > self.size:
             fail("video_file_rejected", 422)
         self.pos += count
+
+    async def _fetch(self, start: int, count: int) -> bytes:
+        self.reads += 1
+        self.read_bytes += count
+        if self.reads > MAX_RANGE_READS or self.read_bytes > MAX_RANGE_BYTES:
+            fail("video_file_rejected", 422)
+        data = await self.store.get_range(self.key, start, start + count - 1)
+        if len(data) != count:
+            fail("video_file_rejected", 422)
+        return data
 
 
 async def inspect_mp4(source: Mp4Source, *, max_seconds: int) -> Mp4Info:
@@ -49,21 +78,25 @@ async def inspect_mp4(source: Mp4Source, *, max_seconds: int) -> Mp4Info:
     if not _ftyp_ok(await source.read(size - header)):
         fail("video_file_rejected", 422)
     info = None
+    sample = None
     while source.pos + 8 <= source.size:
         size, kind, header = await _header(source)
         payload = size - header
         if kind == b"moov":
             if payload > MAX_MOOV_BYTES:
                 fail("video_file_rejected", 422)
-            info = _parse_moov(await source.read(payload), max_seconds)
+            info, sample = _parse_moov(await source.read(payload), max_seconds, source.size)
         else:
             await source.skip(payload)
-    if info is None:
+    if info is None or sample is None:
         fail("video_file_rejected", 422)
+    await _require_vcl(source, sample)
+    await _probe_h264(source)
     return info
 
 
 async def _header(source: Mp4Source) -> tuple[int, bytes, int]:
+    source.charge_box()
     raw = await source.read(8)
     size = int.from_bytes(raw[:4], "big")
     kind = raw[4:8]
@@ -82,7 +115,7 @@ def _ftyp_ok(payload: bytes) -> bool:
     return len(payload) >= 8 and payload[:4].isalnum()
 
 
-def _parse_moov(payload: bytes, max_seconds: int) -> Mp4Info:
+def _parse_moov(payload: bytes, max_seconds: int, file_size: int) -> tuple[Mp4Info, tuple[int, int, int]]:
     movie_scale = 0
     movie_duration = 0
     tracks = []
@@ -98,50 +131,242 @@ def _parse_moov(payload: bytes, max_seconds: int) -> Mp4Info:
     if codecs - {"avc1", "avc3"}:
         fail("video_codec_rejected", 422)
     longest = 0.0
-    for _handler, codec, scale, duration in videos:
+    sample = None
+    for _handler, codec, scale, duration, located in videos:
         if scale <= 0:
             scale, duration = movie_scale, movie_duration
         if scale <= 0:
             fail("video_file_rejected", 422)
         if duration > max_seconds * scale:
             fail("video_too_long", 422)
+        if located is None:
+            fail("video_file_rejected", 422)
+        offset, sample_size, length_size = located
+        if sample_size <= 0 or offset < 0 or offset + sample_size > file_size:
+            fail("video_file_rejected", 422)
         longest = max(longest, duration / scale)
-    return Mp4Info(duration_seconds=longest, codec=sorted(codecs)[0])
+        sample = (offset, sample_size, length_size)
+    if sample is None:
+        fail("video_file_rejected", 422)
+    return Mp4Info(duration_seconds=longest, codec=sorted(codecs)[0]), sample
 
 
-def _track(payload: bytes) -> tuple[str, str, int, int]:
+def _track(payload: bytes):
     handler = ""
     codec = ""
     scale = 0
     duration = 0
+    located = None
     for kind, body in _children(payload):
         if kind == b"mdia":
-            handler, codec, scale, duration = _mdia(body)
-    return handler, codec, scale, duration
+            handler, codec, scale, duration, located = _mdia(body)
+    return handler, codec, scale, duration, located
 
 
-def _mdia(payload: bytes) -> tuple[str, str, int, int]:
+def _mdia(payload: bytes):
     handler = ""
     codec = ""
     scale = 0
     duration = 0
+    located = None
     for kind, body in _children(payload):
         if kind == b"mdhd":
             scale, duration = _media_time(body)
         elif kind == b"hdlr" and len(body) >= 12:
             handler = body[8:12].decode("latin1")
         elif kind == b"minf":
-            codec = _codec(body)
-    return handler, codec, scale, duration
+            codec, located = _sample_table(body)
+    return handler, codec, scale, duration, located
 
 
-def _codec(payload: bytes) -> str:
+def _sample_table(payload: bytes):
+    codec = ""
+    located = None
     for kind, body in _children(payload):
-        if kind == b"stbl":
-            for child, sample in _children(body):
-                if child == b"stsd" and len(sample) >= 16:
-                    return sample[12:16].decode("latin1")
-    return ""
+        if kind != b"stbl":
+            continue
+        boxes = dict(_children(body))
+        stsd = boxes.get(b"stsd", b"")
+        if len(stsd) >= 16:
+            codec = stsd[12:16].decode("latin1")
+        if codec in {"avc1", "avc3"}:
+            located = _located_sample(stsd, boxes.get(b"stsz", b""), boxes.get(b"stco"), boxes.get(b"co64"))
+    return codec, located
+
+
+def _located_sample(stsd: bytes, stsz: bytes, stco: bytes | None, co64: bytes | None):
+    if len(stsd) < 8:
+        return None
+    entry_size = int.from_bytes(stsd[8:12], "big")
+    entry = stsd[16 : 8 + entry_size]
+    if len(entry) < _VISUAL_PREFIX:
+        return None
+    avcc = b""
+    for kind, body in _children(entry[_VISUAL_PREFIX :]):
+        if kind == b"avcC":
+            avcc = body
+    length_size = _avcc_length_size(avcc)
+    if length_size is None or len(stsz) < 12:
+        return None
+    sample_size = int.from_bytes(stsz[4:8], "big")
+    sample_count = int.from_bytes(stsz[8:12], "big")
+    if sample_count < 1:
+        return None
+    if sample_size == 0:
+        if len(stsz) < 16:
+            return None
+        sample_size = int.from_bytes(stsz[12:16], "big")
+    offset = _chunk_offset(stco, co64)
+    if offset is None:
+        return None
+    return offset, sample_size, length_size
+
+
+def _avcc_length_size(payload: bytes) -> int | None:
+    if len(payload) < 7 or payload[0] != 1:
+        return None
+    length_size = (payload[4] & 3) + 1
+    if length_size < 1 or length_size > 4:
+        return None
+    pos = 5
+    sps_count = payload[pos] & 31
+    pos += 1
+    saw_sps = False
+    for _index in range(sps_count):
+        if pos + 2 > len(payload):
+            return None
+        size = int.from_bytes(payload[pos : pos + 2], "big")
+        pos += 2
+        if size < 1 or pos + size > len(payload):
+            return None
+        if (payload[pos] & 31) == 7:
+            saw_sps = True
+        pos += size
+    if pos >= len(payload):
+        return None
+    pps_count = payload[pos]
+    pos += 1
+    saw_pps = False
+    for _index in range(pps_count):
+        if pos + 2 > len(payload):
+            return None
+        size = int.from_bytes(payload[pos : pos + 2], "big")
+        pos += 2
+        if size < 1 or pos + size > len(payload):
+            return None
+        if (payload[pos] & 31) == 8:
+            saw_pps = True
+        pos += size
+    if not saw_sps or not saw_pps:
+        return None
+    return length_size
+
+
+def _chunk_offset(stco: bytes | None, co64: bytes | None) -> int | None:
+    if stco is not None and len(stco) >= 12 and int.from_bytes(stco[4:8], "big") >= 1:
+        return int.from_bytes(stco[8:12], "big")
+    if co64 is not None and len(co64) >= 16 and int.from_bytes(co64[4:8], "big") >= 1:
+        return int.from_bytes(co64[8:16], "big")
+    return None
+
+
+async def _require_vcl(source: Mp4Source, sample: tuple[int, int, int]) -> None:
+    offset, sample_size, length_size = sample
+    window = min(sample_size, 64 * 1024)
+    data = await source._fetch(offset, window)
+    pos = 0
+    found = False
+    while pos + length_size + 1 <= len(data):
+        nal_size = int.from_bytes(data[pos : pos + length_size], "big")
+        if nal_size <= 0 or pos + length_size + nal_size > sample_size:
+            fail("video_file_rejected", 422)
+        nal_type = data[pos + length_size] & 31
+        if 1 <= nal_type <= 5:
+            found = True
+            break
+        if pos + length_size + nal_size > len(data):
+            break
+        pos += length_size + nal_size
+    if not found:
+        fail("video_codec_rejected", 422)
+
+
+async def _probe_h264(source: Mp4Source) -> None:
+    fd, path = tempfile.mkstemp(prefix="bilign-video-", suffix=".mp4")
+    os.close(fd)
+    try:
+        with open(path, "wb") as handle:
+            reader = getattr(source.store, "read_chunks", None)
+            if reader is None:
+                offset = 0
+                while offset < source.size:
+                    end = min(source.size - 1, offset + _SPILL_CHUNK - 1)
+                    piece = await source.store.get_range(source.key, offset, end)
+                    if len(piece) != end - offset + 1:
+                        fail("video_file_rejected", 422)
+                    handle.write(piece)
+                    offset += len(piece)
+            else:
+                async for piece in reader(source.key, source.size, _SPILL_CHUNK):
+                    handle.write(piece)
+        await probe_file(path)
+    finally:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
+async def probe_file(path: str) -> None:
+    """Run ffprobe on one local file. Missing ffprobe is a hard failure."""
+    configured = os.getenv("EZA_BUSINESS_VIDEO_FFPROBE", "ffprobe")
+    if os.path.basename(configured) != configured and not os.path.isabs(configured):
+        fail("video_probe_unavailable", 503)
+    binary = configured if os.path.isabs(configured) else shutil.which(configured)
+    if not binary or not os.path.isfile(binary):
+        fail("video_probe_unavailable", 503)
+    process = await asyncio.create_subprocess_exec(
+        binary,
+        "-v", "error",
+        "-hide_banner",
+        "-select_streams", "v:0",
+        "-show_entries", "stream=codec_name,nb_read_frames",
+        "-count_frames",
+        "-of", "json",
+        path,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        stdin=asyncio.subprocess.DEVNULL,
+        **_probe_limits(),
+    )
+    try:
+        stdout, _stderr = await asyncio.wait_for(process.communicate(), PROBE_TIMEOUT_SECONDS)
+    except TimeoutError:
+        process.kill()
+        await process.wait()
+        fail("video_file_rejected", 422)
+    if process.returncode != 0 or len(stdout) > 65536:
+        fail("video_codec_rejected", 422)
+    try:
+        parsed = json.loads(stdout.decode("utf-8"))
+        stream = (parsed.get("streams") or [None])[0] or {}
+        frames = int(stream.get("nb_read_frames") or 0)
+    except (ValueError, TypeError, IndexError, json.JSONDecodeError):
+        fail("video_codec_rejected", 422)
+    if stream.get("codec_name") != "h264" or frames < 1:
+        fail("video_codec_rejected", 422)
+
+
+def _probe_limits() -> dict:
+    if sys.platform == "win32":
+        return {}
+
+    def _limit():
+        import resource
+        resource.setrlimit(resource.RLIMIT_CPU, (PROBE_TIMEOUT_SECONDS, PROBE_TIMEOUT_SECONDS))
+        resource.setrlimit(resource.RLIMIT_FSIZE, (1024 * 1024, 1024 * 1024))
+
+    return {"preexec_fn": _limit}
 
 
 def _media_time(payload: bytes) -> tuple[int, int]:
@@ -161,7 +386,11 @@ def _media_time(payload: bytes) -> tuple[int, int]:
 
 def _children(payload: bytes):
     pos = 0
+    seen = 0
     while pos + 8 <= len(payload):
+        seen += 1
+        if seen > MAX_BOXES:
+            fail("video_file_rejected", 422)
         size = int.from_bytes(payload[pos : pos + 4], "big")
         kind = payload[pos + 4 : pos + 8]
         header = 8

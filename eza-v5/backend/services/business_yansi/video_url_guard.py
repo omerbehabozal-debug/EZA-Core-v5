@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
+import socket
 import ssl
 from typing import AsyncIterator
 from urllib.parse import urlsplit, urljoin
@@ -15,30 +16,50 @@ DOWNLOAD_TIMEOUT_SECONDS = 20
 READ_TIMEOUT_SECONDS = 5
 MAX_REDIRECTS = 3
 MAX_HEADER_BYTES = 16 * 1024
-_BLOCKED_HOSTS = frozenset({"localhost", "metadata.google.internal", "metadata"})
+_BLOCKED_HOSTS = frozenset({
+    "localhost",
+    "metadata",
+    "metadata.google.internal",
+    "metadata.internal",
+})
+# Explicit even where ipaddress.is_global already rejects them, so a later
+# Python classification cannot make carrier-grade NAT or metadata reachable.
+_BLOCKED_NETWORKS = (
+    ipaddress.ip_network("100.64.0.0/10"),
+    ipaddress.ip_network("100.100.100.200/32"),
+    ipaddress.ip_network("169.254.169.254/32"),
+    ipaddress.ip_network("169.254.170.2/32"),
+    ipaddress.ip_network("fd00:ec2::254/128"),
+)
 
 
 def ip_is_forbidden(value: str) -> bool:
+    """Allow only a globally routable address. Mapped IPv6 is never a target."""
     try:
-        address = ipaddress.ip_address(value)
+        address = ipaddress.ip_address(str(value).split("%", 1)[0])
     except ValueError:
         return True
     if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
-        address = address.ipv4_mapped
-    return bool(
-        address.is_private
+        return True
+    if any(address in network for network in _BLOCKED_NETWORKS):
+        return True
+    if (
+        address.is_multicast
         or address.is_loopback
         or address.is_link_local
-        or address.is_multicast
+        or address.is_private
         or address.is_reserved
         or address.is_unspecified
-    )
+        or not address.is_global
+    ):
+        return True
+    return False
 
 
 async def default_resolver(host: str) -> list[str]:
     loop = asyncio.get_running_loop()
     try:
-        infos = await asyncio.wait_for(loop.getaddrinfo(host, 443, type=asyncio.SOCK_STREAM), READ_TIMEOUT_SECONDS)
+        infos = await asyncio.wait_for(loop.getaddrinfo(host, 443, type=socket.SOCK_STREAM), READ_TIMEOUT_SECONDS)
     except Exception:
         fail("video_url_rejected", 422)
     found = []
@@ -132,19 +153,7 @@ async def _iter_https(url: str, *, max_bytes: int, resolver, exchange) -> AsyncI
                 continue
             if status != 200:
                 fail("video_url_rejected", 422)
-            encoding = headers.get("content-encoding", "identity").strip().lower()
-            if encoding and encoding != "identity":
-                fail("video_encoding_rejected", 422)
-            if "content-length" in headers and "transfer-encoding" in headers:
-                fail("video_url_rejected", 422)
-            declared = headers.get("content-length")
-            if declared is not None:
-                try:
-                    length = int(declared)
-                except ValueError:
-                    fail("video_url_rejected", 422)
-                if length < 0 or length > max_bytes:
-                    fail("video_too_large", 413)
+            _require_framing(headers, max_bytes)
             async for chunk in chunks:
                 yield chunk
             return
@@ -168,12 +177,14 @@ async def _read_message(reader, max_bytes: int):
         status = int(lines[0].split(" ", 2)[1])
     except (IndexError, ValueError):
         fail("video_url_rejected", 422)
-    headers = {}
+    pairs = []
     for line in lines[1:]:
         if ":" not in line:
             fail("video_url_rejected", 422)
         name, value = line.split(":", 1)
-        headers[name.strip().lower()] = value.strip()
+        pairs.append((name.strip().lower(), value.strip()))
+    headers = {name: value for name, value in pairs}
+    headers["_pairs"] = pairs
 
     async def chunks():
         if headers.get("transfer-encoding", "").lower() == "chunked":
@@ -181,9 +192,12 @@ async def _read_message(reader, max_bytes: int):
             async for piece in _chunked(reader, pending, max_bytes):
                 yield piece
             return
-        remaining = max_bytes + 1
-        if "content-length" in headers:
+        try:
             remaining = int(headers["content-length"])
+        except (KeyError, ValueError):
+            fail("video_url_rejected", 422)
+        if remaining <= 0:
+            fail("video_url_rejected", 422)
         sent = 0
         if rest:
             if len(rest) > remaining:
@@ -193,13 +207,42 @@ async def _read_message(reader, max_bytes: int):
         while sent < remaining:
             piece = await asyncio.wait_for(reader.read(min(65536, remaining - sent)), READ_TIMEOUT_SECONDS)
             if not piece:
-                break
+                fail("video_url_rejected", 422)
+            if sent + len(piece) > remaining:
+                piece = piece[: remaining - sent]
             sent += len(piece)
-            if sent > max_bytes:
-                fail("video_too_large", 413)
             yield piece
+        if sent != remaining:
+            fail("video_url_rejected", 422)
 
     return status, headers, chunks()
+
+
+def _require_framing(headers: dict, max_bytes: int) -> None:
+    pairs = headers.get("_pairs") or []
+    counts: dict[str, int] = {}
+    for name, _value in pairs:
+        counts[name] = counts.get(name, 0) + 1
+    for name in ("content-length", "transfer-encoding", "content-encoding"):
+        if counts.get(name, 0) > 1:
+            fail("video_url_rejected", 422)
+    if "content-length" in headers and "transfer-encoding" in headers:
+        fail("video_url_rejected", 422)
+    transfer = headers.get("transfer-encoding")
+    if transfer is not None and transfer.lower() != "chunked":
+        fail("video_url_rejected", 422)
+    if transfer is None and "content-length" not in headers:
+        fail("video_url_rejected", 422)
+    encoding = headers.get("content-encoding", "identity").strip().lower()
+    if encoding != "identity":
+        fail("video_encoding_rejected", 422)
+    if "content-length" in headers:
+        try:
+            length = int(headers["content-length"])
+        except ValueError:
+            fail("video_url_rejected", 422)
+        if length < 0 or length > max_bytes:
+            fail("video_too_large", 413)
 
 
 async def _chunked(reader, pending: bytearray, max_bytes: int):

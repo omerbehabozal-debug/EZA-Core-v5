@@ -57,6 +57,30 @@ def _no_live_bucket(monkeypatch):
         monkeypatch.delenv(name, raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _isolated_video_budget(monkeypatch):
+    import importlib
+
+    async def no_redis():
+        return None
+
+    rate_limits = importlib.import_module("backend.security.rate_limit")
+    monkeypatch.setattr(rate_limits, "get_redis", no_redis)
+    monkeypatch.setattr("backend.services.business_yansi.video_ingest._redis", no_redis)
+    from backend.security.rate_limit import reset_in_memory_rate_limits_for_tests
+    from backend.services.business_yansi.video_ingest import reset_video_budget_for_tests
+    reset_in_memory_rate_limits_for_tests()
+    reset_video_budget_for_tests()
+
+
+@pytest.fixture(autouse=True)
+def _accept_structurally_valid_h264(monkeypatch):
+    async def accept(_path: str) -> None:
+        return None
+
+    monkeypatch.setattr("backend.services.business_yansi.video_mp4.probe_file", accept)
+
+
 @pytest.fixture
 def asset_dir(tmp_path, monkeypatch):
     monkeypatch.setenv("EZA_BRAND_ASSET_DIR", str(tmp_path))
@@ -72,18 +96,65 @@ def _box64(kind: bytes, payload: bytes) -> bytes:
     return b"\x00\x00\x00\x01" + kind + total.to_bytes(8, "big") + payload
 
 
+_SPS = bytes([0x67, 0x42, 0x00, 0x0A, 0xF8, 0x41, 0xA2])
+_PPS = bytes([0x68, 0xCE, 0x38, 0x80])
+_IDR = bytes([0x65, 0x88, 0x84, 0x21, 0xA0])
+_COMPLETE_XML = (
+    b'<?xml version="1.0" encoding="UTF-8"?>'
+    b"<CompleteMultipartUploadResult><Location>https://video.example/x</Location>"
+    b"<Bucket>bilign-video</Bucket><Key>k</Key><ETag>\"abc\"</ETag></CompleteMultipartUploadResult>"
+)
+_COPY_XML = b"<CopyObjectResult><LastModified>2020-01-01T00:00:00.000Z</LastModified><ETag>\"abc\"</ETag></CopyObjectResult>"
+
+
+def _nal(payload: bytes) -> bytes:
+    return len(payload).to_bytes(4, "big") + payload
+
+
+def _avcc() -> bytes:
+    return b"".join((
+        bytes([1, _SPS[1], 0, _SPS[3], 0xFF, 0xE1]),
+        len(_SPS).to_bytes(2, "big"), _SPS,
+        bytes([1]),
+        len(_PPS).to_bytes(2, "big"), _PPS,
+    ))
+
+
+def _visual(codec: bytes) -> bytes:
+    body = bytearray(66)
+    body[6:8] = (1).to_bytes(2, "big")
+    body[12:14] = (16).to_bytes(2, "big")
+    body[14:16] = (16).to_bytes(2, "big")
+    body[16:20] = (0x00480000).to_bytes(4, "big")
+    body[20:24] = (0x00480000).to_bytes(4, "big")
+    body[28:30] = (1).to_bytes(2, "big")
+    body[62:64] = (0x0018).to_bytes(2, "big")
+    body[64:66] = b"\xff\xff"
+    extra = _box(b"avcC", _avcc()) if codec in {b"avc1", b"avc3"} else b""
+    return _box(codec, bytes(body) + extra)
+
+
 def _mp4(*, codec=b"avc1", seconds=1, timescale=1000, handler=b"vide", pad=0, wide_mdat=False) -> bytes:
     duration = seconds * timescale
     ftyp = _box(b"ftyp", b"isom" + b"\x00\x00\x00\x00" + b"isom")
+    real = codec in {b"avc1", b"avc3"} and handler == b"vide"
+    sample = _nal(_SPS) + _nal(_PPS) + _nal(_IDR) if real else b""
+    payload = sample + (b"\x00" * pad)
+    mdat = _box64(b"mdat", payload) if wide_mdat else _box(b"mdat", payload)
+    offset = len(ftyp) + (16 if wide_mdat else 8)
     mvhd = _box(b"mvhd", b"\x00" * 12 + timescale.to_bytes(4, "big") + duration.to_bytes(4, "big") + b"\x00" * 80)
     mdhd = _box(b"mdhd", b"\x00" * 12 + timescale.to_bytes(4, "big") + duration.to_bytes(4, "big") + b"\x00\x00\x00\x00")
     hdlr = _box(b"hdlr", b"\x00" * 8 + handler + b"\x00" * 13)
-    entry = (16).to_bytes(4, "big") + codec + b"\x00" * 8
-    stsd = _box(b"stsd", b"\x00\x00\x00\x00" + (1).to_bytes(4, "big") + entry)
-    trak = _box(b"trak", _box(b"mdia", mdhd + hdlr + _box(b"minf", _box(b"stbl", stsd))))
+    if real:
+        stsd = _box(b"stsd", b"\x00\x00\x00\x00" + (1).to_bytes(4, "big") + _visual(codec))
+        stsz = _box(b"stsz", b"\x00\x00\x00\x00" + (0).to_bytes(4, "big") + (1).to_bytes(4, "big") + len(sample).to_bytes(4, "big"))
+        stco = _box(b"stco", b"\x00\x00\x00\x00" + (1).to_bytes(4, "big") + offset.to_bytes(4, "big"))
+        stbl_body = stsd + stsz + stco
+    else:
+        entry = (16).to_bytes(4, "big") + codec + b"\x00" * 8
+        stbl_body = _box(b"stsd", b"\x00\x00\x00\x00" + (1).to_bytes(4, "big") + entry)
+    trak = _box(b"trak", _box(b"mdia", mdhd + hdlr + _box(b"minf", _box(b"stbl", stbl_body))))
     moov = _box(b"moov", mvhd + trak)
-    payload = b"\x00" * pad
-    mdat = _box64(b"mdat", payload) if wide_mdat else _box(b"mdat", payload)
     return ftyp + mdat + moov
 
 
@@ -163,6 +234,9 @@ class FakeS3:
         self.fail_parts = set()
         self.lock = asyncio.Lock()
         self.seq = 0
+        self.complete_body = _COMPLETE_XML
+        self.copy_body = _COPY_XML
+        self.size_override = {}
 
     async def request(self, method, url, headers, body):
         parsed = urlsplit(url)
@@ -188,7 +262,7 @@ class FakeS3:
             blob = b"".join(parts[number] for number in sorted(parts))
             async with self.lock:
                 self.objects[key] = {"body": blob, "sha": ""}
-            return S3Response(200, b"<Complete/>")
+            return S3Response(200, self.complete_body)
         if method == "DELETE" and "uploadId" in query:
             self.uploads.pop((key, query["uploadId"][0]), None)
             self.aborted.append(key)
@@ -197,7 +271,7 @@ class FakeS3:
             obj = self.objects.get(key)
             if obj is None:
                 return S3Response(404)
-            return S3Response(200, size=len(obj["body"]), sha256=obj["sha"])
+            return S3Response(200, size=self.size_override.get(key, len(obj["body"])), sha256=obj["sha"])
         if method == "GET":
             obj = self.objects[key]
             span = headers["range"].split("=", 1)[1]
@@ -211,7 +285,7 @@ class FakeS3:
                 source = headers["x-amz-copy-source"].lstrip("/").split("/", 1)[1]
                 original = self.objects[source]
                 self.objects[key] = {"body": original["body"], "sha": headers.get("x-amz-meta-sha256", "")}
-            return S3Response(200)
+            return S3Response(200, self.copy_body)
         if method == "DELETE":
             self.objects.pop(key, None)
             return S3Response(204)
@@ -580,7 +654,7 @@ async def test_same_hash_is_not_written_twice_and_conflict_is_kept(sample):
     staging = staging_object_key(sample.business.id, uuid.uuid4())
     await hostile.write_stream(staging, _chunks(body))
     with pytest.raises(VideoObjectImmutable):
-        await hostile.copy_if_absent(staging, poisoned, digest)
+        await hostile.copy_if_absent(staging, poisoned, digest, size=len(body))
     assert hostile.objects[poisoned][0] == b"different-bytes"
 
 
@@ -612,7 +686,7 @@ async def test_concurrent_copies_keep_one_object_and_do_not_overwrite():
         await store.write_stream(key, _chunks(body))
         sources.append(key)
     final = video_object_key(business, digest)
-    results = await asyncio.gather(*(store.copy_if_absent(key, final, digest) for key in sources))
+    results = await asyncio.gather(*(store.copy_if_absent(key, final, digest, size=len(body)) for key in sources))
     assert results.count("created") == 1 and results.count("exists") == 7
     assert store.objects[final] == (body, digest)
     fake = FakeS3()
@@ -622,12 +696,12 @@ async def test_concurrent_copies_keep_one_object_and_do_not_overwrite():
         key = staging_object_key(business, uuid.uuid4())
         await s3.write_stream(key, _chunks(body))
         staged.append(key)
-    copied = await asyncio.gather(*(s3.copy_if_absent(key, final, digest) for key in staged))
+    copied = await asyncio.gather(*(s3.copy_if_absent(key, final, digest, size=len(body)) for key in staged))
     assert copied.count("created") == 1
     assert fake.objects[final]["body"] == body and fake.objects[final]["sha"] == digest
     fake.objects[final] = {"body": b"other", "sha": "c" * 64}
     with pytest.raises(VideoObjectImmutable):
-        await s3.copy_if_absent(staged[0], final, digest)
+        await s3.copy_if_absent(staged[0], final, digest, size=len(body))
     assert fake.objects[final]["body"] == b"other"
 
 
