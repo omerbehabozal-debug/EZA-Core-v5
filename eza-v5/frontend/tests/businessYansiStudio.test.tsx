@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import BusinessYansiStudio from '@/components/saina/business-studio/BusinessYansiStudio';
-import type { Knowledge } from '@/lib/eza/businessYansi';
+import type { BrandAsset, Draft, Knowledge } from '@/lib/eza/businessYansi';
 import {
   isSuccessStudioStatus,
   parseDraftResult,
@@ -369,5 +369,87 @@ describe('BusinessYansiStudio', () => {
       expect(screen.getByTestId('biz-studio-unavailable')).toHaveTextContent(/açık değil/i);
     });
     expect(screen.queryByTestId('biz-studio-topic-grid')).toBeNull();
+  });
+
+  it('lets the brand choose an image or video cover and shows that choice', async () => {
+    const link = {
+      id: 'link-1',
+      item_id: 'item-1',
+      confirmed_version_id: 'kb-1',
+      status: 'active',
+      knowledge_title: 'Menü hikâyesi',
+      knowledge_status: 'published',
+      current_published_version_id: 'kb-1',
+      confirmation_current: true,
+    };
+    const image: BrandAsset = {
+      id: '11111111-1111-4111-8111-111111111111',
+      business_id: 'biz-1',
+      asset_type: 'image',
+      title: 'Atolye gorseli',
+      caption: '',
+      locator_kind: 'storage',
+      locator: null,
+      latitude: null,
+      longitude: null,
+      public_allowed: true,
+      status: 'active',
+      revision: 2,
+      links: [link],
+    };
+    const film: BrandAsset = {
+      ...image,
+      id: '22222222-2222-4222-8222-222222222222',
+      asset_type: 'video',
+      title: 'Atolye filmi',
+      locator_kind: 'https',
+      locator: 'https://cdn.bilign.example/atolye.mp4',
+    };
+    const foreign: BrandAsset = {
+      ...film,
+      id: '33333333-3333-4333-8333-333333333333',
+      title: 'Baska marka',
+      links: [{ ...link, id: 'link-2', confirmed_version_id: 'other-brand' }],
+    };
+    const steps = Array.from({ length: 8 }, (_, index) => ({
+      question: `Soru ${index + 1}?`,
+      answer: 'Zeytinyağlı yaprak dolması…',
+      sources: ['kb-1'],
+    }));
+    const editDraft: Draft = {
+      id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      title: 'Atolye',
+      summary: 'Atolye ozeti',
+      steps,
+      status: 'draft',
+      revision: 1,
+      conversation_id: null,
+      media_plan: { coverAssetId: null, blocks: [], seal: null },
+    };
+    apiMocks.businessRequest.mockResolvedValue({});
+    render(
+      <BusinessYansiStudio
+        businessId="biz-1"
+        knowledge={knowledge}
+        canEdit
+        editDraft={editDraft}
+        assets={[image, film, foreign]}
+        onDraftSaved={vi.fn()}
+      />
+    );
+    const choice = screen.getByTestId('biz-studio-cover-choice');
+    expect(choice).toHaveTextContent('Atolye gorseli');
+    expect(choice).toHaveTextContent('Atolye filmi');
+    expect(choice).not.toHaveTextContent('Baska marka');
+    expect(screen.getByTestId('biz-studio-selected-cover')).toHaveTextContent('otomatik öneri');
+    fireEvent.change(choice, { target: { value: image.id } });
+    expect(screen.getByTestId('biz-studio-selected-cover')).toHaveTextContent('Seçilen kapak: Atolye gorseli · görsel');
+    fireEvent.change(choice, { target: { value: film.id } });
+    expect(screen.getByTestId('biz-studio-selected-cover')).toHaveTextContent('Seçilen kapak: Atolye filmi · video');
+    fireEvent.click(screen.getByTestId('biz-studio-save-draft'));
+    await waitFor(() => expect(apiMocks.businessRequest).toHaveBeenCalled());
+    const body = apiMocks.businessRequest.mock.calls[0][2] as { coverAssetId: string };
+    expect(body.coverAssetId).toBe(film.id);
+    expect(JSON.stringify(body)).not.toContain('atolye.mp4');
   });
 });

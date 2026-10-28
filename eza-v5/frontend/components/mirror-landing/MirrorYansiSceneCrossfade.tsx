@@ -10,6 +10,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { releaseCoverVideo } from '@/lib/eza/mirror/journey/businessMedia';
 
 export type MirrorYansiScenePresentation = 'mobile-fullscreen' | 'desktop-immersive';
 
@@ -108,6 +109,7 @@ export default function MirrorYansiSceneCrossfade({
   const nextVideo = (videoSrc || '').trim() || null;
   const [videoFailed, setVideoFailed] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const videoSession = useRef(0);
   const playCoverVideo = Boolean(nextVideo) && !videoFailed;
 
   useEffect(() => {
@@ -117,17 +119,18 @@ export default function MirrorYansiSceneCrossfade({
   useEffect(() => {
     const el = videoRef.current;
     if (!el || !playCoverVideo) return;
+    const mine = videoSession.current + 1;
+    videoSession.current = mine;
     el.muted = true;
     const pending = el.play();
-    let stopped = false;
     if (pending && typeof pending.then === 'function') {
       pending.catch(() => {
-        if (!stopped) setVideoFailed(true);
+        if (videoSession.current === mine) setVideoFailed(true);
       });
     }
     return () => {
-      stopped = true;
-      el.pause();
+      if (videoSession.current === mine) videoSession.current = 0;
+      releaseCoverVideo(el);
     };
   }, [playCoverVideo, nextVideo]);
 
@@ -205,10 +208,12 @@ export default function MirrorYansiSceneCrossfade({
           loop
           playsInline
           autoPlay
-          preload="metadata"
+          preload="none"
           poster={front || undefined}
           data-testid="yansi-cover-video"
-          onError={() => setVideoFailed(true)}
+          onError={() => {
+            if (videoSession.current !== 0) setVideoFailed(true);
+          }}
         />
       ) : null}
       <div

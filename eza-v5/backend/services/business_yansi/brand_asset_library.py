@@ -228,6 +228,10 @@ async def update_asset(db, business_id, user_id, asset_id, data, *, image_bytes=
         latitude=data.get("latitude", row.latitude),
         longitude=data.get("longitude", row.longitude),
     )
+    if row.asset_type == "video" and fields["locator"] != row.locator:
+        from backend.services.business_yansi.studio_media import video_content_is_sealed
+        if await video_content_is_sealed(db, business_id, row.id):
+            fail("sealed_media_immutable", 409)
     _apply_fields(row, fields, user_id, data.get("public_allowed", False))
     row.revision += 1
     await db.commit()

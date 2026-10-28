@@ -197,7 +197,7 @@ def _qa_steps(steps):
         clean.append({'question':step['question'],'answer':step['answer'],'sources':list(step['sources'])})
     return clean
 
-async def create_draft(db,business_id,user_id,title,summary,steps,*,commit=True,media_choices=None):
+async def create_draft(db,business_id,user_id,title,summary,steps,*,commit=True,media_choices=None,cover_asset_id=None):
     await access(db,business_id,user_id,'editor')
     public_content(title,summary,*(s['question'] for s in steps),*(s['answer'] for s in steps))
     if len(steps)!=8: fail('eight_steps_required',422)
@@ -208,7 +208,7 @@ async def create_draft(db,business_id,user_id,title,summary,steps,*,commit=True,
         # Phase 1 accepts only source-exact answers; no unsupported brand claims.
         if not any(step['answer'] in allowed[v].content for v in step['sources']): fail('answer_not_supported_by_source',422)
     from backend.services.business_yansi.studio_media import bind_media_plan
-    plan=await bind_media_plan(db,business_id,title,summary,steps,media_choices)
+    plan=await bind_media_plan(db,business_id,title,summary,steps,media_choices,cover_asset_id)
     snapshot=sorted({v for step in steps for v in step['sources']})
     row=Draft(business_id=uid(business_id),created_by=uid(user_id),title=title,summary=summary,steps=steps,knowledge_snapshot=snapshot,media_plan=plan,source_hash=source_hash(steps),status='draft',revision=1)
     db.add(row)
@@ -242,7 +242,7 @@ async def transition_draft(db,business_id,user_id,draft_id,target,revision):
             row.media_plan={'coverAssetId':row.media_plan.get('coverAssetId'),'blocks':row.media_plan.get('blocks') or [],'seal':None}
     row.status=target;row.revision+=1;await db.commit();await db.refresh(row);return row
 
-async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,steps):
+async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,steps,cover_asset_id=None):
     await access(db,business_id,user_id,'editor')
     row=await draft_row(db,business_id,draft_id,True)
     if row.revision!=revision or row.status!='draft' or row.conversation_id:
@@ -256,7 +256,7 @@ async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,st
         if not any(step['answer'] in allowed[v].content for v in step['sources']): fail('answer_not_supported_by_source',422)
     from backend.services.business_yansi.studio_media import bind_media_plan
     row.title=title;row.summary=summary;row.steps=steps
-    row.media_plan=await bind_media_plan(db,business_id,title,summary,steps)
+    row.media_plan=await bind_media_plan(db,business_id,title,summary,steps,cover_asset_id=cover_asset_id)
     row.knowledge_snapshot=sorted({v for step in steps for v in step['sources']})
     row.source_hash=source_hash(steps);row.revision+=1
     await db.commit();await db.refresh(row);return row

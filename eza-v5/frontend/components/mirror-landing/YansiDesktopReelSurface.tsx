@@ -18,7 +18,7 @@ import {
 import { authorProfilePath } from '@/lib/eza/mirror-network/fetchAuthorPublished';
 import { assertYansiAtomicIdentity } from '@/lib/eza/mirror/journey/yansiAtomicIdentity';
 import type { PublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
-import { businessCoverUrl, businessCoverVideoUrl } from '@/lib/eza/mirror/journey/businessMedia';
+import { businessCoverUrl, businessCoverVideoUrl, releaseCoverVideo } from '@/lib/eza/mirror/journey/businessMedia';
 import { buildYansiPublicHref } from '@/lib/eza/mirror-network/yansiPublicDepth';
 import {
   formatKatkiReelCount,
@@ -97,6 +97,7 @@ export default function YansiDesktopReelSurface({
   const sceneUrl = brandCover || (node.artifact.sceneImageUrl || '').trim();
   const [videoFailed, setVideoFailed] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const videoSession = useRef(0);
   const playCoverVideo = role === 'current' && Boolean(videoCover) && !videoFailed;
   const summary = (node.artifact.publicSummary || '').trim();
   const publicMetaTime = node.artifact.publishedAt
@@ -120,17 +121,18 @@ export default function YansiDesktopReelSurface({
   useEffect(() => {
     const el = videoRef.current;
     if (!el || !playCoverVideo) return;
+    const mine = videoSession.current + 1;
+    videoSession.current = mine;
     el.muted = true;
     const pending = el.play();
-    let stopped = false;
     if (pending && typeof pending.then === 'function') {
       pending.catch(() => {
-        if (!stopped) setVideoFailed(true);
+        if (videoSession.current === mine) setVideoFailed(true);
       });
     }
     return () => {
-      stopped = true;
-      el.pause();
+      if (videoSession.current === mine) videoSession.current = 0;
+      releaseCoverVideo(el);
     };
   }, [playCoverVideo, videoCover]);
   const fromTransform = yansiReelSurfaceTransform(role, direction, false, reducedMotion);
@@ -234,10 +236,12 @@ export default function YansiDesktopReelSurface({
                   loop
                   playsInline
                   autoPlay
-                  preload="metadata"
+                  preload="none"
                   poster={sceneUrl || undefined}
                   data-testid="yansi-cover-video"
-                  onError={() => setVideoFailed(true)}
+                  onError={() => {
+                    if (videoSession.current !== 0) setVideoFailed(true);
+                  }}
                 />
               ) : null}
             </>

@@ -82,6 +82,7 @@ class DraftCreate(Body):
     title: str=Field(min_length=1,max_length=200)
     summary: str=Field(default='',max_length=500)
     steps: list[Step]=Field(min_length=8,max_length=8)
+    coverAssetId: uuid.UUID|None=None
 class DraftUpdate(DraftCreate):
     revision: int=Field(ge=1)
 class Publish(Body):
@@ -336,7 +337,7 @@ async def drafts(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_cur
     await manager(db,claims,business_id);return {'items':[record(row) for row in (await db.scalars(select(BusinessYansiDraft).where(BusinessYansiDraft.business_id==business_id))).all()]}
 @router.post('/{business_id}/drafts')
 async def add_draft(business_id:uuid.UUID,body:DraftCreate,db=Depends(get_db),claims=Depends(get_current_user)):
-    user=await svc.actor(db,claims);return await recorded(db,await svc.create_draft(db,business_id,user.id,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps]))
+    user=await svc.actor(db,claims);return await recorded(db,await svc.create_draft(db,business_id,user.id,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps],cover_asset_id=body.coverAssetId))
 @router.post('/{business_id}/drafts/{draft_id}/transition')
 async def draft_transition(business_id:uuid.UUID,draft_id:uuid.UUID,body:Transition,db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims);return await recorded(db,await svc.transition_draft(db,business_id,user.id,draft_id,body.target,body.revision))
@@ -365,7 +366,7 @@ async def public_profile(slug:str,db=Depends(get_db)):
 @router.patch('/{business_id}/drafts/{draft_id}')
 async def edit_draft(business_id:uuid.UUID,draft_id:uuid.UUID,body:DraftUpdate,db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims)
-    return await recorded(db,await svc.revise_draft(db,business_id,user.id,draft_id,body.revision,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps]))
+    return await recorded(db,await svc.revise_draft(db,business_id,user.id,draft_id,body.revision,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps],body.coverAssetId))
 
 @router.delete('/{business_id}/members/{user_id}')
 async def remove_member(business_id:uuid.UUID,user_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):

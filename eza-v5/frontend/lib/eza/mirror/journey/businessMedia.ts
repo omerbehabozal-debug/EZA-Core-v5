@@ -75,3 +75,11 @@ export function businessCoverVideoUrl(media?: PublicBusinessMedia | null): strin
   if (!media?.cover || media.cover.type !== 'video') return null;
   return media.cover.href;
 }
+
+/** Drop the media resource so a card change does not keep the download open. */
+export function releaseCoverVideo(el: HTMLVideoElement | null) {
+  if (!el) return;
+  el.pause();
+  el.removeAttribute('src');
+  el.load();
+}

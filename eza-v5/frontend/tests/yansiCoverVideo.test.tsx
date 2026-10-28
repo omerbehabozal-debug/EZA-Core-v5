@@ -59,6 +59,7 @@ describe('business video cover', () => {
   beforeEach(() => {
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
     vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+    vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(() => {});
   });
 
   it('keeps an image cover on the existing still', () => {
@@ -76,6 +77,7 @@ describe('business video cover', () => {
     expect(player).toHaveProperty('muted', true);
     expect(player).toHaveProperty('loop', true);
     expect(player).toHaveProperty('playsInline', true);
+    expect(player).toHaveAttribute('preload', 'none');
     expect(player.className).toContain('pointer-events-none');
     expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute('src', scene);
     await waitFor(() => expect(HTMLMediaElement.prototype.play).toHaveBeenCalled());
@@ -97,6 +99,7 @@ describe('business video cover', () => {
     rerender(<YansiDesktopReelSurface node={node(videoCover)} role="outgoing" />);
     expect(screen.queryByTestId('yansi-cover-video')).toBeNull();
     expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled();
+    expect(HTMLMediaElement.prototype.load).toHaveBeenCalled();
     expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute('src', scene);
   });
 
@@ -136,6 +139,19 @@ describe('business video cover', () => {
     rerender(<MirrorYansiSceneCrossfade sceneImageUrl={scene} videoSrc={null} presentation="mobile-fullscreen" activeIdentity="atolye" />);
     expect(screen.queryByTestId('yansi-cover-video')).toBeNull();
     expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled();
+    expect(HTMLMediaElement.prototype.load).toHaveBeenCalled();
+    expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute('src', scene);
+  });
+
+  it('drops the media source on a fast card change without sticking the fallback', () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'load').mockImplementation(function mockLoad(this: HTMLMediaElement) {
+      this.dispatchEvent(new Event('error'));
+    });
+    const { rerender } = render(<YansiDesktopReelSurface node={node(videoCover)} role="current" />);
+    rerender(<YansiDesktopReelSurface node={node(videoCover)} role="outgoing" />);
+    expect(screen.queryByTestId('yansi-cover-video')).toBeNull();
+    rerender(<YansiDesktopReelSurface node={node(videoCover)} role="current" />);
+    expect(screen.getByTestId('yansi-cover-video')).toHaveAttribute('src', film);
     expect(screen.getByTestId('mirror-yansi-scene-current')).toHaveAttribute('src', scene);
   });
 });

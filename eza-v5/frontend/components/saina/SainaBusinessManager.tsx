@@ -632,6 +632,7 @@ export default function SainaBusinessManager() {
                       verified: business.verified,
                       official: business.official,
                     }}
+                    assets={assets}
                     onOpenKnowledgePool={() => goToTab('Bilgi Havuzu')}
                     onDraftSaved={async () => {
                       setEditDraft(null);
@@ -654,7 +655,12 @@ export default function SainaBusinessManager() {
                         <p className="biz-card-meta">revision {d.revision}</p>
                         {d.media_plan?.coverAssetId ? (
                           <p className="biz-card-meta" data-testid="biz-draft-cover">
-                            Kapak: {assets.find((asset) => asset.id === d.media_plan?.coverAssetId)?.title || 'Marka görseli'}
+                            Kapak:{' '}
+                            {(() => {
+                              const cover = assets.find((asset) => asset.id === d.media_plan?.coverAssetId);
+                              if (!cover) return 'Marka görseli';
+                              return `${cover.title} · ${cover.asset_type === 'video' ? 'video' : 'görsel'}`;
+                            })()}
                           </p>
                         ) : null}
                         <details>

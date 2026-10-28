@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react';
-import type { Knowledge, Step, Draft } from '@/lib/eza/businessYansi';
+import type { BrandAsset, Knowledge, Step, Draft } from '@/lib/eza/businessYansi';
 import { businessRequest as api } from '@/lib/eza/businessYansi';
 import {
   classifyStudioAvailability,
@@ -33,6 +33,7 @@ type Props = {
   onClearEdit?: () => void;
   onOpenKnowledgePool?: () => void;
   brand?: StudioBrand | null;
+  assets?: BrandAsset[];
 };
 
 type FlowPhase = 'sources' | 'topics' | 'chat' | 'preview';
@@ -56,6 +57,7 @@ export default function BusinessYansiStudio({
   onClearEdit,
   onOpenKnowledgePool,
   brand = null,
+  assets = [],
 }: Props) {
   const published = useMemo(() => publishedSources(knowledge), [knowledge]);
   const sourceTitles = useMemo(
@@ -82,6 +84,18 @@ export default function BusinessYansiStudio({
   const [title, setTitle] = useState(editDraft?.title || '');
   const [summary, setSummary] = useState(editDraft?.summary || '');
   const [steps, setSteps] = useState<Step[]>(editDraft?.steps?.length === 8 ? editDraft.steps : emptySteps());
+  const [coverAssetId, setCoverAssetId] = useState(editDraft?.media_plan?.coverAssetId || '');
+  const coverChoices = useMemo(() => {
+    const sourceIds = new Set(steps.flatMap((step) => step.sources));
+    return assets.filter(
+      (asset) =>
+        (asset.asset_type === 'image' || asset.asset_type === 'video') &&
+        asset.public_allowed &&
+        asset.status !== 'archived' &&
+        asset.links.some((link) => link.status === 'active' && sourceIds.has(link.confirmed_version_id))
+    );
+  }, [assets, steps]);
+  const selectedCover = coverChoices.find((asset) => asset.id === coverAssetId) || null;
 
   const topicsKeyRef = useRef<string | null>(null);
   const draftKeyRef = useRef<string | null>(null);
@@ -369,6 +383,7 @@ export default function BusinessYansiStudio({
         title,
         summary,
         steps,
+        coverAssetId: coverAssetId || null,
         ...(editDraft ? { revision: editDraft.revision } : {}),
       });
       onClearEdit?.();
@@ -394,6 +409,31 @@ export default function BusinessYansiStudio({
       };
     });
   }, [steps, draftResult, sourceTitles]);
+
+  const coverPicker = coverChoices.length ? (
+    <label className="biz-studio-hint">
+      Kapak
+      <select
+        aria-label="Yansı kapağı"
+        data-testid="biz-studio-cover-choice"
+        value={coverChoices.some((asset) => asset.id === coverAssetId) ? coverAssetId : ''}
+        disabled={busy}
+        onChange={(event) => setCoverAssetId(event.target.value)}
+      >
+        <option value="">Otomatik öneri</option>
+        {coverChoices.map((asset) => (
+          <option key={asset.id} value={asset.id}>
+            {asset.title} · {asset.asset_type === 'video' ? 'video' : 'görsel'}
+          </option>
+        ))}
+      </select>
+      <p className="biz-card-meta" data-testid="biz-studio-selected-cover">
+        {selectedCover
+          ? `Seçilen kapak: ${selectedCover.title} · ${selectedCover.asset_type === 'video' ? 'video' : 'görsel'}`
+          : 'Seçilen kapak: otomatik öneri'}
+      </p>
+    </label>
+  ) : null;
 
   if (!canEdit) {
     return (
@@ -727,6 +767,7 @@ export default function BusinessYansiStudio({
                 </p>
               )}
 
+              {coverPicker}
               <div className="biz-actions">
                 <button
                   type="button"
@@ -814,6 +855,7 @@ export default function BusinessYansiStudio({
                   </div>
                 ))}
               </div>
+              {coverPicker}
               <div className="biz-actions">
                 <button type="submit" className="biz-btn-primary" disabled={busy} data-testid="biz-studio-save-draft">
                   {busy ? 'Kaydediliyor…' : editDraft ? 'Taslağı güncelle' : 'Taslağı kaydet'}

@@ -86,6 +86,21 @@ def select_step_blocks(question, answer, assets, choice=None):
     return picked
 
 
+def accept_cover_choice(cover_asset_id, assets):
+    """A brand may name one eligible image or video. A URL is refused."""
+    if cover_asset_id is None or cover_asset_id == "":
+        return None
+    token = str(cover_asset_id)
+    try:
+        token = str(uuid.UUID(token))
+    except (ValueError, TypeError, AttributeError):
+        fail("asset_choice_rejected", 422)
+    match = next((asset for asset in assets if str(asset.id) == token and asset.asset_type in {"image", "video"}), None)
+    if match is None:
+        fail("asset_choice_rejected", 422)
+    return str(match.id)
+
+
 def select_cover(title, summary, assets):
     covers = [asset for asset in assets if asset.asset_type in {"image", "video"}]
     context = f"{title} {summary}"
@@ -161,7 +176,7 @@ async def eligible_for_versions(db, business_id, version_ids):
     return grouped
 
 
-async def bind_media_plan(db, business_id, title, summary, steps, media_choices=None):
+async def bind_media_plan(db, business_id, title, summary, steps, media_choices=None, cover_asset_id=None):
     if media_choices is not None and len(media_choices) != len(steps):
         fail("asset_choice_rejected", 422)
     version_ids = [source for step in steps for source in step["sources"]]
@@ -179,12 +194,44 @@ async def bind_media_plan(db, business_id, title, summary, steps, media_choices=
         choice = None if media_choices is None else media_choices[index]
         blocks.append(select_step_blocks(step["question"], step["answer"], unique, choice))
         cover_assets.extend(asset for asset in unique if asset.asset_type in {"image", "video"})
+    pool = list({asset.id: asset for asset in cover_assets}.values())
+    chosen = accept_cover_choice(cover_asset_id, pool)
     plan = {
-        "coverAssetId": select_cover(title, summary, list({asset.id: asset for asset in cover_assets}.values())),
+        "coverAssetId": chosen or select_cover(title, summary, pool),
         "blocks": blocks,
         "seal": None,
     }
     return plan
+
+
+def _plan_uses_asset(plan, asset_id):
+    if not isinstance(plan, dict):
+        return False
+    if str(plan.get("coverAssetId") or "") == asset_id:
+        return True
+    for step in plan.get("blocks") or []:
+        for block in step or []:
+            if isinstance(block, dict) and block.get("type") == "video" and str(block.get("assetId") or "") == asset_id:
+                return True
+    return False
+
+
+async def video_content_is_sealed(db, business_id, asset_id):
+    """True when a sealed plan still shows this video. The locator must stay put."""
+    from backend.models.business_yansi import BusinessPublication
+    from backend.models.business_yansi import BusinessYansiDraft
+
+    token = str(asset_id)
+    business = uid(business_id)
+    draft_plans = await db.scalars(select(BusinessYansiDraft.media_plan).where(BusinessYansiDraft.business_id == business))
+    for plan in draft_plans:
+        if isinstance(plan, dict) and plan.get("seal") and _plan_uses_asset(plan, token):
+            return True
+    published = await db.scalars(select(BusinessPublication.media_plan).where(BusinessPublication.business_id == business))
+    for plan in published:
+        if _plan_uses_asset(plan, token):
+            return True
+    return False
 
 
 async def assert_live_plan(db, business_id, steps, plan):

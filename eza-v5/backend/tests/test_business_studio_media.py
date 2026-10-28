@@ -221,6 +221,134 @@ async def test_video_asset_can_be_selected_and_sealed_as_cover(sample, asset_dir
 
 
 @pytest.mark.asyncio
+async def test_sealed_video_cover_keeps_its_locator(sample, asset_dir):
+    knowledge = await source(sample, title="Atolye", content="Atolye filmi kaydi burada durur.")
+    video = await _asset(
+        sample, knowledge, asset_type="video", title="Atolye filmi", caption="",
+        locator="https://cdn.bilign.example/atolye.mp4", public_allowed=True,
+    )
+    draft = await svc.create_draft(sample.db, sample.business.id, sample.editor.id, "Atolye filmi", "Atolye filmi", _steps(knowledge))
+    for state in ("review", "approved"):
+        actor = sample.owner.id if state == "approved" else sample.editor.id
+        draft = await svc.transition_draft(sample.db, sample.business.id, actor, draft.id, state, draft.revision)
+    sealed = draft.media_plan["seal"]
+    sample.db.add(MirrorNetworkNode(
+        slug="atolye-muhur", user_id=sample.owner.id, visibility="public", safety_status="open",
+        card_title="Atolye", card_date="2026-10-28", public_payload={}, private_payload={},
+    ))
+    await sample.db.commit()
+    from backend.models.business_yansi import BusinessPublication
+    sample.db.add(BusinessPublication(
+        slug="atolye-muhur", journey_version=1, business_id=sample.business.id, draft_id=draft.id,
+        knowledge_snapshot=[], media_plan=draft.media_plan, published_by=sample.owner.id,
+    ))
+    await sample.db.commit()
+    with pytest.raises(HTTPException) as blocked:
+        await library.update_asset(sample.db, sample.business.id, sample.editor.id, video.id, {
+            "title": video.title, "caption": "", "locator": "https://cdn.bilign.example/baska.mp4",
+            "public_allowed": True, "revision": video.revision,
+        })
+    assert blocked.value.detail["code"] == "sealed_media_immutable"
+    await sample.db.refresh(video)
+    assert video.locator == "https://cdn.bilign.example/atolye.mp4"
+    await sample.db.refresh(draft)
+    assert draft.media_plan["coverAssetId"] == str(video.id)
+    assert draft.media_plan["seal"] == sealed
+    shown = await media.publication_media(sample.db, "atolye-muhur", 1)
+    assert shown["cover"]["assetId"] == str(video.id)
+    assert shown["cover"]["href"] == "https://cdn.bilign.example/atolye.mp4"
+    fresh = await library.create_asset(sample.db, sample.business.id, sample.editor.id, {
+        "asset_type": "video", "title": "Yeni atolye filmi", "locator": "https://cdn.bilign.example/yeni.mp4", "public_allowed": True,
+    })
+    assert fresh.id != video.id
+    shown_after = await media.publication_media(sample.db, "atolye-muhur", 1)
+    assert shown_after["cover"]["assetId"] == str(video.id)
+    assert shown_after["cover"]["href"] == "https://cdn.bilign.example/atolye.mp4"
+    renamed = await library.update_asset(sample.db, sample.business.id, sample.editor.id, video.id, {
+        "title": "Atolye filmi", "caption": "ayni adres", "locator": video.locator,
+        "public_allowed": True, "revision": video.revision,
+    })
+    assert renamed.locator == video.locator
+    revoked = await library.update_asset(sample.db, sample.business.id, sample.editor.id, renamed.id, {
+        "title": renamed.title, "caption": renamed.caption, "locator": renamed.locator,
+        "public_allowed": False, "revision": renamed.revision,
+    })
+    assert revoked.public_allowed is False
+    assert revoked.locator == "https://cdn.bilign.example/atolye.mp4"
+    hidden = await media.publication_media(sample.db, "atolye-muhur", 1)
+    assert hidden is None or hidden["cover"] is None
+    archived = await library.archive_asset(sample.db, sample.business.id, sample.editor.id, revoked.id, revoked.revision)
+    assert archived.status == "archived"
+
+
+@pytest.mark.asyncio
+async def test_sealed_video_step_locator_cannot_change(sample, asset_dir):
+    knowledge = await source(sample, title="Atolye", content="Atolye filmi kaydi burada durur.")
+    image = await _asset(sample, knowledge, asset_type="image", title="Depo rafti", caption="", public_allowed=True, image_bytes=_PNG)
+    video = await _asset(
+        sample, knowledge, asset_type="video", title="Depo filmi", caption="",
+        locator="https://cdn.bilign.example/adim.mp4", public_allowed=True,
+    )
+    draft = await svc.create_draft(
+        sample.db, sample.business.id, sample.editor.id, "Depo rafti", "Depo rafti", _steps(knowledge),
+        media_choices=[[{"type": "video", "assetId": str(video.id)}]] + [[] for _ in range(7)],
+        cover_asset_id=image.id,
+    )
+    assert draft.media_plan["coverAssetId"] == str(image.id)
+    assert draft.media_plan["blocks"][0] == [{"type": "video", "assetId": str(video.id)}]
+    for state in ("review", "approved"):
+        actor = sample.owner.id if state == "approved" else sample.editor.id
+        draft = await svc.transition_draft(sample.db, sample.business.id, actor, draft.id, state, draft.revision)
+    with pytest.raises(HTTPException) as blocked:
+        await library.update_asset(sample.db, sample.business.id, sample.editor.id, video.id, {
+            "title": video.title, "locator": "https://cdn.bilign.example/baska-adim.mp4",
+            "public_allowed": True, "revision": video.revision,
+        })
+    assert blocked.value.detail["code"] == "sealed_media_immutable"
+    await sample.db.refresh(video)
+    assert video.locator == "https://cdn.bilign.example/adim.mp4"
+    assert draft.media_plan["seal"] == media.media_seal(draft.media_plan)
+
+
+@pytest.mark.asyncio
+async def test_explicit_cover_choice_beats_word_ranking(sample, asset_dir):
+    knowledge = await source(sample, title="Atolye", content="Atolye filmi kaydi burada durur.")
+    image = await _asset(sample, knowledge, asset_type="image", title="Depo rafti", caption="", public_allowed=True, image_bytes=_PNG)
+    video = await _asset(
+        sample, knowledge, asset_type="video", title="Atolye filmi", caption="",
+        locator="https://cdn.bilign.example/atolye.mp4", public_allowed=True,
+    )
+    automatic = await svc.create_draft(sample.db, sample.business.id, sample.editor.id, "Atolye filmi", "Atolye filmi", _steps(knowledge))
+    assert automatic.media_plan["coverAssetId"] == str(video.id)
+    chosen = await svc.create_draft(
+        sample.db, sample.business.id, sample.editor.id, "Atolye filmi", "Atolye filmi", _steps(knowledge),
+        cover_asset_id=image.id,
+    )
+    assert chosen.media_plan["coverAssetId"] == str(image.id)
+    assert "https://" not in str(chosen.media_plan)
+    assert set(media.media_identity(chosen.media_plan)) == {"coverAssetId", "blocks"}
+    assert media.media_seal(chosen.media_plan) == svc.source_hash(media.media_identity(chosen.media_plan))
+    other = await svc.create_business(sample.db, sample.admin, {
+        "organizationId": str(sample.other.id), "ownerId": str(sample.outsider.id), "slug": "baska-kapak", "name": "Baska Kapak",
+    })
+    foreign = await library.create_asset(sample.db, other.id, sample.outsider.id, {
+        "asset_type": "video", "title": "Atolye filmi", "locator": "https://akdeniz.example/atolye.mp4", "public_allowed": True,
+    })
+    with pytest.raises(HTTPException) as rejected:
+        await svc.create_draft(
+            sample.db, sample.business.id, sample.editor.id, "Atolye filmi", "Atolye filmi", _steps(knowledge),
+            cover_asset_id=foreign.id,
+        )
+    assert rejected.value.detail["code"] == "asset_choice_rejected"
+    with pytest.raises(HTTPException) as url_rejected:
+        await svc.create_draft(
+            sample.db, sample.business.id, sample.editor.id, "Atolye filmi", "Atolye filmi", _steps(knowledge),
+            cover_asset_id="https://cdn.bilign.example/atolye.mp4",
+        )
+    assert url_rejected.value.detail["code"] == "asset_choice_rejected"
+
+
+@pytest.mark.asyncio
 async def test_image_cover_wins_when_a_video_matches_equally(sample, asset_dir):
     knowledge = await source(sample, title="Atolye", content="Atolye filmi kaydi burada durur.")
     image = await _asset(sample, knowledge, asset_type="image", title="Atolye filmi", caption="", public_allowed=True, image_bytes=_PNG)
