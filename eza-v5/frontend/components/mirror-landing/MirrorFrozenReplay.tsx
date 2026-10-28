@@ -384,7 +384,7 @@ export default function MirrorFrozenReplay({
       : <p role="status">Yanıt açılıyor…</p>;
     return <section className="yansi-desktop-replay" data-testid="mirror-frozen-replay" data-journey-version={pinnedVersionRef.current}
       data-yansi-rhythm={experience?.rhythm ?? 'normal'} aria-label="Yansı deneyimi">
-        <YansiDesktopExperience mobile={mobilePresentation} slug={frozen.slug} sceneImageUrl={businessCoverUrl(artifact.businessMedia) || artifact.sceneImageUrl} preserveBrandFrame={Boolean(artifact.businessMedia?.cover)} identity={desktopIdentity} scrollRef={scrollRootRef}
+        <YansiDesktopExperience mobile={mobilePresentation} slug={frozen.slug} sceneImageUrl={businessCoverUrl(artifact.businessMedia) || artifact.sceneImageUrl} preserveBrandFrame={artifact.businessMedia?.cover?.type === 'image'} identity={desktopIdentity} scrollRef={scrollRootRef}
           replaySelection={{ slug: frozen.slug, journeyVersion: pinnedVersionRef.current, completedStepCount: session.completedStepCount }}
         replayAction={replayAction} messages={<><MessageList messages={messages} variant="saina" autoScroll={false}
           isLoading={false} ezaVisibilityEnabled={false}

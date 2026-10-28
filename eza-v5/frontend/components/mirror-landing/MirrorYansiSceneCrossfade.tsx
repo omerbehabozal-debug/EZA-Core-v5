@@ -8,7 +8,7 @@
  * Layers stay spatially locked; chat changes depth, not composition.
  */
 
-import { useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 
 export type MirrorYansiScenePresentation = 'mobile-fullscreen' | 'desktop-immersive';
@@ -22,6 +22,8 @@ export type MirrorYansiSceneCrossfadeProps = {
   activeIdentity?: string | null;
   /** Approved brand cover keeps its aspect ratio. Personal scenes stay cropped. */
   brandCover?: boolean;
+  /** Approved brand video cover. The still scene stays underneath. */
+  videoSrc?: string | null;
 };
 
 function prefersReducedMotion(): boolean {
@@ -94,6 +96,7 @@ export default function MirrorYansiSceneCrossfade({
   presentation = 'mobile-fullscreen',
   activeIdentity = null,
   brandCover = false,
+  videoSrc = null,
 }: MirrorYansiSceneCrossfadeProps) {
   const nextUrl = (sceneImageUrl || '').trim() || null;
   const nextIdentity = (activeIdentity || '').trim().toLowerCase() || null;
@@ -102,6 +105,31 @@ export default function MirrorYansiSceneCrossfade({
   const [back, setBack] = useState<string | null>(null);
   const [frontOpacity, setFrontOpacity] = useState(1);
   const immersive = presentation === 'desktop-immersive';
+  const nextVideo = (videoSrc || '').trim() || null;
+  const [videoFailed, setVideoFailed] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const playCoverVideo = Boolean(nextVideo) && !videoFailed;
+
+  useEffect(() => {
+    setVideoFailed(false);
+  }, [nextVideo, nextIdentity]);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !playCoverVideo) return;
+    el.muted = true;
+    const pending = el.play();
+    let stopped = false;
+    if (pending && typeof pending.then === 'function') {
+      pending.catch(() => {
+        if (!stopped) setVideoFailed(true);
+      });
+    }
+    return () => {
+      stopped = true;
+      el.pause();
+    };
+  }, [playCoverVideo, nextVideo]);
 
   useLayoutEffect(() => {
     const identityChanged = nextIdentity !== frontIdentity;
@@ -167,6 +195,21 @@ export default function MirrorYansiSceneCrossfade({
             brandCover={brandCover}
           />
         </div>
+      ) : null}
+      {playCoverVideo && nextVideo ? (
+        <video
+          ref={videoRef}
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+          src={nextVideo}
+          muted
+          loop
+          playsInline
+          autoPlay
+          preload="metadata"
+          poster={front || undefined}
+          data-testid="yansi-cover-video"
+          onError={() => setVideoFailed(true)}
+        />
       ) : null}
       <div
         className={cn(

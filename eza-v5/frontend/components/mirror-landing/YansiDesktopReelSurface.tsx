@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import AynaParentLineageRow from '@/components/mirror/ayna/AynaParentLineageRow';
 import BilignAvatarIdentityFrame from '@/components/mirror/ayna/BilignAvatarIdentityFrame';
@@ -18,7 +18,7 @@ import {
 import { authorProfilePath } from '@/lib/eza/mirror-network/fetchAuthorPublished';
 import { assertYansiAtomicIdentity } from '@/lib/eza/mirror/journey/yansiAtomicIdentity';
 import type { PublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
-import { businessCoverUrl } from '@/lib/eza/mirror/journey/businessMedia';
+import { businessCoverUrl, businessCoverVideoUrl } from '@/lib/eza/mirror/journey/businessMedia';
 import { buildYansiPublicHref } from '@/lib/eza/mirror-network/yansiPublicDepth';
 import {
   formatKatkiReelCount,
@@ -93,7 +93,11 @@ export default function YansiDesktopReelSurface({
   const slug = node.artifact.slug.trim().toLowerCase();
   const title = node.artifact.publicTitle || 'Yansı';
   const brandCover = businessCoverUrl(node.artifact.businessMedia);
+  const videoCover = businessCoverVideoUrl(node.artifact.businessMedia);
   const sceneUrl = brandCover || (node.artifact.sceneImageUrl || '').trim();
+  const [videoFailed, setVideoFailed] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const playCoverVideo = role === 'current' && Boolean(videoCover) && !videoFailed;
   const summary = (node.artifact.publicSummary || '').trim();
   const publicMetaTime = node.artifact.publishedAt
     ? formatYansiHeroMetaTime(node.artifact.publishedAt)
@@ -108,6 +112,27 @@ export default function YansiDesktopReelSurface({
 
   const durationMs = reducedMotion ? YANSI_REEL_REDUCED_MS : YANSI_REEL_TRAVEL_MS;
   const surfaceRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setVideoFailed(false);
+  }, [slug, videoCover]);
+
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !playCoverVideo) return;
+    el.muted = true;
+    const pending = el.play();
+    let stopped = false;
+    if (pending && typeof pending.then === 'function') {
+      pending.catch(() => {
+        if (!stopped) setVideoFailed(true);
+      });
+    }
+    return () => {
+      stopped = true;
+      el.pause();
+    };
+  }, [playCoverVideo, videoCover]);
   const fromTransform = yansiReelSurfaceTransform(role, direction, false, reducedMotion);
   const toTransform = yansiReelSurfaceTransform(role, direction, true, reducedMotion);
   const fromOpacity = yansiReelSurfaceOpacity(role, false, reducedMotion);
@@ -174,28 +199,47 @@ export default function YansiDesktopReelSurface({
         aria-hidden
       >
         <div className="yansi-desktop-scene-stack">
-          {sceneUrl ? (
+          {sceneUrl || playCoverVideo ? (
             <>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={sceneUrl}
-                alt=""
-                className="yansi-desktop-scene-bleed"
-                data-yansi-layer="atmosphere"
-              />
-              <div className="yansi-desktop-scene-bleed-dim" />
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={sceneUrl}
-                alt=""
-                className="yansi-desktop-scene-image"
-                data-yansi-plate="sharp"
-                data-yansi-scene-src={sceneUrl}
-                data-yansi-brand-cover={brandCover ? 'true' : 'false'}
-                data-testid={
-                  committed ? 'mirror-yansi-scene-current' : 'mirror-yansi-scene-incoming-image'
-                }
-              />
+              {sceneUrl ? (
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={sceneUrl}
+                    alt=""
+                    className="yansi-desktop-scene-bleed"
+                    data-yansi-layer="atmosphere"
+                  />
+                  <div className="yansi-desktop-scene-bleed-dim" />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={sceneUrl}
+                    alt=""
+                    className="yansi-desktop-scene-image"
+                    data-yansi-plate="sharp"
+                    data-yansi-scene-src={sceneUrl}
+                    data-yansi-brand-cover={brandCover ? 'true' : 'false'}
+                    data-testid={
+                      committed ? 'mirror-yansi-scene-current' : 'mirror-yansi-scene-incoming-image'
+                    }
+                  />
+                </>
+              ) : null}
+              {playCoverVideo && videoCover ? (
+                <video
+                  ref={videoRef}
+                  className="yansi-desktop-scene-image pointer-events-none"
+                  src={videoCover}
+                  muted
+                  loop
+                  playsInline
+                  autoPlay
+                  preload="metadata"
+                  poster={sceneUrl || undefined}
+                  data-testid="yansi-cover-video"
+                  onError={() => setVideoFailed(true)}
+                />
+              ) : null}
             </>
           ) : null}
         </div>

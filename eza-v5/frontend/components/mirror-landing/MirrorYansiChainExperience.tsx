@@ -2,7 +2,7 @@
 
 import YansiContentIdentityLine from './YansiContentIdentityLine';
 import YansiReelExperienceInvite from './YansiReelExperienceInvite';
-import { businessCoverUrl } from '@/lib/eza/mirror/journey/businessMedia';
+import { businessCoverUrl, businessCoverVideoUrl } from '@/lib/eza/mirror/journey/businessMedia';
 
 /**
  * Slice 3 + Slice 4 — public /m navigation.
@@ -1603,7 +1603,8 @@ export default function MirrorYansiChainExperience({
       ) : (
         <MirrorYansiSceneCrossfade
           sceneImageUrl={businessCoverUrl(activeNode.artifact.businessMedia) || activeNode.artifact.sceneImageUrl}
-          brandCover={Boolean(activeNode.artifact.businessMedia?.cover)}
+          videoSrc={showChatReplay ? null : businessCoverVideoUrl(activeNode.artifact.businessMedia)}
+          brandCover={activeNode.artifact.businessMedia?.cover?.type === 'image'}
           presentation={isDesktop ? 'desktop-immersive' : 'mobile-fullscreen'}
           activeIdentity={activeSlug}
         />

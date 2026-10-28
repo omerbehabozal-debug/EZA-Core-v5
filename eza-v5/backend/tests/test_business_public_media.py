@@ -87,6 +87,36 @@ async def test_published_yansi_drops_revoked_media_and_keeps_text_plans(sample, 
     assert str(image.id) not in str(hidden)
 
 
+@pytest.mark.asyncio
+async def test_published_video_cover_is_authorized_and_not_replaced(sample, asset_dir):
+    knowledge = await source(sample, content="Atolye filmi kaydi burada durur.")
+    image = await _asset(sample, knowledge, asset_type="image", title="Depo rafti", caption="", public_allowed=True, image_bytes=_PNG)
+    video = await _asset(
+        sample, knowledge, asset_type="video", title="Atolye filmi", caption="",
+        locator="https://cdn.bilign.example/atolye.mp4", public_allowed=True,
+    )
+    draft = await svc.create_draft(sample.db, sample.business.id, sample.editor.id, "Atolye filmi", "Atolye filmi", _steps(knowledge))
+    assert draft.media_plan["coverAssetId"] == str(video.id)
+    sample.db.add(_node(sample.owner.id, "atolye-video"))
+    await sample.db.commit()
+    sample.db.add(BusinessPublication(
+        slug="atolye-video", journey_version=1, business_id=sample.business.id, draft_id=draft.id,
+        knowledge_snapshot=[], media_plan=draft.media_plan, published_by=sample.owner.id,
+    ))
+    await sample.db.commit()
+    shown = await media.publication_media(sample.db, "atolye-video", 1)
+    assert shown["cover"]["type"] == "video"
+    assert shown["cover"]["href"] == "https://cdn.bilign.example/atolye.mp4"
+    assert shown["cover"]["assetId"] == str(video.id)
+    assert "contentPath" not in shown["cover"]
+    assert "sceneImageUrl" not in shown
+    await library.archive_asset(sample.db, sample.business.id, sample.editor.id, video.id, video.revision)
+    hidden = await media.publication_media(sample.db, "atolye-video", 1)
+    assert hidden is None or hidden["cover"] is None
+    assert str(video.id) not in str(hidden)
+    assert str(image.id) not in str((hidden or {}).get("cover"))
+
+
 def test_public_media_route_does_not_require_a_user():
     from backend.routers import business_yansi as routes
     route = next(item for item in routes.router.routes if getattr(item, "path", "") == "/api/business-yansi/public-media/{business_id}/{asset_id}")

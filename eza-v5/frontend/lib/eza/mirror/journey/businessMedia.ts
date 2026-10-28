@@ -5,7 +5,8 @@ export type PublicBusinessVideo = { type: 'video'; assetId: string; title: strin
 export type PublicBusinessMap = { type: 'map'; assetId: string; title: string; caption: string; latitude: string; longitude: string };
 export type PublicBusinessLink = { type: 'link'; assetId: string; title: string; caption: string; href: string };
 export type PublicBusinessBlock = PublicBusinessImage | PublicBusinessVideo | PublicBusinessMap | PublicBusinessLink;
-export type PublicBusinessMedia = { cover: PublicBusinessImage | null; steps: PublicBusinessBlock[][] };
+export type PublicBusinessCover = PublicBusinessImage | PublicBusinessVideo;
+export type PublicBusinessMedia = { cover: PublicBusinessCover | null; steps: PublicBusinessBlock[][] };
 
 const CONTENT_PATH = /^\/api\/business-yansi\/public-media\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/i;
 const HTTPS = /^https:\/\/\S+$/i;
@@ -52,13 +53,13 @@ export function parseBusinessMediaBlocks(value: unknown): PublicBusinessBlock[] 
 export function parseBusinessMedia(value: unknown): PublicBusinessMedia | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const row = value as Record<string, unknown>;
-  const cover = row.cover == null ? null : parseBlock(row.cover);
-  const imageCover = cover?.type === 'image' ? cover : null;
+  const parsedCover = row.cover == null ? null : parseBlock(row.cover);
+  const cover = parsedCover && (parsedCover.type === 'image' || parsedCover.type === 'video') ? parsedCover : null;
   const steps = Array.isArray(row.steps)
     ? row.steps.map((step) => (Array.isArray(step) ? parseBusinessMediaBlocks(step) : []))
     : [];
-  if (!imageCover && steps.every((step) => step.length === 0)) return undefined;
-  return { cover: imageCover, steps };
+  if (!cover && steps.every((step) => step.length === 0)) return undefined;
+  return { cover, steps };
 }
 
 export function businessMediaUrl(contentPath: string): string {
@@ -66,6 +67,11 @@ export function businessMediaUrl(contentPath: string): string {
 }
 
 export function businessCoverUrl(media?: PublicBusinessMedia | null): string | null {
-  if (!media?.cover) return null;
+  if (!media?.cover || media.cover.type !== 'image') return null;
   return businessMediaUrl(media.cover.contentPath);
+}
+
+export function businessCoverVideoUrl(media?: PublicBusinessMedia | null): string | null {
+  if (!media?.cover || media.cover.type !== 'video') return null;
+  return media.cover.href;
 }

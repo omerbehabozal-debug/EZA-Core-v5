@@ -87,9 +87,16 @@ def select_step_blocks(question, answer, assets, choice=None):
 
 
 def select_cover(title, summary, assets):
-    images = [asset for asset in assets if asset.asset_type == "image"]
-    ranked = _rank(f"{title} {summary}", images)
-    return str(ranked[0].id) if ranked else None
+    covers = [asset for asset in assets if asset.asset_type in {"image", "video"}]
+    context = f"{title} {summary}"
+    ranked = _rank(context, covers)
+    if not ranked:
+        return None
+    words = _words(context)
+    best = max(len(words & _words(f"{asset.title} {asset.caption or ''}")) for asset in ranked)
+    tied = [asset for asset in ranked if len(words & _words(f"{asset.title} {asset.caption or ''}")) == best]
+    images = [asset for asset in tied if asset.asset_type == "image"]
+    return str((images or tied)[0].id)
 
 
 def public_media_view(plan, eligible_ids):
@@ -117,13 +124,13 @@ def plan_is_live(steps, plan, grouped):
     cover = plan.get("coverAssetId")
     if not cover:
         return True
-    images = {
+    covers = {
         str(asset.id)
         for assets in grouped.values()
         for asset in assets
-        if asset.asset_type == "image"
+        if asset.asset_type in {"image", "video"}
     }
-    return cover in images
+    return cover in covers
 
 
 async def eligible_for_versions(db, business_id, version_ids):
@@ -171,7 +178,7 @@ async def bind_media_plan(db, business_id, title, summary, steps, media_choices=
         unique = list({asset.id: asset for asset in pool}.values())
         choice = None if media_choices is None else media_choices[index]
         blocks.append(select_step_blocks(step["question"], step["answer"], unique, choice))
-        cover_assets.extend(asset for asset in unique if asset.asset_type == "image")
+        cover_assets.extend(asset for asset in unique if asset.asset_type in {"image", "video"})
     plan = {
         "coverAssetId": select_cover(title, summary, list({asset.id: asset for asset in cover_assets}.values())),
         "blocks": blocks,
@@ -319,7 +326,7 @@ async def publication_media(db, slug, version):
             live[str(asset.id)] = asset
     cover = None
     cover_asset = live.get(str(plan.get("coverAssetId")))
-    if cover_asset is not None and cover_asset.asset_type == "image":
+    if cover_asset is not None and cover_asset.asset_type in {"image", "video"}:
         cover = public_block(cover_asset)
     steps = [_present_chosen(step or [], live.values()) for step in plan.get("blocks") or []]
     if cover is None and not any(steps):
