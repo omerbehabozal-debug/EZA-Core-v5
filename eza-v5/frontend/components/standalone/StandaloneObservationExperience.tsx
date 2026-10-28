@@ -101,6 +101,7 @@ import {
   consumePendingJourneyAynaGeneration,
   requestJourneyAynaGeneration,
   recoverPublishedJourneyAfterLostResponse,
+  fetchPublicFrozenJourneyArtifact,
   resolveJourneyOwnerKey,
   requiresAuthenticatedJourneyYansiGate,
   hasJourneyBackedYansiArtifact,
@@ -150,6 +151,7 @@ import {
 import type { AynaJourneySlideActions } from '@/components/mirror/ayna/AynaJourneySlide';
 import {
   classifyContentIdentityEcho,
+  recoveredIdentityNotice,
   YANSI_IDENTITY_UNCONFIRMED_MESSAGE,
   type YansiContentIdentity,
 } from '@/lib/eza/mirror/journey/yansiContentIdentity';
@@ -837,7 +839,21 @@ export default function StandaloneObservationExperience({
                 : prev
             );
             setShareLinkStatus('ready');
-            setShareLinkError(null);
+            let identityNotice: string | null = null;
+            if (
+              classifyContentIdentityEcho(options?.contentIdentity, undefined) !== 'absent'
+            ) {
+              try {
+                const frozen = await fetchPublicFrozenJourneyArtifact({
+                  slug: recovered.item.slug,
+                  journeyVersion: failedJourneyVersion,
+                });
+                identityNotice = recoveredIdentityNotice(options?.contentIdentity, frozen);
+              } catch {
+                identityNotice = YANSI_IDENTITY_UNCONFIRMED_MESSAGE;
+              }
+            }
+            setShareLinkError(identityNotice);
             setArtifactRevision((n) => n + 1);
             return true;
           }

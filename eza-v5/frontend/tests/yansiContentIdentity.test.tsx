@@ -10,6 +10,7 @@ import { parsePublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publi
 import {
   classifyContentIdentityEcho,
   contentIdentityRequestFields,
+  recoveredIdentityNotice,
   YANSI_IDENTITY_UNCONFIRMED_MESSAGE,
 } from '@/lib/eza/mirror/journey/yansiContentIdentity';
 import type { JourneyGenerationLineage } from '@/lib/eza/mirror/journey/journeyGenerationLineage';
@@ -188,7 +189,19 @@ describe('Yansı content identity', () => {
     );
     expect(publishFlow).toContain('classifyContentIdentityEcho');
     expect(publishFlow).not.toContain('İçerik etiketi yayın kaydına yazılamadı.');
-    expect(publishFlow).toContain('recoverPublishedJourneyAfterLostResponse');
+    expect(publishFlow).toContain('recoveredIdentityNotice');
+    expect(publishFlow).toContain('fetchPublicFrozenJourneyArtifact');
+  });
+
+  it('checks recovered labels without a false confirmation', () => {
+    const selected = { experienceType: 'story' as const, contentNature: 'fiction' as const };
+    expect(recoveredIdentityNotice(selected, { experienceType: 'story', contentNature: 'fiction' })).toBeNull();
+    expect(recoveredIdentityNotice(selected, { experienceType: 'knowledge', contentNature: 'real' })).toBe(
+      YANSI_IDENTITY_UNCONFIRMED_MESSAGE
+    );
+    expect(recoveredIdentityNotice(selected, null)).toBe(YANSI_IDENTITY_UNCONFIRMED_MESSAGE);
+    expect(recoveredIdentityNotice(undefined, null)).toBeNull();
+    expect(recoveredIdentityNotice({}, { experienceType: 'story', contentNature: 'fiction' })).toBeNull();
   });
 
   it('renders no extra label when metadata is missing', () => {

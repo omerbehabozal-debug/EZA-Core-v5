@@ -41,6 +41,18 @@ def stamp_new_freeze(
     return stamped
 
 
+def public_identity_from_frozen(
+    public: Mapping[str, Any],
+    frozen: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Public labels follow the accepted freeze. A losing request cannot leave its own."""
+    reconciled = dict(public)
+    reconciled.pop("experienceType", None)
+    reconciled.pop("contentNature", None)
+    reconciled.update(read_content_identity(frozen))
+    return reconciled
+
+
 def identity_for_publish(
     existing_frozen: Mapping[str, Any] | None,
     experience_type: str | None,

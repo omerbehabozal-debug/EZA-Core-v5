@@ -678,6 +678,421 @@ async def test_idempotent_same_version_retry_and_conflict():
 
 
 @pytest.mark.asyncio
+async def test_losing_publish_race_keeps_the_accepted_freeze_labels():
+    from sqlalchemy.exc import IntegrityError
+
+    user = _user()
+    db = _publish_db()
+    db.rollback = AsyncMock()
+    steps = _steps(6, deselected={6, 7})
+    created: list[SimpleNamespace] = []
+    lookups = {"count": 0}
+
+    async def _create(_db, node, commit=True):
+        created.append(node)
+        if len(created) > 1:
+            raise IntegrityError("insert", {}, Exception("duplicate"))
+        return node
+
+    async def _get(_db, **_kwargs):
+        lookups["count"] += 1
+        if lookups["count"] < 3:
+            return None
+        return created[0]
+
+    with (
+        patch(
+            "backend.services.mirror_network.journey_publish_contract.mirror_journey_v1_enabled",
+            return_value=True,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.replace_journey_steps_for_version",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.MirrorNetworkNode",
+            side_effect=lambda **kwargs: SimpleNamespace(**kwargs),
+        ),
+        patch(
+            "backend.services.mirror_network.publish.get_mirror_network_node_by_slug_for_user",
+            new_callable=AsyncMock,
+            side_effect=_get,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.slug_exists",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.create_mirror_network_node",
+            new_callable=AsyncMock,
+            side_effect=_create,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.update_mirror_network_node",
+            new_callable=AsyncMock,
+            side_effect=lambda _db, node, commit=True: node,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.MirrorNetworkNodeRecord.from_orm",
+            side_effect=lambda node: node,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.node_to_public_payload",
+            side_effect=lambda record: SimpleNamespace(slug=record.slug, shareUrl=f"/m/{record.slug}"),
+        ),
+    ):
+        winner_body = _body(
+            journeyId="journey-race",
+            selectedSteps=steps,
+            journeyVersion=1,
+            experienceType="knowledge",
+            contentNature="real",
+        )
+        await publish_mirror_to_network(db, user, winner_body)
+        sealed_hash = read_frozen_journey_artifact_from_private(created[0].private_payload)[
+            "publicLandingHash"
+        ]
+        await publish_mirror_to_network(
+            db,
+            user,
+            _body(
+                journeyId="journey-race",
+                selectedSteps=steps,
+                journeyVersion=1,
+                generationId=str(winner_body.generationId),
+                experienceType="story",
+                contentNature="fiction",
+            ),
+        )
+
+    winner = created[0]
+    frozen = read_frozen_journey_artifact_from_private(winner.private_payload)
+    assert frozen["experienceType"] == "knowledge"
+    assert frozen["contentNature"] == "real"
+    assert winner.public_payload["experienceType"] == frozen["experienceType"]
+    assert winner.public_payload["contentNature"] == frozen["contentNature"]
+    assert winner.public_payload["experienceType"] != "story"
+    assert frozen["publicLandingHash"] == sealed_hash
+    assert winner.public_payload.get("publicLandingHash") in (None, sealed_hash)
+
+
+@pytest.mark.asyncio
+async def test_losing_publish_race_drops_labels_when_the_freeze_has_none():
+    from sqlalchemy.exc import IntegrityError
+
+    user = _user()
+    db = _publish_db()
+    db.rollback = AsyncMock()
+    steps = _steps(6, deselected={6, 7})
+    created: list[SimpleNamespace] = []
+    lookups = {"count": 0}
+
+    async def _create(_db, node, commit=True):
+        created.append(node)
+        if len(created) > 1:
+            raise IntegrityError("insert", {}, Exception("duplicate"))
+        return node
+
+    async def _get(_db, **_kwargs):
+        lookups["count"] += 1
+        if lookups["count"] < 3:
+            return None
+        return created[0]
+
+    with (
+        patch(
+            "backend.services.mirror_network.journey_publish_contract.mirror_journey_v1_enabled",
+            return_value=True,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.replace_journey_steps_for_version",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.MirrorNetworkNode",
+            side_effect=lambda **kwargs: SimpleNamespace(**kwargs),
+        ),
+        patch(
+            "backend.services.mirror_network.publish.get_mirror_network_node_by_slug_for_user",
+            new_callable=AsyncMock,
+            side_effect=_get,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.slug_exists",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.create_mirror_network_node",
+            new_callable=AsyncMock,
+            side_effect=_create,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.update_mirror_network_node",
+            new_callable=AsyncMock,
+            side_effect=lambda _db, node, commit=True: node,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.MirrorNetworkNodeRecord.from_orm",
+            side_effect=lambda node: node,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.node_to_public_payload",
+            side_effect=lambda record: SimpleNamespace(slug=record.slug, shareUrl=f"/m/{record.slug}"),
+        ),
+    ):
+        winner_body = _body(journeyId="journey-plain", selectedSteps=steps, journeyVersion=1)
+        await publish_mirror_to_network(db, user, winner_body)
+        sealed_hash = read_frozen_journey_artifact_from_private(created[0].private_payload)[
+            "publicLandingHash"
+        ]
+        await publish_mirror_to_network(
+            db,
+            user,
+            _body(
+                journeyId="journey-plain",
+                selectedSteps=steps,
+                journeyVersion=1,
+                generationId=str(winner_body.generationId),
+                experienceType="story",
+                contentNature="fiction",
+            ),
+        )
+
+    winner = created[0]
+    frozen = read_frozen_journey_artifact_from_private(winner.private_payload)
+    assert "experienceType" not in frozen
+    assert "experienceType" not in winner.public_payload
+    assert "contentNature" not in winner.public_payload
+    assert frozen["publicLandingHash"] == sealed_hash
+    assert winner.public_payload.get("publicLandingHash") in (None, sealed_hash)
+
+
+@pytest.mark.asyncio
+async def test_unreadable_winning_freeze_does_not_save_the_losing_labels():
+    from sqlalchemy.exc import IntegrityError
+
+    user = _user()
+    db = _publish_db()
+    db.rollback = AsyncMock()
+    steps = _steps(6, deselected={6, 7})
+    created: list[SimpleNamespace] = []
+    lookups = {"count": 0}
+    updates = {"count": 0}
+
+    async def _create(_db, node, commit=True):
+        created.append(node)
+        if len(created) > 1:
+            raise IntegrityError("insert", {}, Exception("duplicate"))
+        return node
+
+    async def _get(_db, **_kwargs):
+        lookups["count"] += 1
+        if lookups["count"] < 3:
+            return None
+        winner = created[0]
+        winner.private_payload = {}
+        return winner
+
+    async def _update(_db, node, commit=True):
+        updates["count"] += 1
+        return node
+
+    with (
+        patch(
+            "backend.services.mirror_network.journey_publish_contract.mirror_journey_v1_enabled",
+            return_value=True,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.replace_journey_steps_for_version",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.MirrorNetworkNode",
+            side_effect=lambda **kwargs: SimpleNamespace(**kwargs),
+        ),
+        patch(
+            "backend.services.mirror_network.publish.get_mirror_network_node_by_slug_for_user",
+            new_callable=AsyncMock,
+            side_effect=_get,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.slug_exists",
+            new_callable=AsyncMock,
+            return_value=False,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.create_mirror_network_node",
+            new_callable=AsyncMock,
+            side_effect=_create,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.update_mirror_network_node",
+            new_callable=AsyncMock,
+            side_effect=_update,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.MirrorNetworkNodeRecord.from_orm",
+            side_effect=lambda node: node,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.node_to_public_payload",
+            side_effect=lambda record: SimpleNamespace(slug=record.slug, shareUrl=f"/m/{record.slug}"),
+        ),
+    ):
+        winner_body = _body(
+            journeyId="journey-unreadable",
+            selectedSteps=steps,
+            journeyVersion=1,
+            experienceType="knowledge",
+            contentNature="real",
+        )
+        await publish_mirror_to_network(db, user, winner_body)
+        saved = dict(created[0].public_payload)
+        with pytest.raises(HTTPException) as rejected:
+            await publish_mirror_to_network(
+                db,
+                user,
+                _body(
+                    journeyId="journey-unreadable",
+                    selectedSteps=steps,
+                    journeyVersion=1,
+                    generationId=str(winner_body.generationId),
+                    experienceType="story",
+                    contentNature="fiction",
+                ),
+            )
+
+    assert rejected.value.status_code == 409
+    assert rejected.value.detail["code"] == "frozen_identity_unavailable"
+    assert updates["count"] == 0
+    assert db.rollback.await_count >= 1
+    assert created[0].public_payload == saved
+    assert created[0].public_payload["experienceType"] == "knowledge"
+    assert "story" != created[0].public_payload.get("experienceType")
+    assert "fiction" != created[0].public_payload.get("contentNature")
+
+
+@pytest.mark.asyncio
+async def test_republish_keeps_labels_already_on_the_freeze():
+    from backend.services.mirror_network.yansi_content_identity import stamp_new_freeze
+
+    user = _user()
+    db = _publish_db()
+    steps = _steps(8)
+    body = _body(
+        journeyId="journey-republish",
+        selectedSteps=steps,
+        journeyVersion=1,
+        experienceType="fun",
+        contentNature="fiction",
+    )
+    freeze = stamp_new_freeze(
+        build_durable_frozen_journey_artifact(
+            journey_id="journey-republish",
+            journey_version=1,
+            source_conversation_id="conv-phase4",
+            author_user_id=str(user.id),
+            parent_slug=None,
+            block_index=0,
+            block_start=0,
+            block_end=7,
+            source_block_hash=None,
+            selected_steps=steps,
+            public_title="Aile SUV Merakı",
+            public_summary="BMW X3 ile Mercedes GLC arasında aile konforu.",
+            continuation_context="Hangi uzun yol özelliği daha kritik?",
+            public_landing_hash=str(body.publicLandingHash),
+            public_landing_contract_version="mirror-public-landing-v1",
+            scene_asset_id=SCENE_A,
+            scene_image_url=URL_A,
+            generation_id=str(body.generationId),
+            selected_steps_hash=str(body.selectedStepsHash),
+            scoped_input_hash=str(body.scopedInputHash),
+            window_hash=str(body.windowHash),
+            interpretation_hash=str(body.interpretationHash),
+            anchors_hash=None,
+            mapped_prompt_hash=str(body.mappedPromptHash),
+            narrative_alignment=None,
+            sanitization_status="sanitized",
+            sanitization_flags=[],
+            original_step_hashes=None,
+            public_step_hashes=None,
+            frozen_at=datetime.now(timezone.utc),
+            frozen_eza_snapshots_hash=None,
+        ),
+        "discussion",
+        "mixed",
+    )
+    existing = SimpleNamespace(
+        id=uuid.uuid4(),
+        slug="journey-republish",
+        user_id=user.id,
+        conversation_id="conv-phase4",
+        scene_image_url=URL_A,
+        parent_slug=None,
+        published_at=datetime.now(timezone.utc),
+        artifact_kind=ARTIFACT_KIND_JOURNEY_V1,
+        journey_version=1,
+        freeze_status=FREEZE_STATUS_FROZEN,
+        frozen_at=datetime.now(timezone.utc),
+        private_payload=attach_frozen_journey_artifact({}, freeze),
+        public_payload={"experienceType": "discussion", "contentNature": "mixed"},
+        card_title="Aile SUV Merakı",
+        card_date="2026-08-11",
+        safety_status="open",
+        visibility="public",
+        updated_at=None,
+        window_index=0,
+        window_start=0,
+        window_end=7,
+    )
+    with (
+        patch(
+            "backend.services.mirror_network.journey_publish_contract.mirror_journey_v1_enabled",
+            return_value=True,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.replace_journey_steps_for_version",
+            new_callable=AsyncMock,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.get_mirror_network_node_by_slug_for_user",
+            new_callable=AsyncMock,
+            return_value=existing,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.update_mirror_network_node",
+            new_callable=AsyncMock,
+            side_effect=lambda _db, node, commit=True: node,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.MirrorNetworkNodeRecord.from_orm",
+            side_effect=lambda node: node,
+        ),
+        patch(
+            "backend.services.mirror_network.publish.node_to_public_payload",
+            side_effect=lambda record: SimpleNamespace(slug=record.slug, shareUrl=f"/m/{record.slug}"),
+        ),
+        patch(
+            "backend.services.mirror_network.publish.get_lineage_selected_steps_hash_for_version",
+            new_callable=AsyncMock,
+            return_value=str(body.selectedStepsHash),
+        ),
+    ):
+        await publish_mirror_to_network(db, user, body)
+
+    frozen = read_frozen_journey_artifact_from_private(existing.private_payload)
+    assert frozen["experienceType"] == "discussion"
+    assert frozen["contentNature"] == "mixed"
+    assert existing.public_payload["experienceType"] == "discussion"
+    assert existing.public_payload["contentNature"] == "mixed"
+    assert frozen["publicLandingHash"] == str(body.publicLandingHash)
+    assert existing.public_payload.get("publicLandingHash") in (None, frozen["publicLandingHash"])
+
+
+@pytest.mark.asyncio
 async def test_freeze_commit_failure_reports_not_success():
     user = _user()
     db = _publish_db()

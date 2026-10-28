@@ -996,10 +996,10 @@ async def publish_mirror_to_network(
 
     if atomic_journey_freeze:
         from backend.services.mirror_network.yansi_content_identity import (
-            read_content_identity,
+            public_identity_from_frozen,
         )
 
-        public_dict = {**public_dict, **read_content_identity(durable_freeze)}
+        public_dict = public_identity_from_frozen(public_dict, durable_freeze)
 
     try:
         if existing:
@@ -1083,27 +1083,40 @@ async def publish_mirror_to_network(
                             _as_mapping(getattr(raced, "private_payload", None)),
                             journey_version=int(journey_publish_version or 1),
                         )
-                        if raced_frozen is not None:
-                            assert_frozen_content_immutable(
-                                existing_frozen=raced_frozen,
-                                selected_steps_hash=journey_selected_steps_hash,
-                                public_landing_hash=actual_public_landing_hash,
-                                scene_asset_id=actual_scene_asset_id,
-                                generation_id=str(
-                                    incoming_lineage.get("generationId") or ""
-                                ).strip()
-                                or None,
-                                frozen_eza_snapshots_hash=_compute_publish_frozen_eza_hash(
-                                    normalized_steps
-                                ),
+                        if raced_frozen is None:
+                            raise HTTPException(
+                                status_code=status.HTTP_409_CONFLICT,
+                                detail={
+                                    "code": "frozen_identity_unavailable",
+                                    "message": (
+                                        "The accepted freeze could not be read, "
+                                        "so this request's labels were not saved."
+                                    ),
+                                },
                             )
-                            private_dict = attach_frozen_journey_artifact(
-                                private_dict, raced_frozen, archive_previous=False
-                            )
-                            freeze_status_for_write = FREEZE_STATUS_FROZEN
-                            frozen_at_for_write = (
-                                getattr(raced, "frozen_at", None) or now
-                            )
+                        assert_frozen_content_immutable(
+                            existing_frozen=raced_frozen,
+                            selected_steps_hash=journey_selected_steps_hash,
+                            public_landing_hash=actual_public_landing_hash,
+                            scene_asset_id=actual_scene_asset_id,
+                            generation_id=str(
+                                incoming_lineage.get("generationId") or ""
+                            ).strip()
+                            or None,
+                            frozen_eza_snapshots_hash=_compute_publish_frozen_eza_hash(
+                                normalized_steps
+                            ),
+                        )
+                        private_dict = attach_frozen_journey_artifact(
+                            private_dict, raced_frozen, archive_previous=False
+                        )
+                        public_dict = public_identity_from_frozen(
+                            public_dict, raced_frozen
+                        )
+                        freeze_status_for_write = FREEZE_STATUS_FROZEN
+                        frozen_at_for_write = (
+                            getattr(raced, "frozen_at", None) or now
+                        )
                     _apply_node_fields(
                         raced,
                         card_title=card_title,

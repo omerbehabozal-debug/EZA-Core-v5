@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy import select
 
 from backend.core.schemas.mirror_network import MirrorNetworkPublishRequest
 from backend.services.business_yansi.service import source_hash
@@ -25,6 +26,7 @@ from backend.services.mirror_network.service import node_to_public_payload
 from backend.services.mirror_network.types import MirrorNetworkNodeRecord
 from backend.services.mirror_network.yansi_content_identity import (
     identity_for_publish,
+    public_identity_from_frozen,
     read_content_identity,
     stamp_new_freeze,
 )
@@ -241,8 +243,139 @@ def test_existing_sealed_publish_does_not_take_new_labels_or_a_second_identity()
     assert sealed["publicLandingHash"] == payload.publicLandingHash
 
 
+def test_public_payload_labels_match_the_accepted_freeze():
+    winner = stamp_new_freeze(_freeze(), "knowledge", "real")
+    landing_hash = winner["publicLandingHash"]
+    reconciled = public_identity_from_frozen(
+        {
+            "publicLandingHash": landing_hash,
+            "experienceType": "story",
+            "contentNature": "fiction",
+        },
+        winner,
+    )
+    assert reconciled["experienceType"] == "knowledge"
+    assert reconciled["contentNature"] == "real"
+    assert read_content_identity(winner) == {
+        "experienceType": reconciled["experienceType"],
+        "contentNature": reconciled["contentNature"],
+    }
+    assert reconciled["publicLandingHash"] == landing_hash
+
+
+def test_unlabeled_freeze_removes_a_later_request_from_the_public_payload():
+    plain = _freeze()
+    reconciled = public_identity_from_frozen(
+        {
+            "publicLandingHash": plain["publicLandingHash"],
+            "experienceType": "story",
+            "contentNature": "fiction",
+        },
+        plain,
+    )
+    assert "experienceType" not in reconciled
+    assert "contentNature" not in reconciled
+    assert reconciled["publicLandingHash"] == plain["publicLandingHash"]
+    assert identity_for_publish(plain, "story", "fiction") == {}
+
+
+def test_republish_identity_stays_on_the_frozen_labels():
+    stored = stamp_new_freeze(_freeze(), "discussion", "mixed")
+    reconciled = public_identity_from_frozen(
+        {
+            "publicLandingHash": stored["publicLandingHash"],
+            "experienceType": "fun",
+            "contentNature": "fiction",
+        },
+        stored,
+    )
+    assert reconciled["experienceType"] == "discussion"
+    assert reconciled["contentNature"] == "mixed"
+    assert reconciled["publicLandingHash"] == stored["publicLandingHash"]
+
+
 def test_publish_seals_ignore_content_labels():
     steps = [{"question": "Soru", "answer": "Cevap"}]
-    plan = {"coverAssetId": None, "blocks": [[{"type": "image", "assetId": "asset"}]]}
-    assert source_hash(steps) == source_hash(steps)
-    assert media_seal(plan) == media_seal({**plan, "experienceType": "fun", "contentNature": "real"})
+    baseline = source_hash(steps)
+    assert source_hash([{"answer": "Cevap", "question": "Soru"}]) == baseline
+    assert source_hash([{"question": "Soru", "answer": "Başka cevap"}]) != baseline
+    plan = {"coverAssetId": "cover-1", "blocks": [[{"type": "image", "assetId": "asset-1"}]]}
+    sealed = media_seal(plan)
+    assert media_seal({**plan, "experienceType": "fun", "contentNature": "real"}) == sealed
+    assert media_seal({**plan, "coverAssetId": "cover-2"}) != sealed
+    landing = {
+        "publicTitle": "Başlık",
+        "publicSummary": "Özet",
+        "continuationContext": "Devam",
+        "contractVersion": "mirror-public-landing-v1",
+    }
+    assert compute_public_landing_hash(landing) == compute_public_landing_hash(
+        {**landing, "experienceType": "story", "contentNature": "fiction"}
+    )
+
+
+@pytest.mark.asyncio
+async def test_sqlite_round_trip_stores_only_the_accepted_labels():
+    from sqlalchemy.dialects.postgresql import JSONB, UUID
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+    from sqlalchemy.ext.compiler import compiles
+
+    from backend.core.utils.dependencies import Base
+    from backend.models.mirror_network import MirrorNetworkNode
+    from backend.models.production import User
+
+    @compiles(UUID, "sqlite")
+    def _sqlite_uuid(type_, compiler, **kw):
+        return "CHAR(32)"
+
+    @compiles(JSONB, "sqlite")
+    def _sqlite_json(type_, compiler, **kw):
+        return "JSON"
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as connection:
+        await connection.run_sync(
+            lambda sync: Base.metadata.create_all(
+                sync, tables=[User.__table__, MirrorNetworkNode.__table__]
+            )
+        )
+    winner = stamp_new_freeze(_freeze(), "knowledge", "real")
+    public = public_identity_from_frozen(
+        {
+            "slug": "yansi-kimlik",
+            "cardTitle": "Başlık",
+            "cardDate": "2026-10-28",
+            "publicLandingHash": winner["publicLandingHash"],
+            "experienceType": "story",
+            "contentNature": "fiction",
+        },
+        winner,
+    )
+    owner_id = uuid.uuid4()
+    async with async_sessionmaker(engine, expire_on_commit=False)() as db:
+        db.add(User(id=owner_id, email="owner@example.test", role="user", is_active=True))
+        db.add(
+            MirrorNetworkNode(
+                id=uuid.uuid4(),
+                slug="yansi-kimlik",
+                user_id=owner_id,
+                visibility="public",
+                safety_status="open",
+                card_title="Başlık",
+                card_date="2026-10-28",
+                public_payload=public,
+                private_payload=attach_frozen_journey_artifact(None, winner),
+                artifact_kind="journey_v1",
+                journey_version=1,
+                freeze_status="frozen",
+            )
+        )
+        await db.commit()
+    async with async_sessionmaker(engine, expire_on_commit=False)() as db:
+        stored = await db.scalar(select(MirrorNetworkNode).where(MirrorNetworkNode.slug == "yansi-kimlik"))
+    assert stored is not None
+    loaded = read_frozen_journey_artifact_from_private(stored.private_payload)
+    assert stored.public_payload["experienceType"] == loaded["experienceType"] == "knowledge"
+    assert stored.public_payload["contentNature"] == loaded["contentNature"] == "real"
+    assert stored.public_payload["publicLandingHash"] == loaded["publicLandingHash"]
+    await engine.dispose()

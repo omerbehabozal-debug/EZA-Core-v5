@@ -78,6 +78,15 @@ export function classifyContentIdentityEcho(
   return 'confirmed';
 }
 
+export function recoveredIdentityNotice(
+  wanted: YansiContentIdentity | null | undefined,
+  frozen: { experienceType?: string | null; contentNature?: string | null } | null
+): string | null {
+  return classifyContentIdentityEcho(wanted, frozen) === 'unconfirmed'
+    ? YANSI_IDENTITY_UNCONFIRMED_MESSAGE
+    : null;
+}
+
 export function contentIdentityRequestFields(
   identity?: YansiContentIdentity | null
 ): { experienceType?: YansiExperienceType; contentNature?: YansiContentNature } {
