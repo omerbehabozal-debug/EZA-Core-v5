@@ -658,7 +658,7 @@ async def test_hybrid_retrieval_contracts():
         _stamp_from_phase42(url)
         upgraded = _alembic(["upgrade", "head"], url)
         assert upgraded.returncode == 0, _redact(upgraded.stderr or upgraded.stdout)[-2000:]
-        assert _revision(url) == "add_business_knowledge_chunks_fts_v1"
+        assert _revision(url) == "add_business_yansi_media_plan_v1"
         brand = _ids()
         other = _ids()
         _seed(url, brand, content="Seramik bakım ürünü SKU-120-A fiyat 12.500 TL")
