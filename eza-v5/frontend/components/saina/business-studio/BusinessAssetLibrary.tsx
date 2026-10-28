@@ -192,7 +192,7 @@ export default function BusinessAssetLibrary({
         (editing?.links || []).filter((link) => link.status === 'active' && link.confirmation_current).map((link) => link.confirmed_version_id),
       );
       const next = new Set(versionIds);
-      const same = previous.size === next.size && [...previous].every((id) => next.has(id));
+      const same = previous.size === next.size && Array.from(previous).every((id) => next.has(id));
       if (!same || data.getAll('retire').length > 0) {
         await businessRequest(`/${businessId}/assets/${saved.id}/links`, 'POST', {
           knowledgeVersionIds: versionIds,
@@ -310,7 +310,7 @@ export default function BusinessAssetLibrary({
                 {staleItems.has(row.item_id) ? <span className="biz-card-meta"> Yeni sürüm için yeniden onay gerekir.</span> : null}
               </label>
             ))}
-            {[...staleItems].map((itemId) => (
+            {Array.from(staleItems).map((itemId) => (
               <label key={`retire-${itemId}`} className="biz-check">
                 <input type="checkbox" name="retire" value={itemId} disabled={saving} />
                 Eski onay bağını kaldır
