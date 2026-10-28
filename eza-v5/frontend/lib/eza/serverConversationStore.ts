@@ -27,6 +27,7 @@ import {
   upsertChatArchive,
 } from '@/lib/standaloneChatArchive';
 import { mergeArchivedMessageEvaluations } from '@/lib/standaloneChatSession';
+import { parseBusinessMediaBlocks } from '@/lib/eza/mirror/journey/businessMedia';
 
 export type ConversationPersistenceStatus = {
   conversationPersisted: boolean;
@@ -261,6 +262,8 @@ function mapDetailToArchivedChat(detail: ServerConversationDetail): ArchivedChat
       ) {
         row.safety = msg.safety;
       }
+      const businessMedia = parseBusinessMediaBlocks(msg.businessMedia);
+      if (businessMedia.length) row.businessMedia = businessMedia;
       return row;
     });
 

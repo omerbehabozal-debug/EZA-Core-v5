@@ -4,6 +4,7 @@ import MirrorFrozenReplay from '@/components/mirror-landing/MirrorFrozenReplay';
 import MirrorYansiSceneCrossfade from '@/components/mirror-landing/MirrorYansiSceneCrossfade';
 import { BusinessAnswerBody } from '@/components/mirror-landing/BusinessMediaBlocks';
 import { parsePublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
+import { fromArchivedMessages } from '@/lib/standaloneChatSession';
 import { parseBusinessMedia, parseBusinessMediaBlocks } from '@/lib/eza/mirror/journey/businessMedia';
 import { clearAllFrozenReplayProgressForTests } from '@/lib/eza/mirror/journey/frozenReplaySession';
 
@@ -69,6 +70,23 @@ describe('business media display', () => {
     rerender(<MirrorYansiSceneCrossfade sceneImageUrl="https://cdn.example/brand.jpg" presentation="desktop-immersive" brandCover />);
     expect(screen.getByTestId('mirror-yansi-scene-current').className).toContain('object-contain');
     expect(screen.getByTestId('mirror-yansi-scene-crossfade')).toHaveAttribute('data-yansi-brand-cover', 'true');
+  });
+
+  it('restores the same chat media when the saved conversation opens again', () => {
+    const saved = fromArchivedMessages([
+      { id: 'a1', text: 'Seramik atolyesi aciktir.', isUser: false, timestamp: '2026-10-28T10:00:00.000Z', businessMedia: [{
+        type: 'image', assetId: image, title: 'Atolye', contentPath: `/api/business-yansi/public-media/${brand}/${image}`,
+      }, { type: 'link', assetId: link, title: 'Gizli', href: 'http://bilign.example/seramik' }] },
+      { id: 'u1', text: 'Tesekkurler', isUser: true, timestamp: '2026-10-28T10:01:00.000Z' },
+      { id: 'old', text: 'Eski metin cevap.', isUser: false, timestamp: '2026-10-28T10:02:00.000Z' },
+    ]);
+    expect(saved.map((message) => message.text)).toEqual(['Seramik atolyesi aciktir.', 'Tesekkurler', 'Eski metin cevap.']);
+    expect(saved[0].businessMedia?.map((block) => block.type)).toEqual(['image']);
+    expect(saved[1].businessMedia).toBeUndefined();
+    expect(saved[2].businessMedia).toBeUndefined();
+    render(<BusinessAnswerBody text={saved[0].text} blocks={saved[0].businessMedia} layout="mobile" />);
+    expect(screen.getByTestId('business-media-image')).toHaveAttribute('src', expect.stringContaining(`/api/business-yansi/public-media/${brand}/${image}`));
+    expect(screen.queryByTestId('business-media-link')).toBeNull();
   });
 
   it('places chat media beside the answer text', () => {

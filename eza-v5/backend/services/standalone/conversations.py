@@ -277,7 +277,8 @@ async def get_standalone_conversation_detail(
         .where(StandaloneConversationMessage.conversation_id == conv.id)
         .order_by(StandaloneConversationMessage.sequence.asc())
     )
-    messages = [_message_to_dto(row) for row in msg_result.scalars().all()]
+    raw_messages = list(msg_result.scalars().all())
+    messages = [_message_to_dto(row) for row in raw_messages]
     flags = await preparation_flags_for_conversations(
         db,
         user_id=user_id,
@@ -303,6 +304,20 @@ async def get_standalone_conversation_detail(
             replay_unavailable = True
         except ValidationError:
             replay_unavailable = True
+    publisher = replay_context.get("businessPublisher") if isinstance(replay_context, dict) else None
+    business_id = publisher.get("businessId") if isinstance(publisher, dict) else None
+    if business_id:
+        from backend.services.business_yansi.studio_media import recall_media
+        restored = []
+        for row, message in zip(raw_messages, messages):
+            stored = row.message_metadata if isinstance(row.message_metadata, dict) else {}
+            asset_ids = stored.get("businessMediaAssetIds") if row.role == "assistant" else None
+            if isinstance(asset_ids, list) and asset_ids:
+                shown = await recall_media(db, business_id, asset_ids)
+                if shown:
+                    message = message.model_validate({**message.model_dump(), "businessMedia": shown})
+            restored.append(message)
+        messages = restored
     return StandaloneConversationDetail(**detail.model_dump(), messages=messages,
                                         publicReplayContext=replay_context, publicReplayUnavailable=replay_unavailable)
 

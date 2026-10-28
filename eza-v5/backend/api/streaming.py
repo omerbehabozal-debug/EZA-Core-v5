@@ -130,15 +130,17 @@ async def stream_standalone_response(
         data = await answer(query, chat_history, analysis_model, db=db_session)
         from sqlalchemy.ext.asyncio import AsyncSession
         if isinstance(db_session, AsyncSession):
-            from backend.services.business_yansi.studio_media import answer_media
+            from backend.services.business_yansi.studio_media import answer_media, media_asset_ids
             shown = await answer_media(db_session, chat_history.business_id, data.get('assistant_answer') or '', data.get('sources') or [])
             if shown:
                 data['business_media'] = shown
+                data['business_media_asset_ids'] = media_asset_ids(shown)
+        asset_ids = data.pop('business_media_asset_ids', None)
         if persistence is not None:
             from backend.services.standalone.generation_persistence import persist_assistant_turn_after_generation, build_completion_persistence_status
             from backend.services.standalone.generation_persistence import update_user_turn_evaluation
             await update_user_turn_evaluation(db_session, persistence, user_score=data.get('user_score'))
-            persisted = await persist_assistant_turn_after_generation(db_session, persistence, content=data['assistant_answer'], assistant_score=data.get('assistant_score'), behavioral=data.get('behavioral'))
+            persisted = await persist_assistant_turn_after_generation(db_session, persistence, content=data['assistant_answer'], assistant_score=data.get('assistant_score'), behavioral=data.get('behavioral'), business_media_asset_ids=asset_ids)
             data.update(build_completion_persistence_status(user_persisted=True, assistant_persisted=persisted is not None))
             if persisted is None: raise RuntimeError('Business assistant persistence failed')
         yield 'data: ' + json.dumps({'token':data['assistant_answer']}) + '\n\n'

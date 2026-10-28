@@ -19,6 +19,7 @@ META_USER_SCORE = "userScore"
 META_ASSISTANT_SCORE = "assistantScore"
 META_BEHAVIORAL = "behavioral"
 META_SAFETY = "safety"
+META_BUSINESS_MEDIA_ASSET_IDS = "businessMediaAssetIds"
 
 
 def clamp_score_0_100(value: Any) -> Optional[float]:
@@ -210,6 +211,8 @@ def try_prepare_persisted_metadata(patch: dict[str, Any] | None) -> Optional[dic
             slim[META_ASSISTANT_SCORE] = patch[META_ASSISTANT_SCORE]
         if META_SAFETY in patch:
             slim[META_SAFETY] = patch[META_SAFETY]
+        if META_BUSINESS_MEDIA_ASSET_IDS in patch:
+            slim[META_BUSINESS_MEDIA_ASSET_IDS] = patch[META_BUSINESS_MEDIA_ASSET_IDS]
         if not slim:
             return None
         try:

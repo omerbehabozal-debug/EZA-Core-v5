@@ -3,9 +3,10 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, Optional
+from typing import Any, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+from backend.core.schemas.mirror_network import PublicBusinessMediaBlock
 from backend.core.schemas.mirror_sohbet import PublicReplaySelection
 
 from backend.services.standalone.persistence_limits import (
@@ -111,6 +112,7 @@ class StandaloneConversationMessageDTO(BaseModel):
     assistantScore: Optional[float] = None
     behavioral: Optional[dict[str, Any]] = None
     safety: Optional[str] = None
+    businessMedia: Optional[List[PublicBusinessMediaBlock]] = None
 
 
 class StandaloneConversationListItem(BaseModel):

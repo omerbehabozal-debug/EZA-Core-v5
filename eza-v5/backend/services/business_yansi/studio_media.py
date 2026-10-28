@@ -189,6 +189,36 @@ async def assert_live_plan(db, business_id, steps, plan):
         fail("sealed_media_unavailable", 409)
 
 
+def media_asset_ids(blocks):
+    """Ids selected for one answer, in display order. Nothing else is durable."""
+    kept = []
+    seen = set()
+    for block in blocks or []:
+        raw = block.get("assetId") if isinstance(block, dict) else None
+        try:
+            asset_id = str(uuid.UUID(str(raw)))
+        except (ValueError, TypeError, AttributeError):
+            continue
+        if asset_id in seen:
+            continue
+        seen.add(asset_id)
+        kept.append(asset_id)
+    return kept
+
+
+async def recall_media(db, business_id, asset_ids):
+    """Show the same ids again only while they remain public for this brand."""
+    shown = []
+    for asset_id in media_asset_ids([{"assetId": item} for item in asset_ids or []]):
+        asset = await live_public_asset(db, business_id, asset_id)
+        if asset is None:
+            continue
+        view = public_block(asset)
+        if view is not None:
+            shown.append(view)
+    return shown
+
+
 def public_block(asset):
     """Public display fields. Storage keys and unvalidated remote addresses stay out."""
     kind = BLOCK_TYPES[asset.asset_type]

@@ -1,4 +1,5 @@
 import type { ArchivedChatMessage } from './standaloneChatArchive';
+import { parseBusinessMediaBlocks } from '@/lib/eza/mirror/journey/businessMedia';
 import type { BehavioralSnapshot } from '@/lib/types';
 
 export interface StandaloneChatMessage {
@@ -11,6 +12,7 @@ export interface StandaloneChatMessage {
   safeOnlyMode?: boolean;
   behavioral?: BehavioralSnapshot | null;
   timestamp: Date;
+  businessMedia?: import('@/lib/eza/mirror/journey/businessMedia').PublicBusinessBlock[];
 }
 
 function isSystemMessageId(id: string): boolean {
@@ -41,22 +43,27 @@ export function toArchivedMessages(messages: StandaloneChatMessage[]): ArchivedC
     behavioral: m.behavioral ?? undefined,
     safety: m.safety,
     timestamp: m.timestamp?.toISOString(),
+    ...(m.businessMedia?.length ? { businessMedia: m.businessMedia } : {}),
   }));
 }
 
 export function fromArchivedMessages(messages: ArchivedChatMessage[]): StandaloneChatMessage[] {
-  return messages.map((m) => ({
-    id: m.id,
-    text: m.text,
-    isUser: m.isUser,
-    userScore: m.userScore,
-    assistantScore: m.assistantScore,
-    behavioral: m.behavioral ?? undefined,
-    safety: m.safety,
-    // ChatBubble shows SafetyBadge when safeOnlyMode — restore from durable safety.
-    safeOnlyMode: Boolean(m.safety),
-    timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
-  }));
+  return messages.map((m) => {
+    const businessMedia = parseBusinessMediaBlocks(m.businessMedia);
+    return {
+      id: m.id,
+      text: m.text,
+      isUser: m.isUser,
+      userScore: m.userScore,
+      assistantScore: m.assistantScore,
+      behavioral: m.behavioral ?? undefined,
+      safety: m.safety,
+      // ChatBubble shows SafetyBadge when safeOnlyMode — restore from durable safety.
+      safeOnlyMode: Boolean(m.safety),
+      timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
+      ...(businessMedia.length ? { businessMedia } : {}),
+    };
+  });
 }
 
 /**

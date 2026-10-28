@@ -60,6 +60,7 @@ export interface ArchivedChatMessage {
   behavioral?: import('@/lib/types').BehavioralSnapshot | null;
   safety?: 'Safe' | 'Warning' | 'Blocked';
   timestamp?: string;
+  businessMedia?: import('@/lib/eza/mirror/journey/businessMedia').PublicBusinessBlock[];
 }
 
 /** Guest mirror-origin metadata — internal field names; never label "seed" in UI. */

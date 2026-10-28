@@ -46,6 +46,7 @@ export type ServerConversationMessage = {
   assistantScore?: number | null;
   behavioral?: BehavioralSnapshot | null;
   safety?: 'Safe' | 'Warning' | 'Blocked' | null;
+  businessMedia?: import('@/lib/eza/mirror/journey/businessMedia').PublicBusinessBlock[] | null;
 };
 
 export type ServerConversationDetail = ServerConversationListItem & {

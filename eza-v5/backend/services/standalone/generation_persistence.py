@@ -22,11 +22,30 @@ from backend.services.standalone.conversations import (
     update_standalone_message_evaluation,
 )
 from backend.services.standalone.message_evaluation import (
+    META_BUSINESS_MEDIA_ASSET_IDS,
     build_assistant_evaluation_metadata,
     build_user_evaluation_metadata,
     try_prepare_persisted_metadata,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
+
+
+def _business_media_asset_ids(value: Any) -> list[str]:
+    """Keep UUID asset ids only. URLs, coordinates, and storage keys are dropped."""
+    if not isinstance(value, list):
+        return []
+    kept: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        try:
+            asset_id = str(UUID(str(item)))
+        except (ValueError, TypeError, AttributeError):
+            continue
+        if asset_id in seen:
+            continue
+        seen.add(asset_id)
+        kept.append(asset_id)
+    return kept
 
 
 @dataclass(frozen=True)
@@ -141,8 +160,13 @@ async def persist_assistant_turn_after_generation(
     assistant_score: Any = None,
     behavioral: Any = None,
     safety: Any = None,
+    business_media_asset_ids: Any = None,
 ) -> Optional[StandaloneConversationMessageDTO]:
-    """Persist final assistant output once with evaluation metadata when available."""
+    """Persist final assistant output once with evaluation metadata when available.
+
+    Business media is stored as asset ids on this same message. Display addresses
+    are resolved again when the conversation is opened.
+    """
     text = (content or "").strip()
     if not text:
         return None
@@ -151,8 +175,11 @@ async def persist_assistant_turn_after_generation(
         assistant_score=assistant_score,
         behavioral=behavioral,
         safety=safety,
-    )
-    prepared = try_prepare_persisted_metadata(eval_meta)
+    ) or {}
+    asset_ids = _business_media_asset_ids(business_media_asset_ids)
+    if asset_ids:
+        eval_meta[META_BUSINESS_MEDIA_ASSET_IDS] = asset_ids
+    prepared = try_prepare_persisted_metadata(eval_meta or None)
 
     try:
         dto = await append_standalone_message(
