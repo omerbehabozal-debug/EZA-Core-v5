@@ -24,6 +24,10 @@ _STORAGE = re.compile(
     r"^brand-assets/(?P<business>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/"
     r"[0-9a-f]{64}\.(?P<ext>png|jpe?g|webp|gif|mp4|webm)$"
 )
+_VIDEO_STORAGE = re.compile(
+    r"^brand-videos/(?P<business>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/"
+    r"(?P<sha>[0-9a-f]{64})\.mp4$"
+)
 _BLOCKED_HOSTS = frozenset({"localhost", "metadata.google.internal"})
 
 
@@ -84,12 +88,17 @@ def validate_https_url(value):
 def _storage_locator(business_id, asset_type, locator):
     if not isinstance(locator, str):
         fail("asset_locator_rejected", 422)
+    business = str(_uuid(business_id))
+    if asset_type == "video":
+        match = _VIDEO_STORAGE.fullmatch(locator)
+        if match is None or match.group("business") != business:
+            fail("asset_locator_rejected", 422)
+        return locator
     match = _STORAGE.fullmatch(locator)
-    if match is None or match.group("business") != str(_uuid(business_id)):
+    if match is None or match.group("business") != business:
         fail("asset_locator_rejected", 422)
     extension = match.group("ext")
-    allowed = IMAGE_EXTENSIONS if asset_type == "image" else VIDEO_EXTENSIONS
-    if extension not in allowed:
+    if extension not in IMAGE_EXTENSIONS:
         fail("asset_locator_rejected", 422)
     return locator
 

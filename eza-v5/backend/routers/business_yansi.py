@@ -47,6 +47,12 @@ class Verify(Body):
 class Member(Body):
     userId: uuid.UUID
     role: Literal['editor','viewer']
+class VideoImport(Body):
+    url: str=Field(min_length=8,max_length=1000)
+    title: str=Field(min_length=1,max_length=160)
+    caption: str=Field(default='',max_length=500)
+    purpose: Literal['cover','step']
+    publicAllowed: bool=False
 class AssetWrite(Body):
     assetType: Literal['video','place','link']
     title: str=Field(min_length=1,max_length=160)
@@ -288,6 +294,30 @@ async def add_brand_asset(business_id:uuid.UUID,body:AssetWrite,db=Depends(get_d
 async def add_brand_image(business_id:uuid.UUID,file:UploadFile=File(...),title:str=Form(...),caption:str=Form(''),publicAllowed:str=Form('false'),db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims)
     row=await assets.create_asset(db,business_id,user.id,{'asset_type':'image','title':title,'caption':caption,'public_allowed':publicAllowed.lower() in {'1','true','on','yes'}},image_bytes=await _read_image(file))
+    return await _asset_view(db,business_id,row.id)
+@router.post('/{business_id}/assets/video')
+async def add_stored_video(business_id:uuid.UUID,file:UploadFile=File(...),title:str=Form(...),caption:str=Form(''),purpose:str=Form(...),publicAllowed:str=Form('false'),db=Depends(get_db),claims=Depends(get_current_user)):
+    """Store an uploaded H.264 MP4 in object storage, then create the asset."""
+    from backend.services.business_yansi.video_ingest import ingest_upload
+    from backend.services.business_yansi.video_storage import video_store_from_env
+    user=await svc.actor(db,claims)
+    store=video_store_from_env()
+    try:
+        row=await ingest_upload(db,business_id,user.id,store=store,upload=file,title=title,caption=caption,purpose=purpose,public_allowed=publicAllowed.lower() in {'1','true','on','yes'})
+    finally:
+        await store.aclose()
+    return await _asset_view(db,business_id,row.id)
+@router.post('/{business_id}/assets/video-import')
+async def import_stored_video(business_id:uuid.UUID,body:VideoImport,db=Depends(get_db),claims=Depends(get_current_user)):
+    """Copy one HTTPS video into object storage, then create the asset."""
+    from backend.services.business_yansi.video_ingest import ingest_url
+    from backend.services.business_yansi.video_storage import video_store_from_env
+    user=await svc.actor(db,claims)
+    store=video_store_from_env()
+    try:
+        row=await ingest_url(db,business_id,user.id,store=store,url=body.url,title=body.title,caption=body.caption,purpose=body.purpose,public_allowed=body.publicAllowed)
+    finally:
+        await store.aclose()
     return await _asset_view(db,business_id,row.id)
 @router.patch('/{business_id}/assets/{asset_id}')
 async def edit_brand_asset(business_id:uuid.UUID,asset_id:uuid.UUID,body:AssetUpdate,db=Depends(get_db),claims=Depends(get_current_user)):
