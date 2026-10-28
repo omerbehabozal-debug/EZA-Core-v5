@@ -54,6 +54,9 @@ class MirrorNetworkPublicPayload(BaseModel):
     semanticSource: Optional[str] = None
     # Phase 1 Semantic Anchors — optional; Vision Verify not required.
     semanticAnchors: Optional[Dict[str, Any]] = None
+    # Optional public labels. Outside publicLandingHash. Not a safety decision.
+    experienceType: Optional[Literal["knowledge", "fun", "story", "discussion", "life"]] = None
+    contentNature: Optional[Literal["real", "fiction", "mixed"]] = None
 
 
 # Stage 2 landing UI: show at most this many hooks / seed starters (card shows none).
@@ -152,6 +155,9 @@ class MirrorNetworkPublishRequest(BaseModel):
     journeyGenerationLineage: Optional[Dict[str, Any]] = None
     lineageProofToken: Optional[str] = Field(default=None, max_length=64)
     guestToken: Optional[str] = Field(default=None, max_length=256)
+    """Optional labels chosen on the personal publish screen. Omitted on older clients."""
+    experienceType: Optional[Literal["knowledge", "fun", "story", "discussion", "life"]] = None
+    contentNature: Optional[Literal["real", "fiction", "mixed"]] = None
 
 
 class DiscoverMirrorItem(BaseModel):
@@ -182,6 +188,8 @@ class DiscoverMirrorItem(BaseModel):
     publicHonorific: Optional[str] = None
     publicAvatarUrl: Optional[str] = None
     publicAvatarRevision: int = 0
+    experienceType: Optional[Literal["knowledge", "fun", "story", "discussion", "life"]] = None
+    contentNature: Optional[Literal["real", "fiction", "mixed"]] = None
 
 
 class DiscoverMirrorListResponse(BaseModel):
@@ -313,6 +321,8 @@ class PublicFrozenJourneyArtifact(BaseModel):
     steps: List[PublicFrozenJourneyStep] = Field(default_factory=list)
     publishedAt: Optional[str] = None
     replayReady: bool = True
+    experienceType: Optional[Literal["knowledge", "fun", "story", "discussion", "life"]] = None
+    contentNature: Optional[Literal["real", "fiction", "mixed"]] = None
 
 
 class PublicContinuationNeighbor(BaseModel):

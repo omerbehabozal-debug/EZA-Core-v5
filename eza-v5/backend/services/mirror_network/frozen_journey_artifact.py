@@ -432,7 +432,7 @@ def to_public_frozen_journey_artifact(
         return None
     parent = internal.get("parentSlug")
     parent_slug = str(parent).strip().lower() if parent else None
-    return {
+    public = {
         "slug": slug,
         "journeyId": journey_id,
         "journeyVersion": int(internal.get("journeyVersion") or 1),
@@ -496,6 +496,12 @@ def to_public_frozen_journey_artifact(
         or None,
         "replayReady": True,
     }
+    from backend.services.mirror_network.yansi_content_identity import (
+        read_content_identity,
+    )
+
+    public.update(read_content_identity(internal))
+    return public
 
 
 def assemble_frozen_journey_artifact_from_loaded(
@@ -539,7 +545,7 @@ def assemble_frozen_journey_artifact_from_loaded(
         steps=step_rows,
         node_publicly_servable=safety_ok,
     )
-    return {
+    assembled = {
         "contractVersion": frozen.get("contractVersion")
         or FROZEN_JOURNEY_ARTIFACT_CONTRACT,
         "freezeStatus": FREEZE_STATUS_FROZEN if replay_ready else FREEZE_STATUS_NON_FROZEN,
@@ -596,6 +602,12 @@ def assemble_frozen_journey_artifact_from_loaded(
         "sanitization": frozen.get("sanitization") or {},
         "narrativeAlignment": frozen.get("narrativeAlignment") or {},
     }
+    from backend.services.mirror_network.yansi_content_identity import (
+        read_content_identity,
+    )
+
+    assembled.update(read_content_identity(frozen))
+    return assembled
 
 
 async def get_frozen_journey_artifact(

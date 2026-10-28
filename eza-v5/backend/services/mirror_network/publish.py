@@ -882,6 +882,7 @@ async def publish_mirror_to_network(
 
         if existing_frozen is not None:
             # Same-version identical retry: reuse seal (idempotent).
+            # Labels already on the seal stay. A later request cannot replace them.
             durable_freeze = dict(existing_frozen)
             freeze_status_for_write = FREEZE_STATUS_FROZEN
             frozen_at_for_write = getattr(existing, "frozen_at", None) or now
@@ -966,6 +967,15 @@ async def publish_mirror_to_network(
                 frozen_at=now,
                 frozen_eza_snapshots_hash=journey_frozen_eza_hash,
             )
+            from backend.services.mirror_network.yansi_content_identity import (
+                stamp_new_freeze,
+            )
+
+            durable_freeze = stamp_new_freeze(
+                durable_freeze,
+                getattr(body, "experienceType", None),
+                getattr(body, "contentNature", None),
+            )
             freeze_status_for_write = FREEZE_STATUS_FROZEN
             frozen_at_for_write = now
             private_dict = attach_frozen_journey_artifact(private_dict, durable_freeze)
@@ -983,6 +993,13 @@ async def publish_mirror_to_network(
                 durable_freeze.get("publicLandingHash"),
                 durable_freeze.get("sceneAssetId"),
             )
+
+    if atomic_journey_freeze:
+        from backend.services.mirror_network.yansi_content_identity import (
+            read_content_identity,
+        )
+
+        public_dict = {**public_dict, **read_content_identity(durable_freeze)}
 
     try:
         if existing:

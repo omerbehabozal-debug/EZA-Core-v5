@@ -5,6 +5,12 @@
 
 import type { PublicBusinessMedia } from './businessMedia';
 import { parseBusinessMedia } from './businessMedia';
+import {
+  parseContentNature,
+  parseExperienceType,
+  type YansiContentNature,
+  type YansiExperienceType,
+} from './yansiContentIdentity';
 
 export type PublicFrozenJourneyStep = {
   stepIndex: number;
@@ -39,6 +45,8 @@ export type PublicFrozenJourneyArtifact = {
   steps: PublicFrozenJourneyStep[];
   publishedAt?: string | null;
   replayReady: boolean;
+  experienceType?: YansiExperienceType;
+  contentNature?: YansiContentNature;
 };
 
 function parseStep(raw: unknown): PublicFrozenJourneyStep | null {
@@ -118,5 +126,11 @@ export function parsePublicFrozenJourneyArtifact(
     publishedAt: typeof row.publishedAt === 'string' ? row.publishedAt : null,
     replayReady: true,
     ...(businessMedia ? { businessMedia } : {}),
+    ...(parseExperienceType(row.experienceType)
+      ? { experienceType: parseExperienceType(row.experienceType)! }
+      : {}),
+    ...(parseContentNature(row.contentNature)
+      ? { contentNature: parseContentNature(row.contentNature)! }
+      : {}),
   };
 }

@@ -59,6 +59,13 @@ def node_to_public_payload(node: MirrorNetworkNodeRecord) -> MirrorNetworkPublic
                 payload.publicLandingHash = str(frozen["publicLandingHash"])
             if frozen.get("sceneImageUrl"):
                 payload.sceneImageUrl = str(frozen["sceneImageUrl"])
+            from backend.services.mirror_network.yansi_content_identity import (
+                read_content_identity,
+            )
+
+            identity = read_content_identity(frozen)
+            payload.experienceType = identity.get("experienceType")
+            payload.contentNature = identity.get("contentNature")
     except Exception:
         pass
     return payload

@@ -14,9 +14,18 @@ import {
   MIRROR_JOURNEY_STATUS_READY,
   MIRROR_AYNA_STATUS_PUBLISHED,
 } from '@/lib/eza/mirror/copy';
+import {
+  YANSI_CONTENT_NATURES,
+  YANSI_EXPERIENCE_TYPES,
+  contentNatureLabel,
+  experienceTypeLabel,
+  type YansiContentIdentity,
+  type YansiContentNature,
+  type YansiExperienceType,
+} from '@/lib/eza/mirror/journey/yansiContentIdentity';
 
 export type AynaJourneySlideActions = {
-  onPublish: (artifact: MirrorJourneyArtifact) => void;
+  onPublish: (artifact: MirrorJourneyArtifact, identity?: YansiContentIdentity) => void;
   onShare: (artifact: MirrorJourneyArtifact) => void;
   onOpenDiscover: (artifact: MirrorJourneyArtifact) => void;
   onOpenAuthorProfile: (artifact: MirrorJourneyArtifact) => void;
@@ -73,6 +82,8 @@ export default function AynaJourneySlide({
   compactPrimaryProduct = false,
 }: AynaJourneySlideProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [experienceType, setExperienceType] = useState<YansiExperienceType | ''>('');
+  const [contentNature, setContentNature] = useState<YansiContentNature | ''>('');
   const product = resolveYansiProductFromArtifact(artifact);
   const { title, summary, sceneImageUrl: sceneUrl } = product;
   const isPublished = artifact.status === 'published';
@@ -93,6 +104,49 @@ export default function AynaJourneySlide({
         </span>
       </div>
 
+      {isReady && !isPublished ? (
+        <div className="mt-2 grid gap-2" data-testid="ayna-content-identity">
+          <label className="grid gap-1 text-[10px] text-[rgba(217,196,163,0.75)]">
+            Deneyim türü
+            <select
+              className="rounded-md border border-white/12 bg-transparent px-2 py-1 text-[12px] text-[#f6f0e4]"
+              aria-label="Deneyim türü"
+              data-testid="ayna-experience-type"
+              value={experienceType}
+              onChange={(event) =>
+                setExperienceType(event.target.value as YansiExperienceType | '')
+              }
+            >
+              <option value="">Belirtme</option>
+              {YANSI_EXPERIENCE_TYPES.map((value) => (
+                <option key={value} value={value}>
+                  {experienceTypeLabel(value)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="grid gap-1 text-[10px] text-[rgba(217,196,163,0.75)]">
+            Anlatım
+            <select
+              className="rounded-md border border-white/12 bg-transparent px-2 py-1 text-[12px] text-[#f6f0e4]"
+              aria-label="Anlatım niteliği"
+              data-testid="ayna-content-nature"
+              value={contentNature}
+              onChange={(event) =>
+                setContentNature(event.target.value as YansiContentNature | '')
+              }
+            >
+              <option value="">Belirtme</option>
+              {YANSI_CONTENT_NATURES.map((value) => (
+                <option key={value} value={value}>
+                  {contentNatureLabel(value)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : null}
+
       {(isReady || isPublished) && (
         <MirrorPublishShareActions
           isPublished={isPublished}
@@ -100,7 +154,16 @@ export default function AynaJourneySlide({
           shareBusy={shareBusy}
           canShare={canShare}
           publishError={publishError}
-          onPublish={() => actions.onPublish(artifact)}
+          onPublish={() => {
+            const identity: YansiContentIdentity = {
+              ...(experienceType ? { experienceType } : {}),
+              ...(contentNature ? { contentNature } : {}),
+            };
+            actions.onPublish(
+              artifact,
+              experienceType || contentNature ? identity : undefined
+            );
+          }}
           onShare={() => actions.onShare(artifact)}
           onOpenPublic={
             isPublished ? () => actions.onOpenDiscover(artifact) : undefined

@@ -148,6 +148,11 @@ import {
   MIRROR_AYNA_EMPTY_TITLE,
 } from '@/lib/eza/mirror/copy';
 import type { AynaJourneySlideActions } from '@/components/mirror/ayna/AynaJourneySlide';
+import {
+  classifyContentIdentityEcho,
+  YANSI_IDENTITY_UNCONFIRMED_MESSAGE,
+  type YansiContentIdentity,
+} from '@/lib/eza/mirror/journey/yansiContentIdentity';
 import UpgradeModal from '@/components/plan/UpgradeModal';
 import IdentityModal from '@/components/plan/IdentityModal';
 import type { MirrorPanelCopy } from '@/lib/eza/mirror/resolveMirrorPanelCopy';
@@ -540,6 +545,7 @@ export default function StandaloneObservationExperience({
         refreshScene?: boolean;
         /** Captured BEFORE await — exact Ayna reel artifact only. */
         exactPublishIdentity?: ExactYansiPublishIdentity | null;
+        contentIdentity?: YansiContentIdentity;
       }
     ): Promise<boolean> => {
       if (!isAuthReady || !isAuthenticated) {
@@ -604,6 +610,7 @@ export default function StandaloneObservationExperience({
             undefined,
           generationAcceptedAt: Date.now(),
           forceRepublish: Boolean(options?.refreshScene),
+          contentIdentity: options?.contentIdentity,
           forbidReviewDraftFallback: Boolean(exactPublishIdentity),
           replacesGenerationId:
             !exactPublishIdentity &&
@@ -643,6 +650,10 @@ export default function StandaloneObservationExperience({
         });
 
         if (result.ok) {
+          const identityEcho = classifyContentIdentityEcho(
+            options?.contentIdentity,
+            result.publicPayload
+          );
           if (exactPublishIdentity?.generationId) {
             lastPublishedGenerationIdRef.current = exactPublishIdentity.generationId;
           } else if (activeGenerationIdRef.current) {
@@ -771,7 +782,9 @@ export default function StandaloneObservationExperience({
               : prev
           );
           setShareLinkStatus('ready');
-          setShareLinkError(null);
+          setShareLinkError(
+            identityEcho === 'unconfirmed' ? YANSI_IDENTITY_UNCONFIRMED_MESSAGE : null
+          );
           return true;
         }
 
@@ -2550,7 +2563,11 @@ export default function StandaloneObservationExperience({
   const prepareArtifactShareLink = useCallback(
     async (
       artifact: MirrorJourneyArtifact,
-      options?: { refreshScene?: boolean; openShareAfter?: boolean }
+      options?: {
+        refreshScene?: boolean;
+        openShareAfter?: boolean;
+        contentIdentity?: YansiContentIdentity;
+      }
     ): Promise<boolean> => {
       if (!isAuthReady || !isAuthenticated) {
         setIdentityOpen(true);
@@ -2592,6 +2609,7 @@ export default function StandaloneObservationExperience({
           {
             refreshScene: options?.refreshScene,
             exactPublishIdentity,
+            contentIdentity: options?.contentIdentity,
           }
         );
         if (ok) {
@@ -2625,8 +2643,11 @@ export default function StandaloneObservationExperience({
 
   const aynaReelActions = useMemo<AynaJourneySlideActions>(
     () => ({
-      onPublish: (artifact) => {
-        void prepareArtifactShareLink(artifact, { refreshScene: true });
+      onPublish: (artifact, identity) => {
+        void prepareArtifactShareLink(artifact, {
+          refreshScene: true,
+          contentIdentity: identity,
+        });
       },
       onRetry: (artifact) => {
         if (artifact.status !== 'failed' && artifact.status !== 'generating') {

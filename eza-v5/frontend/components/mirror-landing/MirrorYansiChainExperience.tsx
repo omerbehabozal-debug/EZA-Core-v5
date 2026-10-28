@@ -1,5 +1,6 @@
 'use client';
 
+import YansiContentIdentityLine from './YansiContentIdentityLine';
 import YansiReelExperienceInvite from './YansiReelExperienceInvite';
 import { businessCoverUrl } from '@/lib/eza/mirror/journey/businessMedia';
 
@@ -1408,6 +1409,10 @@ export default function MirrorYansiChainExperience({
                           ) : null}
                         </p>
                       ) : null}
+                      <YansiContentIdentityLine
+                        experienceType={activeNode.artifact.experienceType}
+                        contentNature={activeNode.artifact.contentNature}
+                      />
                     </span>
                   </button>
                 </div>
@@ -1757,6 +1762,11 @@ export default function MirrorYansiChainExperience({
                 ) : null}
               </p>
             ) : null}
+            <YansiContentIdentityLine
+              experienceType={activeNode.artifact.experienceType}
+              contentNature={activeNode.artifact.contentNature}
+              testId="yansi-mobile-content-identity"
+            />
         </header>
       ) : null}
 

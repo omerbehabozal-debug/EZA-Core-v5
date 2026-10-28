@@ -28,6 +28,8 @@ export type MirrorNetworkPublicApiResponse = {
   semanticSource?: string | null;
   /** Phase 1 Semantic Anchors — optional. */
   semanticAnchors?: Record<string, unknown> | null;
+  experienceType?: 'knowledge' | 'fun' | 'story' | 'discussion' | 'life' | null;
+  contentNature?: 'real' | 'fiction' | 'mixed' | null;
 };
 
 /**

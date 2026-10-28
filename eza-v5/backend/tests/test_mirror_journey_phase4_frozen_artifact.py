@@ -779,6 +779,8 @@ def _assert_public_frozen_privacy(payload: dict):
         "steps",
         "publishedAt",
         "replayReady",
+        "experienceType",
+        "contentNature",
     }
     for step in payload.get("steps") or []:
         allowed = {"stepIndex", "publicQuestion", "publicAnswer"}

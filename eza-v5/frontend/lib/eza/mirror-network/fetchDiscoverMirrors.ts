@@ -13,6 +13,12 @@ import {
   parseDiscoverMode,
 } from '@/lib/eza/mirror-network/discoverModes';
 import { parseYansiPublicSocialProofInput } from '@/lib/eza/mirror-network/yansiPublicMetricsCopy';
+import {
+  parseContentNature,
+  parseExperienceType,
+  type YansiContentNature,
+  type YansiExperienceType,
+} from '@/lib/eza/mirror/journey/yansiContentIdentity';
 
 export type DiscoverMirror = {
   slug: string;
@@ -34,6 +40,8 @@ export type DiscoverMirror = {
   authorDisplayName?: string | null;
   publicHonorific?: string | null;
   publicAvatarUrl?: string | null;
+  experienceType?: YansiExperienceType | null;
+  contentNature?: YansiContentNature | null;
   publicAvatarRevision?: number | null;
 };
 
@@ -120,6 +128,8 @@ export function parseDiscoverItem(raw: unknown): DiscoverMirror | null {
         : null,
     publicAvatarUrl: parsePublicAvatarUrl(row.publicAvatarUrl),
     publicAvatarRevision: parsePublicAvatarRevision(row.publicAvatarRevision),
+    experienceType: parseExperienceType(row.experienceType),
+    contentNature: parseContentNature(row.contentNature),
   };
 }
 

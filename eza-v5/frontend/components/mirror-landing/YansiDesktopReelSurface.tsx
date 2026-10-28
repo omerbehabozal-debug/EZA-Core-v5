@@ -27,6 +27,7 @@ import {
   type PublicKatkiContributor,
 } from '@/lib/eza/mirror-network/katkiPublic';
 import { cn } from '@/lib/utils';
+import YansiContentIdentityLine from './YansiContentIdentityLine';
 import YansiReelExperienceInvite from './YansiReelExperienceInvite';
 import {
   YANSI_REEL_EASE,
@@ -267,6 +268,13 @@ export default function YansiDesktopReelSurface({
                   ) : null}
                 </p>
               ) : null}
+              <YansiContentIdentityLine
+                experienceType={node.artifact.experienceType}
+                contentNature={node.artifact.contentNature}
+                testId={
+                  committed ? 'yansi-content-identity' : 'yansi-content-identity-incoming'
+                }
+              />
             </span>
           </button>
         </div>

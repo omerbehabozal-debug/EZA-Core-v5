@@ -336,6 +336,18 @@ def _to_discover_item(
         if journey_version is not None
         else int(getattr(node, "journey_version", None) or 1)
     )
+    from backend.services.mirror_network.frozen_journey_artifact import (
+        read_frozen_journey_artifact_from_private,
+    )
+    from backend.services.mirror_network.yansi_content_identity import (
+        read_content_identity,
+    )
+
+    identity = read_content_identity(
+        read_frozen_journey_artifact_from_private(
+            node.private_payload if isinstance(node.private_payload, dict) else None
+        )
+    )
     return DiscoverMirrorItem(
         slug=node.slug,
         title=title,
@@ -352,6 +364,8 @@ def _to_discover_item(
         publicHonorific=public_honorific,
         publicAvatarUrl=public_avatar_url,
         publicAvatarRevision=public_avatar_revision,
+        experienceType=identity.get("experienceType"),
+        contentNature=identity.get("contentNature"),
     )
 
 

@@ -8,6 +8,10 @@ import { buildCuriosityFromInterpretation } from '@/lib/eza/mirror-network/build
 import type { MirrorCuriosityBundle, MirrorSeed } from '@/lib/eza/mirror-network/types';
 import type { MirrorNetworkPublicApiResponse } from '@/lib/eza/mirror-network/publicTypes';
 import type { DailyMirrorCardModel } from '@/lib/eza/mirror/types';
+import {
+  contentIdentityRequestFields,
+  type YansiContentIdentity,
+} from '@/lib/eza/mirror/journey/yansiContentIdentity';
 import type { MirrorShareIdentity } from '@/lib/eza/mirror-share/types';
 import { resolveMirrorPublishLineage } from '@/lib/eza/mirror-share/resolveMirrorPublishLineage';
 import { isMirrorInterpretationV1 } from '@/lib/eza/mirror/mirrorInterpretationTypes';
@@ -86,6 +90,8 @@ export type PublishMirrorToNetworkInput = {
     assistantMessageId?: string;
   }>;
   sceneImageUrl?: string | null;
+  /** Optional labels from the personal publish screen. Not part of the landing hash. */
+  contentIdentity?: YansiContentIdentity | null;
   generationId?: string;
   generationAcceptedAt?: number;
   replacesGenerationId?: string;
@@ -455,6 +461,7 @@ async function buildPublishBody(
       curiosityBundle,
       intelligencePrivate: buildIntelligencePrivate(card, lineage),
       safetyLevel: payload.safetyLevel ?? 'normal',
+      ...contentIdentityRequestFields(input.contentIdentity),
       lineageProofToken: publishLineage.lineageProofToken,
       guestToken: publishLineage.guestToken,
       // Omit key when absent — proof path must not send archive parentSlug.
