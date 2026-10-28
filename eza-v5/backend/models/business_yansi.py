@@ -173,6 +173,7 @@ class BusinessYansiDraft(Timestamps, Base):
     summary = Column(String(500), nullable=False, default='')
     steps = Column(JSON, nullable=False)
     knowledge_snapshot = Column(JSON, nullable=False)
+    media_plan = Column(JSON, nullable=True)
     source_hash = Column(String(64), nullable=False)
     conversation_id = Column(UUID(as_uuid=True), ForeignKey('standalone_conversations.id'))
     created_by = Column(UUID(as_uuid=True), ForeignKey('production_users.id'), nullable=False)
@@ -188,6 +189,7 @@ class BusinessPublication(Timestamps, Base):
     business_id = Column(UUID(as_uuid=True), ForeignKey('business_profiles.id'), nullable=False, index=True)
     draft_id = Column(UUID(as_uuid=True), ForeignKey('business_yansi_drafts.id'), nullable=False)
     knowledge_snapshot = Column(JSON, nullable=False)
+    media_plan = Column(JSON, nullable=True)
     published_by = Column(UUID(as_uuid=True), ForeignKey('production_users.id'), nullable=False)
 
 class BusinessBrandApplication(Timestamps, Base):

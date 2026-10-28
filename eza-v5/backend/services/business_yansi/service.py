@@ -190,17 +190,27 @@ def rank_sources(question,rows,limit=4):
         if score: ranked.append((score,str(row.id),row))
     return [row for _,_,row in sorted(ranked,key=lambda r:(-r[0],r[1]))[:limit]]
 
-async def create_draft(db,business_id,user_id,title,summary,steps,*,commit=True):
+def _qa_steps(steps):
+    clean=[]
+    for step in steps:
+        if set(step)-{'question','answer','sources'}: fail('asset_choice_rejected',422)
+        clean.append({'question':step['question'],'answer':step['answer'],'sources':list(step['sources'])})
+    return clean
+
+async def create_draft(db,business_id,user_id,title,summary,steps,*,commit=True,media_choices=None):
     await access(db,business_id,user_id,'editor')
     public_content(title,summary,*(s['question'] for s in steps),*(s['answer'] for s in steps))
     if len(steps)!=8: fail('eight_steps_required',422)
+    steps=_qa_steps(steps)
     rows=await published_knowledge(db,business_id);allowed={str(row.id):row for row in rows}
     for step in steps:
         if not step['sources'] or any(v not in allowed for v in step['sources']): fail('published_sources_required',422)
         # Phase 1 accepts only source-exact answers; no unsupported brand claims.
         if not any(step['answer'] in allowed[v].content for v in step['sources']): fail('answer_not_supported_by_source',422)
+    from backend.services.business_yansi.studio_media import bind_media_plan
+    plan=await bind_media_plan(db,business_id,title,summary,steps,media_choices)
     snapshot=sorted({v for step in steps for v in step['sources']})
-    row=Draft(business_id=uid(business_id),created_by=uid(user_id),title=title,summary=summary,steps=steps,knowledge_snapshot=snapshot,source_hash=source_hash(steps),status='draft',revision=1)
+    row=Draft(business_id=uid(business_id),created_by=uid(user_id),title=title,summary=summary,steps=steps,knowledge_snapshot=snapshot,media_plan=plan,source_hash=source_hash(steps),status='draft',revision=1)
     db.add(row)
     if commit: await db.commit();await db.refresh(row)
     else: await db.flush()
@@ -219,8 +229,17 @@ async def transition_draft(db,business_id,user_id,draft_id,target,revision):
     if target not in TRANSITIONS.get(row.status,set()) or target=='published': fail('invalid_transition',409)
     if target=='approved':
         if len(await published_knowledge(db,business_id,row.knowledge_snapshot))!=len(row.knowledge_snapshot): fail('source_snapshot_unavailable',409)
+        if row.media_plan is not None:
+            from backend.services.business_yansi.studio_media import assert_live_plan, media_seal
+            await assert_live_plan(db,business_id,row.steps,row.media_plan)
+            plan={'coverAssetId':row.media_plan.get('coverAssetId'),'blocks':row.media_plan.get('blocks') or [],'seal':None}
+            plan['seal']=media_seal(plan)
+            row.media_plan=plan
         row.approved_by=uid(user_id)
-    elif target=='draft': row.approved_by=None
+    elif target=='draft':
+        row.approved_by=None
+        if isinstance(row.media_plan,dict):
+            row.media_plan={'coverAssetId':row.media_plan.get('coverAssetId'),'blocks':row.media_plan.get('blocks') or [],'seal':None}
     row.status=target;row.revision+=1;await db.commit();await db.refresh(row);return row
 
 async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,steps):
@@ -231,10 +250,13 @@ async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,st
     public_content(title,summary,*(s['question'] for s in steps),*(s['answer'] for s in steps))
     allowed={str(v.id):v for v in await published_knowledge(db,business_id)}
     if len(steps)!=8: fail('eight_steps_required',422)
+    steps=_qa_steps(steps)
     for step in steps:
         if not step['sources'] or any(v not in allowed for v in step['sources']): fail('published_sources_required',422)
         if not any(step['answer'] in allowed[v].content for v in step['sources']): fail('answer_not_supported_by_source',422)
+    from backend.services.business_yansi.studio_media import bind_media_plan
     row.title=title;row.summary=summary;row.steps=steps
+    row.media_plan=await bind_media_plan(db,business_id,title,summary,steps)
     row.knowledge_snapshot=sorted({v for step in steps for v in step['sources']})
     row.source_hash=source_hash(steps);row.revision+=1
     await db.commit();await db.refresh(row);return row

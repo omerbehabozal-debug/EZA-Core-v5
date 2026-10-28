@@ -57,7 +57,11 @@ async def publish_draft(db,business_id,user_id,draft_id,slug,revision):
     frozen=to_public_frozen_journey_artifact(internal) if internal else None
     expected=[(s['question'],s['answer']) for s in draft.steps]
     if not frozen or len(frozen['steps'])!=8 or [(s['publicQuestion'],s['publicAnswer']) for s in frozen['steps']]!=expected: fail('sealed_draft_mismatch',409)
+    if draft.media_plan is not None:
+        from backend.services.business_yansi.studio_media import assert_live_plan, media_seal
+        if draft.media_plan.get('seal') != media_seal(draft.media_plan): fail('sealed_media_mismatch',409)
+        await assert_live_plan(db,business_id,draft.steps,draft.media_plan)
     if await db.get(BusinessPublication,(slug,node.journey_version)): fail('publication_already_bound',409)
-    db.add(BusinessPublication(slug=slug,journey_version=node.journey_version,business_id=uid(business_id),draft_id=draft.id,knowledge_snapshot=draft.knowledge_snapshot,published_by=uid(user_id)))
+    db.add(BusinessPublication(slug=slug,journey_version=node.journey_version,business_id=uid(business_id),draft_id=draft.id,knowledge_snapshot=draft.knowledge_snapshot,media_plan=draft.media_plan,published_by=uid(user_id)))
     node.visibility='public';draft.status='published';draft.revision+=1
     await db.commit();return node

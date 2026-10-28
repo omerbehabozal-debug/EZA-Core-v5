@@ -376,6 +376,39 @@ describe('Business management', () => {
     expect(screen.queryByTestId('biz-engine-form')).not.toBeInTheDocument();
   });
 
+  it('shows the selected cover and step media before publish', async () => {
+    api.mockImplementation(async (path = '') => {
+      if (path === '') return { items: [business], canProvision: false };
+      if (path === '/applications/mine') return { items: [] };
+      if (String(path).endsWith('/overview')) return { business, role: 'owner', publications: [] };
+      if (String(path).endsWith('/assets')) {
+        return { items: [{ id: 'asset-cover', asset_type: 'image', title: 'Seramik atolyesi', caption: '', locator: null, latitude: null, longitude: null, public_allowed: true, status: 'published', revision: 1, links: [] }] };
+      }
+      if (String(path).endsWith('/drafts')) {
+        return {
+          items: [{
+            id: 'draft-1',
+            title: 'Seramik Yansisi',
+            summary: 'Ozet',
+            status: 'approved',
+            revision: 2,
+            conversation_id: null,
+            steps: [{ question: 'Seramik nedir?', answer: 'Seramik kaplama su gecirmez.', sources: ['knowledge-1'] }],
+            media_plan: { coverAssetId: 'asset-cover', blocks: [[{ type: 'image', assetId: 'asset-cover' }]], seal: 'abc' },
+          }],
+        };
+      }
+      return { items: [] };
+    });
+    render(<SainaBusinessManager />);
+    await screen.findByText('BiligN', { selector: 'h2' });
+    fireEvent.click(screen.getByRole('button', { name: 'Yansı Stüdyosu' }));
+    expect(await screen.findByTestId('biz-draft-cover')).toHaveTextContent('Kapak: Seramik atolyesi');
+    fireEvent.click(screen.getByText('Soru-cevap önizlemesi'));
+    expect(screen.getByText('Görsel: Seramik atolyesi')).toBeInTheDocument();
+    expect(screen.queryByText(/fiyat|stok|sepet/i)).not.toBeInTheDocument();
+  });
+
   it('shows simplified BiligN welcome for anonymous users', async () => {
     auth.isAuthenticated = false;
     render(<SainaBusinessManager />);

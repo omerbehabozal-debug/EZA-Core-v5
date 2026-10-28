@@ -44,7 +44,17 @@ export type Knowledge = {
   updated_at?: string | null;
 };
 export type Step = { question: string; answer: string; sources: string[] };
-export type Draft = { id: string; title: string; summary: string; steps: Step[]; status: string; revision: number; conversation_id: string | null };
+export type DraftMediaBlock = { type: 'image' | 'video' | 'map' | 'link'; assetId: string };
+export type Draft = {
+  id: string;
+  title: string;
+  summary: string;
+  steps: Step[];
+  status: string;
+  revision: number;
+  conversation_id: string | null;
+  media_plan?: { coverAssetId: string | null; blocks: DraftMediaBlock[][]; seal: string | null } | null;
+};
 export type Publication = { slug: string; journey_version: number; visibility?: string };
 export type BrandApplication = {
   id: string;

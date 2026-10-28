@@ -37,6 +37,13 @@ function statusClass(status: string) {
   return `biz-status biz-status--${status}`;
 }
 
+function mediaBlockLabel(type: string) {
+  if (type === 'image') return 'Görsel';
+  if (type === 'video') return 'Video';
+  if (type === 'map') return 'Konum';
+  return 'Bağlantı';
+}
+
 function BrandMark({
   name,
   logoUrl,
@@ -641,6 +648,11 @@ export default function SainaBusinessManager() {
                           <span className={statusClass(d.status)}>{d.status}</span>
                         </div>
                         <p className="biz-card-meta">revision {d.revision}</p>
+                        {d.media_plan?.coverAssetId ? (
+                          <p className="biz-card-meta" data-testid="biz-draft-cover">
+                            Kapak: {assets.find((asset) => asset.id === d.media_plan?.coverAssetId)?.title || 'Marka görseli'}
+                          </p>
+                        ) : null}
                         <details>
                           <summary>Soru-cevap önizlemesi</summary>
                           {d.steps.map((s, i) => (
@@ -649,6 +661,11 @@ export default function SainaBusinessManager() {
                                 {i + 1}. {s.question}
                               </strong>
                               <p className="biz-copy">{s.answer}</p>
+                              {(d.media_plan?.blocks?.[i] || []).map((block) => (
+                                <p className="biz-card-meta" key={block.assetId}>
+                                  {mediaBlockLabel(block.type)}: {assets.find((asset) => asset.id === block.assetId)?.title || 'Marka içeriği'}
+                                </p>
+                              ))}
                             </div>
                           ))}
                         </details>
