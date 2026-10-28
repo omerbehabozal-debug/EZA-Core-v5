@@ -20,6 +20,8 @@ export type MirrorYansiSceneCrossfadeProps = {
   presentation?: MirrorYansiScenePresentation;
   /** Active Yansı identity — must match title/author/meta after navigation commit. */
   activeIdentity?: string | null;
+  /** Approved brand cover keeps its aspect ratio. Personal scenes stay cropped. */
+  brandCover?: boolean;
 };
 
 function prefersReducedMotion(): boolean {
@@ -36,11 +38,13 @@ function ScenePlate({
   layer,
   testId,
   presentation,
+  brandCover = false,
 }: {
   src: string;
   layer: 'outgoing' | 'current';
   testId?: string;
   presentation: MirrorYansiScenePresentation;
+  brandCover?: boolean;
 }) {
   const immersive = presentation === 'desktop-immersive';
   return (
@@ -68,10 +72,13 @@ function ScenePlate({
         data-testid={testId}
         data-yansi-plate={immersive ? 'sharp' : undefined}
         data-yansi-scene-src={src}
+        data-yansi-brand-cover={brandCover ? 'true' : 'false'}
         className={
-          immersive
-            ? 'yansi-desktop-scene-image'
-            : 'absolute inset-0 h-full w-full object-cover'
+          brandCover
+            ? 'absolute inset-0 h-full w-full object-contain'
+            : immersive
+              ? 'yansi-desktop-scene-image'
+              : 'absolute inset-0 h-full w-full object-cover'
         }
         onError={(e) => {
           (e.currentTarget as HTMLImageElement).style.display = 'none';
@@ -86,6 +93,7 @@ export default function MirrorYansiSceneCrossfade({
   className,
   presentation = 'mobile-fullscreen',
   activeIdentity = null,
+  brandCover = false,
 }: MirrorYansiSceneCrossfadeProps) {
   const nextUrl = (sceneImageUrl || '').trim() || null;
   const nextIdentity = (activeIdentity || '').trim().toLowerCase() || null;
@@ -133,6 +141,7 @@ export default function MirrorYansiSceneCrossfade({
         className
       )}
       data-testid="mirror-yansi-scene-crossfade"
+      data-yansi-brand-cover={brandCover ? 'true' : 'false'}
       data-yansi-scene-presentation={presentation}
       data-yansi-scene-crop={immersive ? 'shared-cover' : undefined}
       data-yansi-scene-slug={activeIdentity || undefined}
@@ -140,7 +149,7 @@ export default function MirrorYansiSceneCrossfade({
     >
       <div className="absolute inset-0 bg-[#0c0b0a]" />
       {back ? (
-        <ScenePlate src={back} layer="outgoing" presentation={presentation} />
+        <ScenePlate src={back} layer="outgoing" presentation={presentation} brandCover={brandCover} />
       ) : null}
       {front ? (
         <div
@@ -155,6 +164,7 @@ export default function MirrorYansiSceneCrossfade({
             layer="current"
             testId="mirror-yansi-scene-current"
             presentation={presentation}
+            brandCover={brandCover}
           />
         </div>
       ) : null}

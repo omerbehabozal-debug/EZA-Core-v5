@@ -3,6 +3,9 @@
  * Display fields plus opaque atomic-identity keys (no private conversation content).
  */
 
+import type { PublicBusinessMedia } from './businessMedia';
+import { parseBusinessMedia } from './businessMedia';
+
 export type PublicFrozenJourneyStep = {
   stepIndex: number;
   publicQuestion: string;
@@ -19,6 +22,7 @@ export function parseBusinessPublisher(value: unknown): BusinessPublisher | unde
 }
 export type PublicFrozenJourneyArtifact = {
   businessPublisher?: BusinessPublisher;
+  businessMedia?: PublicBusinessMedia;
   slug: string;
   journeyId: string;
   journeyVersion: number;
@@ -76,6 +80,7 @@ export function parsePublicFrozenJourneyArtifact(
   if (!Array.isArray(row.steps) || row.steps.length !== selectedCount) return null;
 
   const steps: PublicFrozenJourneyStep[] = [];
+  const businessMedia = parseBusinessMedia(row.businessMedia);
   for (let i = 0; i < row.steps.length; i += 1) {
     const step = parseStep(row.steps[i]);
     if (!step) return null;
@@ -112,5 +117,6 @@ export function parsePublicFrozenJourneyArtifact(
     steps,
     publishedAt: typeof row.publishedAt === 'string' ? row.publishedAt : null,
     replayReady: true,
+    ...(businessMedia ? { businessMedia } : {}),
   };
 }

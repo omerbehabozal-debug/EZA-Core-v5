@@ -7,6 +7,7 @@ import ChatBubble, { type ChatBubbleVariant } from './ChatBubble';
 import LoadingDots from './LoadingDots';
 import TypingIndicator from './TypingIndicator';
 import type { BehavioralSnapshot, StandaloneFeedbackContext } from '@/lib/types';
+import type { PublicBusinessBlock } from '@/lib/eza/mirror/journey/businessMedia';
 import { standaloneSkin } from '@/lib/eza/standaloneSkin';
 
 export interface MessageListMessage {
@@ -20,6 +21,7 @@ export interface MessageListMessage {
   timestamp?: Date;
   behavioral?: BehavioralSnapshot | null;
   feedback?: StandaloneFeedbackContext | null;
+  businessMedia?: PublicBusinessBlock[];
 }
 
 interface MessageListProps {

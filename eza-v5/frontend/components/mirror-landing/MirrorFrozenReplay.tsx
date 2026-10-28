@@ -11,6 +11,8 @@ import { ArrowUpRight } from 'lucide-react';
 import MessageList, { type MessageListMessage } from '@/components/standalone/MessageList';
 import SainaMessageBody from '@/components/standalone/SainaMessageBody';
 import YansiDesktopExperience, { type DesktopYansiReplayIdentity } from './YansiDesktopExperience';
+import BusinessMediaBlocks from './BusinessMediaBlocks';
+import { businessCoverUrl, type PublicBusinessBlock } from '@/lib/eza/mirror/journey/businessMedia';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import ChatBubble from '@/components/standalone/ChatBubble';
 import FrozenAnswerReveal from '@/components/mirror-landing/FrozenAnswerReveal';
@@ -382,7 +384,7 @@ export default function MirrorFrozenReplay({
       : <p role="status">Yanıt açılıyor…</p>;
     return <section className="yansi-desktop-replay" data-testid="mirror-frozen-replay" data-journey-version={pinnedVersionRef.current}
       data-yansi-rhythm={experience?.rhythm ?? 'normal'} aria-label="Yansı deneyimi">
-        <YansiDesktopExperience mobile={mobilePresentation} slug={frozen.slug} sceneImageUrl={artifact.sceneImageUrl} identity={desktopIdentity} scrollRef={scrollRootRef}
+        <YansiDesktopExperience mobile={mobilePresentation} slug={frozen.slug} sceneImageUrl={businessCoverUrl(artifact.businessMedia) || artifact.sceneImageUrl} preserveBrandFrame={Boolean(artifact.businessMedia?.cover)} identity={desktopIdentity} scrollRef={scrollRootRef}
           replaySelection={{ slug: frozen.slug, journeyVersion: pinnedVersionRef.current, completedStepCount: session.completedStepCount }}
         replayAction={replayAction} messages={<><MessageList messages={messages} variant="saina" autoScroll={false}
           isLoading={false} ezaVisibilityEnabled={false}
@@ -393,7 +395,10 @@ export default function MirrorFrozenReplay({
                   const stepIndex = Number(message.id.split(':').at(-2));
                   const structure = wantsEditorial && editorialSourceRef.current === frozen && editorial?.slug === frozen.slug && editorial.journeyVersion === frozen.journeyVersion
                     ? editorial.steps.find((step) => step.stepIndex === stepIndex) : undefined;
-                  return wantsEditorial ? <YansiEditorialBody text={message.text} isUser={message.isUser} structure={structure} /> : undefined;
+                  const blocks: PublicBusinessBlock[] = message.isUser ? [] : artifact.businessMedia?.steps[stepIndex - 1] ?? [];
+                  const body = wantsEditorial ? <YansiEditorialBody text={message.text} isUser={message.isUser} structure={structure} /> : undefined;
+                  if (!blocks.length) return body;
+                  return <>{body ?? <SainaMessageBody message={message.text} role="ai" />}<BusinessMediaBlocks blocks={blocks} layout="desktop" /></>;
                 })()} />{replayCompletion}</>} />
     </section>;
   }
@@ -441,6 +446,9 @@ export default function MirrorFrozenReplay({
                   isFirstAssistantMessage={index === 0}
                 />
               )}
+              {!turn.revealing && (artifact.businessMedia?.steps[turn.stepIndex - 1]?.length ?? 0) > 0 ? (
+                <BusinessMediaBlocks blocks={artifact.businessMedia?.steps[turn.stepIndex - 1] ?? []} layout="mobile" />
+              ) : null}
             </div>
           ))}
           <div ref={bottomRef} className="h-1 shrink-0" aria-hidden />

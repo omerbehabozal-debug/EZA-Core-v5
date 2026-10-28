@@ -268,6 +268,28 @@ class BusinessPublisherPublic(BaseModel):
     verified: bool
     official: bool = False
 
+class PublicBusinessMediaBlock(BaseModel):
+    """Approved brand media. Storage keys are not part of this contract."""
+
+    model_config = {"extra": "forbid"}
+
+    type: Literal["image", "video", "map", "link"]
+    assetId: str
+    title: str
+    caption: Optional[str] = None
+    contentPath: Optional[str] = None
+    href: Optional[str] = None
+    latitude: Optional[str] = None
+    longitude: Optional[str] = None
+
+
+class PublicBusinessMedia(BaseModel):
+    model_config = {"extra": "forbid"}
+
+    cover: Optional[PublicBusinessMediaBlock] = None
+    steps: List[List[PublicBusinessMediaBlock]] = Field(default_factory=list)
+
+
 class PublicFrozenJourneyArtifact(BaseModel):
     """GET /api/mirror-network/{slug}/frozen — allowlisted public projection."""
 
@@ -284,6 +306,7 @@ class PublicFrozenJourneyArtifact(BaseModel):
     generationId: Optional[str] = None
     sceneAssetId: Optional[str] = None
     businessPublisher: Optional[BusinessPublisherPublic] = None
+    businessMedia: Optional[PublicBusinessMedia] = None
     authorUserId: str
     parentSlug: Optional[str] = None
     selectedCount: int = Field(ge=6, le=8)

@@ -22,6 +22,8 @@ import YansiPersonalReplayHistory from '@/components/mirror-landing/YansiPersona
 import { replaySelection } from '@/lib/eza/mirror-network/publicReplayContinuation';
 import SainaComposer from '@/components/saina/SainaComposer';
 import BusinessAnswerNotice from '@/components/saina/BusinessAnswerNotice';
+import { BusinessAnswerBody } from '@/components/mirror-landing/BusinessMediaBlocks';
+import { parseBusinessMediaBlocks, type PublicBusinessBlock } from '@/lib/eza/mirror/journey/businessMedia';
 import type { SainaNotificationItem } from '@/components/saina/SainaNotificationsDropdown';
 import JourneyWindowDecisionBanner from '@/components/mirror/JourneyWindowDecisionBanner';
 import JourneyGenerationStatus from '@/components/mirror/JourneyGenerationStatus';
@@ -265,6 +267,7 @@ interface Message {
   feedback?: StandaloneFeedbackContext | null;
   /** Streaming assistant — not an eligible Journey Q/A until complete. */
   incomplete?: boolean;
+  businessMedia?: PublicBusinessBlock[];
 }
 
 // localStorage keys
@@ -2038,6 +2041,7 @@ export default function StandaloneChatInner() {
             behavioral: behavioralFallback ?? undefined,
             standaloneObservation: standaloneObservationFallback ?? undefined,
             feedback: feedbackFallback ?? undefined,
+            businessMedia: parseBusinessMediaBlocks((data as { business_media?: unknown }).business_media),
           };
           
           // Update user message with score
@@ -2396,6 +2400,9 @@ export default function StandaloneChatInner() {
           isLoading={isLoading}
           isTyping={isTyping}
           ezaVisibilityEnabled={ezaVisibilityEnabled}
+          renderMessageBody={(message) => message.businessMedia?.length && !message.isUser
+            ? <BusinessAnswerBody text={message.text} blocks={message.businessMedia} layout="desktop" />
+            : undefined}
         />
         {mirrorBirthVisible ? (
           <MirrorBirthSuggestion

@@ -7,6 +7,7 @@ exact knowledge versions. A URL, coordinate, or file path is rejected.
 from __future__ import annotations
 
 import re
+import uuid
 
 from sqlalchemy import select
 from sqlalchemy.exc import OperationalError, ProgrammingError
@@ -16,7 +17,7 @@ from backend.models.business_brand_assets import BusinessKnowledgeAssetLink as L
 from backend.models.business_yansi import BusinessKnowledgeVersion as Knowledge
 from backend.models.business_yansi import BusinessProfile
 from backend.models.production import Organization
-from backend.services.business_yansi.brand_assets import public_media_allowed
+from backend.services.business_yansi.brand_assets import public_media_allowed, validate_https_url
 from backend.services.business_yansi.service import fail, source_hash, uid
 
 
@@ -186,3 +187,111 @@ async def assert_live_plan(db, business_id, steps, plan):
     grouped = await eligible_for_versions(db, business_id, version_ids)
     if not plan_is_live(steps, plan, grouped):
         fail("sealed_media_unavailable", 409)
+
+
+def public_block(asset):
+    """Public display fields. Storage keys and unvalidated remote addresses stay out."""
+    kind = BLOCK_TYPES[asset.asset_type]
+    block = {"type": kind, "assetId": str(asset.id), "title": asset.title or ""}
+    if kind == "image":
+        block["contentPath"] = f"/api/business-yansi/public-media/{asset.business_id}/{asset.id}"
+        return block
+    if kind == "map":
+        if asset.latitude is None or asset.longitude is None:
+            return None
+        block["caption"] = asset.caption or ""
+        block["latitude"] = format(asset.latitude, "f")
+        block["longitude"] = format(asset.longitude, "f")
+        return block
+    try:
+        block["href"] = validate_https_url(asset.locator)
+    except Exception:
+        return None
+    if kind == "link":
+        block["caption"] = asset.caption or ""
+    return block
+
+
+async def live_public_asset(db, business_id, asset_id):
+    """Re-check brand, approval, version, and public access at the moment of display."""
+    business = uid(business_id)
+    asset = await db.get(Asset, uid(asset_id))
+    if asset is None or asset.business_id != business:
+        return None
+    profile = await db.get(BusinessProfile, business)
+    organization = await db.get(Organization, business)
+    links = list((await db.scalars(select(Link).where(
+        Link.asset_id == asset.id, Link.business_id == business, Link.status == "active"
+    ))).all())
+    for link in links:
+        knowledge = await db.get(Knowledge, link.confirmed_version_id)
+        if public_media_allowed(asset=asset, link=link, knowledge=knowledge, profile=profile, organization=organization):
+            return asset
+    return None
+
+
+def _present_chosen(chosen, assets):
+    by_id = {str(asset.id): asset for asset in assets}
+    shown = []
+    for block in chosen:
+        asset = by_id.get(str(block.get("assetId")))
+        if asset is None or BLOCK_TYPES.get(asset.asset_type) != block.get("type"):
+            continue
+        view = public_block(asset)
+        if view is not None:
+            shown.append(view)
+    return shown
+
+
+async def answer_media(db, business_id, answer_text, sources):
+    """Media for an answer that already exists. No model call and no quota event."""
+    version_ids = []
+    for source in sources or []:
+        raw = source.get("knowledge_version_id") if isinstance(source, dict) else None
+        try:
+            version_ids.append(str(uuid.UUID(str(raw))))
+        except (ValueError, TypeError, AttributeError):
+            continue
+    if not version_ids:
+        return []
+    try:
+        grouped = await eligible_for_versions(db, business_id, version_ids)
+    except (OperationalError, ProgrammingError):
+        return []
+    pool = []
+    for version_id in version_ids:
+        pool.extend(grouped.get(uid(version_id), []))
+    unique = list({asset.id: asset for asset in pool}.values())
+    return _present_chosen(select_step_blocks(answer_text, answer_text, unique), unique)
+
+
+async def publication_media(db, slug, version):
+    """Sealed Yansı media that is still public. Revoked ids disappear and are not replaced."""
+    from backend.models.business_yansi import BusinessPublication
+    try:
+        row = await db.get(BusinessPublication, (slug, int(version)))
+    except (OperationalError, ProgrammingError):
+        return None
+    plan = getattr(row, "media_plan", None) if row is not None else None
+    if not plan:
+        return None
+    wanted = []
+    if plan.get("coverAssetId"):
+        wanted.append(plan["coverAssetId"])
+    for step in plan.get("blocks") or []:
+        for block in step or []:
+            if isinstance(block, dict) and block.get("assetId"):
+                wanted.append(block["assetId"])
+    live = {}
+    for asset_id in wanted:
+        asset = await live_public_asset(db, row.business_id, asset_id)
+        if asset is not None:
+            live[str(asset.id)] = asset
+    cover = None
+    cover_asset = live.get(str(plan.get("coverAssetId")))
+    if cover_asset is not None and cover_asset.asset_type == "image":
+        cover = public_block(cover_asset)
+    steps = [_present_chosen(step or [], live.values()) for step in plan.get("blocks") or []]
+    if cover is None and not any(steps):
+        return None
+    return {"cover": cover, "steps": steps}

@@ -27,9 +27,10 @@ export type DesktopYansiReplayIdentity = {
 };
 
 /** Presentation and personal-chat handoff only. Frozen replay remains parent-owned. */
-export default function YansiDesktopExperience({ slug, identity, messages, replayAction, scrollRef, replaySelection, sceneImageUrl, mobile = false }: {
+export default function YansiDesktopExperience({ slug, identity, messages, replayAction, scrollRef, replaySelection, sceneImageUrl, preserveBrandFrame = false, mobile = false }: {
   slug: string;
   mobile?: boolean;
+  preserveBrandFrame?: boolean;
   identity: DesktopYansiReplayIdentity;
   messages: ReactNode;
   replayAction: ReactNode;
@@ -85,7 +86,7 @@ export default function YansiDesktopExperience({ slug, identity, messages, repla
   };
 
   return <div className={`yansi-desktop-experience saina-main${mobile ? ' yansi-mobile-experience' : ''}`} data-testid="yansi-desktop-experience" data-reading-mode={reading.mode}>
-    {!mobile ? <SainaCinematicScene sceneImageUrl={sceneImageUrl} /> : null}
+    {!mobile ? <SainaCinematicScene sceneImageUrl={sceneImageUrl} preserveFrame={preserveBrandFrame} /> : null}
     <div className="saina-main-body saina-desktop-chat-layout">
       <SainaDesktopChatLayout replay scrollRef={scrollRef}
         header={<>

@@ -416,6 +416,11 @@
     border-radius: 0;
   }
 
+  .yansi-desktop-scene-image[data-yansi-brand-cover='true'] {
+    object-fit: contain;
+    background: #0c0b0a;
+  }
+
   .yansi-desktop-scene-bleed {
     filter: blur(10px) saturate(1.08) brightness(1.02);
     transition: filter var(--yansi-depth-ease);

@@ -375,11 +375,27 @@ async def remove_member(business_id:uuid.UUID,user_id:uuid.UUID,db=Depends(get_d
     if row:await db.delete(row)
     await db.commit();return {'ok':True}
 
+@router.get('/public-media/{business_id}/{asset_id}')
+async def public_brand_media(business_id:uuid.UUID,asset_id:uuid.UUID,db=Depends(get_db)):
+    from backend.services.business_yansi.studio_media import live_public_asset
+    asset = await live_public_asset(db, business_id, asset_id)
+    if asset is None or asset.asset_type != 'image':
+        raise HTTPException(404, 'not_found')
+    body, mime = assets.read_stored_image(business_id, asset.locator)
+    return Response(content=body, media_type=mime, headers={'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, no-store'})
+
 @router.post('/{business_id}/preview-answer')
 async def preview_answer(business_id:uuid.UUID,body:Question,db=Depends(get_db),claims=Depends(get_current_user),credentials=Depends(security)):
     await manager(db,claims,business_id,'editor')
+    from sqlalchemy.ext.asyncio import AsyncSession
     from backend.services.business_yansi.answers import BusinessHistory,answer
-    return await answer(body.question,BusinessHistory([],business_id,[]),db=db)
+    from backend.services.business_yansi.studio_media import answer_media
+    result = await answer(body.question,BusinessHistory([],business_id,[]),db=db)
+    if isinstance(db, AsyncSession):
+        shown = await answer_media(db, business_id, result.get('assistant_answer') or '', result.get('sources') or [])
+        if shown:
+            result['business_media'] = shown
+    return result
 
 
 # Child routes inherit the Business feature gate; existing endpoints are unchanged.

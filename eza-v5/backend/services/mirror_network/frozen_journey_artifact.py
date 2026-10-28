@@ -651,7 +651,12 @@ async def get_public_frozen_journey_artifact(
     if public:
         from backend.services.business_yansi.publication import public_publisher
         brand = await public_publisher(db, slug, public['journeyVersion'])
-        if brand: public = {**public, 'businessPublisher': brand, 'authorUserId': brand['businessId']}
+        if brand:
+            public = {**public, 'businessPublisher': brand, 'authorUserId': brand['businessId']}
+            from backend.services.business_yansi.studio_media import publication_media
+            shown = await publication_media(db, slug, public['journeyVersion'])
+            if shown:
+                public = {**public, 'businessMedia': shown}
     return public
 
 

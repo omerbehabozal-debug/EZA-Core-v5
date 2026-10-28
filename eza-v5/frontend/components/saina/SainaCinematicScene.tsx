@@ -40,6 +40,8 @@ type SainaCinematicSceneProps = {
    * backdrop — chat/mirror identity scenes never appear.
    */
   atmosphere?: SainaSceneAtmosphere;
+  /** Brand covers keep their frame. Personal scenes stay on the existing crop. */
+  preserveFrame?: boolean;
 };
 
 /** Full-width conversation atmosphere — default scene with optional Ayna identity crossfade. */
@@ -48,6 +50,7 @@ export default function SainaCinematicScene({
   focalX,
   focalY,
   atmosphere = 'conversation',
+  preserveFrame = false,
 }: SainaCinematicSceneProps) {
   const lockedAnalysis = atmosphere === 'analysis';
   const bundledSceneUrl = lockedAnalysis ? analysisAtmosphereUrl : defaultSceneUrl;
@@ -147,7 +150,7 @@ export default function SainaCinematicScene({
                 'saina-canvas-scene-image saina-canvas-scene-image--identity',
                 identityVisible && 'saina-canvas-scene-image--identity-visible'
               )}
-              style={{ backgroundImage: `url('${activeIdentityUrl}')`, ...focalStyle }}
+              style={{ backgroundImage: `url('${activeIdentityUrl}')`, ...focalStyle, ...(preserveFrame ? { backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' } : {}) }}
               data-testid="saina-scene-identity-layer"
             />
           ) : null}

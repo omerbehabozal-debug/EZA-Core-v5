@@ -20,6 +20,8 @@ import SainaAuthAccountMark from '@/components/saina/SainaAuthAccountMark';
 import BusinessYansiStudio from '@/components/saina/business-studio/BusinessYansiStudio';
 import BusinessKnowledgePool from '@/components/saina/business-studio/BusinessKnowledgePool';
 import BusinessAssetLibrary from '@/components/saina/business-studio/BusinessAssetLibrary';
+import BusinessMediaBlocks from '@/components/mirror-landing/BusinessMediaBlocks';
+import { parseBusinessMediaBlocks, type PublicBusinessBlock } from '@/lib/eza/mirror/journey/businessMedia';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { buildProfileAvatarDisplaySrc } from '@/lib/eza/profile/avatarDisplayUrl';
@@ -101,6 +103,7 @@ export default function SainaBusinessManager() {
   const [editDraft, setEditDraft] = useState<Draft | null>(null);
   const [editorialChat, setEditorialChat] = useState('');
   const [answer, setAnswer] = useState('');
+  const [previewMedia, setPreviewMedia] = useState<PublicBusinessBlock[]>([]);
   const [engineOpen, setEngineOpen] = useState(false);
   const [members, setMembers] = useState<{ user_id: string; role: string }[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -214,6 +217,7 @@ export default function SainaBusinessManager() {
     setPublications([]);
     setMembers([]);
     setAnswer('');
+    setPreviewMedia([]);
     setEditorialChat('');
     setKnowledgeUi({ formOpen: false, dirty: false });
     setAssetUi({ formOpen: false, dirty: false });
@@ -748,10 +752,11 @@ export default function SainaBusinessManager() {
                           className="biz-form biz-engine-form"
                           data-testid="biz-engine-form"
                           onSubmit={submit(async (data) => {
-                            const result = await api<{ assistant_answer: string }>(`${base}/preview-answer`, 'POST', {
+                            const result = await api<{ assistant_answer: string; business_media?: unknown }>(`${base}/preview-answer`, 'POST', {
                               question: data.question,
                             });
                             setAnswer(result.assistant_answer);
+                            setPreviewMedia(parseBusinessMediaBlocks(result.business_media));
                           })}
                         >
                           <p className="biz-section-lead" style={{ marginBottom: 0 }}>
@@ -760,6 +765,7 @@ export default function SainaBusinessManager() {
                           <input name="question" placeholder="Sorun" required />
                           <button type="submit">Cevabı önizle</button>
                           {answer && <p className="biz-copy">{answer}</p>}
+                          {previewMedia.length ? <BusinessMediaBlocks blocks={previewMedia} layout="desktop" /> : null}
                         </form>
                       ) : null}
                     </div>

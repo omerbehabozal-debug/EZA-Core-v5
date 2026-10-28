@@ -1,6 +1,7 @@
 'use client';
 
 import YansiReelExperienceInvite from './YansiReelExperienceInvite';
+import { businessCoverUrl } from '@/lib/eza/mirror/journey/businessMedia';
 
 /**
  * Slice 3 + Slice 4 — public /m navigation.
@@ -1596,7 +1597,8 @@ export default function MirrorYansiChainExperience({
         </div>
       ) : (
         <MirrorYansiSceneCrossfade
-          sceneImageUrl={activeNode.artifact.sceneImageUrl}
+          sceneImageUrl={businessCoverUrl(activeNode.artifact.businessMedia) || activeNode.artifact.sceneImageUrl}
+          brandCover={Boolean(activeNode.artifact.businessMedia?.cover)}
           presentation={isDesktop ? 'desktop-immersive' : 'mobile-fullscreen'}
           activeIdentity={activeSlug}
         />

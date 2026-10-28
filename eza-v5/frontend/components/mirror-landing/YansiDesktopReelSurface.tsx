@@ -18,6 +18,7 @@ import {
 import { authorProfilePath } from '@/lib/eza/mirror-network/fetchAuthorPublished';
 import { assertYansiAtomicIdentity } from '@/lib/eza/mirror/journey/yansiAtomicIdentity';
 import type { PublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
+import { businessCoverUrl } from '@/lib/eza/mirror/journey/businessMedia';
 import { buildYansiPublicHref } from '@/lib/eza/mirror-network/yansiPublicDepth';
 import {
   formatKatkiReelCount,
@@ -90,7 +91,8 @@ export default function YansiDesktopReelSurface({
   const router = useRouter();
   const slug = node.artifact.slug.trim().toLowerCase();
   const title = node.artifact.publicTitle || 'Yansı';
-  const sceneUrl = (node.artifact.sceneImageUrl || '').trim();
+  const brandCover = businessCoverUrl(node.artifact.businessMedia);
+  const sceneUrl = brandCover || (node.artifact.sceneImageUrl || '').trim();
   const summary = (node.artifact.publicSummary || '').trim();
   const publicMetaTime = node.artifact.publishedAt
     ? formatYansiHeroMetaTime(node.artifact.publishedAt)
@@ -188,6 +190,7 @@ export default function YansiDesktopReelSurface({
                 className="yansi-desktop-scene-image"
                 data-yansi-plate="sharp"
                 data-yansi-scene-src={sceneUrl}
+                data-yansi-brand-cover={brandCover ? 'true' : 'false'}
                 data-testid={
                   committed ? 'mirror-yansi-scene-current' : 'mirror-yansi-scene-incoming-image'
                 }
