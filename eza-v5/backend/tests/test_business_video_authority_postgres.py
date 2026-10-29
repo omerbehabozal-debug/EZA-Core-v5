@@ -292,3 +292,175 @@ async def test_deleted_membership_is_not_reused_from_the_identity_map():
             assert await stale.get(BusinessMember, (business_id, editor_id)) is None
         async with maker() as db:
             assert await _assets(db, business_id) == 0
+
+
+async def test_ingest_membership_lock_completes_before_delete():
+    """Ingest holds the membership lock. DELETE waits, then the committed asset remains."""
+    release = asyncio.Event()
+    holding = asyncio.Event()
+    real = ingest._recheck_editor
+
+    async def paused(db, business_id, user_id):
+        await real(db, business_id, user_id)
+        holding.set()
+        await release.wait()
+
+    async with _database() as (maker, business_id, editor_id):
+        ingest._recheck_editor = paused
+        insert_task = None
+        delete_task = None
+        try:
+            async def insert():
+                async with maker() as db:
+                    return await _insert(db, business_id, editor_id)
+
+            async def delete_member():
+                async with maker() as db:
+                    row = await db.get(BusinessMember, (business_id, editor_id))
+                    await db.delete(row)
+                    await db.commit()
+
+            insert_task = asyncio.create_task(insert())
+            await asyncio.wait_for(holding.wait(), 5)
+            delete_task = asyncio.create_task(delete_member())
+            await asyncio.sleep(0.4)
+            assert not delete_task.done()
+            release.set()
+            row = await asyncio.wait_for(insert_task, 5)
+            await asyncio.wait_for(delete_task, 5)
+        finally:
+            ingest._recheck_editor = real
+            release.set()
+            for task in (insert_task, delete_task):
+                if task is not None and not task.done():
+                    task.cancel()
+        async with maker() as db:
+            assert row.id is not None
+            assert await _assets(db, business_id) == 1
+            assert await db.get(BusinessMember, (business_id, editor_id)) is None
+
+
+async def test_membership_delete_lock_blocks_ingest():
+    """DELETE holds the membership lock. Ingest waits, then the committed delete rejects it."""
+    release = asyncio.Event()
+    holding = asyncio.Event()
+
+    async with _database() as (maker, business_id, editor_id):
+        async def delete_member():
+            async with maker() as db:
+                row = await db.scalar(
+                    select(BusinessMember)
+                    .where(
+                        BusinessMember.business_id == business_id,
+                        BusinessMember.user_id == editor_id,
+                    )
+                    .with_for_update()
+                )
+                holding.set()
+                await release.wait()
+                await db.delete(row)
+                await db.commit()
+
+        async def insert():
+            async with maker() as db:
+                with pytest.raises(HTTPException) as caught:
+                    await _insert(db, business_id, editor_id)
+            assert caught.value.status_code == 403
+
+        delete_task = asyncio.create_task(delete_member())
+        await asyncio.wait_for(holding.wait(), 5)
+        insert_task = asyncio.create_task(insert())
+        await asyncio.sleep(0.4)
+        assert not insert_task.done()
+        release.set()
+        await asyncio.wait_for(delete_task, 5)
+        await asyncio.wait_for(insert_task, 5)
+        async with maker() as db:
+            assert await _assets(db, business_id) == 0
+            assert await db.get(BusinessMember, (business_id, editor_id)) is None
+
+
+async def test_concurrent_sessions_do_not_deadlock_or_authorize_a_deleted_member():
+    async with _database() as (maker, business_id, editor_id):
+        async def delete_member():
+            async with maker() as db:
+                row = await db.get(BusinessMember, (business_id, editor_id))
+                await db.delete(row)
+                await db.commit()
+
+        async def insert():
+            async with maker() as db:
+                try:
+                    await _insert(db, business_id, editor_id)
+                except HTTPException as exc:
+                    assert exc.status_code == 403
+                    return "denied"
+                return "inserted"
+
+        deleted, outcome = await asyncio.wait_for(asyncio.gather(delete_member(), insert()), 6)
+        assert deleted is None
+        assert outcome in {"denied", "inserted"}
+        async with maker() as db:
+            count = await _assets(db, business_id)
+            member = await db.get(BusinessMember, (business_id, editor_id))
+        assert member is None
+        assert count == (1 if outcome == "inserted" else 0)
+
+        async with maker() as db:
+            db.add(BusinessMember(business_id=business_id, user_id=editor_id, role="editor"))
+            await db.commit()
+            before = await _assets(db, business_id)
+
+        async def insert_again():
+            async with maker() as db:
+                await _insert(db, business_id, editor_id)
+
+        await asyncio.wait_for(asyncio.gather(insert_again(), insert_again()), 6)
+        async with maker() as db:
+            assert await _assets(db, business_id) == before + 2
+
+
+async def test_uncommitted_membership_does_not_grant_ingest():
+    release = asyncio.Event()
+    holding = asyncio.Event()
+
+    async with _database() as (maker, business_id, editor_id):
+        async with maker() as db:
+            row = await db.get(BusinessMember, (business_id, editor_id))
+            await db.delete(row)
+            await db.commit()
+        await _denied(maker, business_id, editor_id, 403)
+
+        async def insert_then_rollback():
+            async with maker() as db:
+                db.add(BusinessMember(business_id=business_id, user_id=editor_id, role="editor"))
+                await db.flush()
+                holding.set()
+                await release.wait()
+                await db.rollback()
+
+        async def insert():
+            async with maker() as db:
+                with pytest.raises(HTTPException) as caught:
+                    await _insert(db, business_id, editor_id)
+            assert caught.value.status_code == 403
+
+        creator = asyncio.create_task(insert_then_rollback())
+        await asyncio.wait_for(holding.wait(), 5)
+        ingest_task = asyncio.create_task(insert())
+        await asyncio.sleep(0.4)
+        release.set()
+        await asyncio.wait_for(creator, 5)
+        await asyncio.wait_for(ingest_task, 5)
+        async with maker() as db:
+            assert await _assets(db, business_id) == 0
+            assert await db.get(BusinessMember, (business_id, editor_id)) is None
+
+        async with maker() as db:
+            db.add(BusinessMember(business_id=business_id, user_id=editor_id, role="editor"))
+            await db.commit()
+        async with maker() as db:
+            created = await _insert(db, business_id, editor_id)
+            assert created.id is not None
+        async with maker() as db:
+            assert await _assets(db, business_id) == 1
