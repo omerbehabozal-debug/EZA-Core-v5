@@ -286,13 +286,9 @@ async def _insert_asset(db, business_id, user_id, *, key: str, title: str, capti
 
 
 async def _recheck_editor(db, business_id, user_id) -> None:
-    """Re-read authority while the brand lock is held, then lock the other rows.
+    """Lock organization, user, and membership, then decide from those rows.
 
-    Order is organization, user, membership. A revocation that already committed
-    is visible. A revocation that needs one of these rows waits until this
-    insert commits, and does not undo the asset.
+    Order is organization, user, membership. access() is not the decision:
+    db.get would return a membership that another transaction already deleted.
     """
-    user = await lock_editor_rows(db, business_id, user_id)
-    if user is None or not user.is_active:
-        fail("business_access_denied", 403)
-    await access(db, business_id, user_id, "editor")
+    await lock_editor_rows(db, business_id, user_id)

@@ -273,3 +273,22 @@ async def test_overlapping_orders_finish_without_deadlock():
             assert user.is_active is False
             if outcome[1] == "inserted":
                 assert count >= 1
+
+
+async def test_deleted_membership_is_not_reused_from_the_identity_map():
+    """Committed DELETE must win over a membership already present in the identity map."""
+    async with _database() as (maker, business_id, editor_id):
+        async with maker() as stale:
+            cached = await stale.get(BusinessMember, (business_id, editor_id))
+            assert cached is not None and cached.role == "editor"
+            async with maker() as other:
+                row = await other.get(BusinessMember, (business_id, editor_id))
+                await other.delete(row)
+                await other.commit()
+            assert cached.role == "editor"
+            with pytest.raises(HTTPException) as denied:
+                await _insert(stale, business_id, editor_id)
+            assert denied.value.status_code == 403
+            assert await stale.get(BusinessMember, (business_id, editor_id)) is None
+        async with maker() as db:
+            assert await _assets(db, business_id) == 0

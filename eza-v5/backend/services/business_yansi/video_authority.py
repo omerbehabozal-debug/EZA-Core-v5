@@ -22,10 +22,11 @@ import uuid
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.util import identity_key
 
 from backend.models.business_yansi import BusinessMember, BusinessProfile
 from backend.models.production import Organization, User
-from backend.services.business_yansi.service import fail, uid
+from backend.services.business_yansi.service import ROLES, fail, uid
 
 
 def _locked(model, *criteria):
@@ -39,25 +40,43 @@ async def lock_brand(db: AsyncSession, business_id) -> BusinessProfile:
     return row
 
 
-async def lock_editor_rows(db: AsyncSession, business_id, user_id) -> User | None:
-    """Organization, then user, then membership. The brand row is already locked."""
+def _forget_cached_member(db: AsyncSession, business_id, user_id) -> None:
+    """A locked SELECT that returns no row leaves a deleted membership in the identity map."""
+    stale = db.sync_session.identity_map.get(identity_key(BusinessMember, (business_id, user_id)))
+    if stale is not None:
+        db.sync_session.expunge(stale)
+
+
+async def lock_editor_rows(db: AsyncSession, business_id, user_id) -> None:
+    """Organization, then user, then membership. The brand row is already locked.
+
+    The returned rows are the authorization decision. A missing membership is
+    removed from the identity map so a later db.get cannot grant the old role.
+    """
     business_key = uid(business_id)
     actor = uid(user_id)
-    await db.scalar(_locked(Organization, Organization.id == business_key))
+    organization = await db.scalar(_locked(Organization, Organization.id == business_key))
     user = await db.scalar(_locked(User, User.id == actor))
-    await db.scalar(
+    membership = await db.scalar(
         _locked(
             BusinessMember,
             BusinessMember.business_id == business_key,
             BusinessMember.user_id == actor,
         )
     )
-    await db.scalar(
+    if membership is None:
+        _forget_cached_member(db, business_key, actor)
+    brand = await db.scalar(
         select(BusinessProfile)
         .where(BusinessProfile.id == business_key)
         .execution_options(populate_existing=True)
     )
-    return user
+    if user is None or not user.is_active:
+        fail("business_access_denied", 403)
+    if brand is None or organization is None or organization.status != "active" or brand.status != "active":
+        fail("business_not_found", 404)
+    if membership is None or ROLES.get(membership.role, 0) < ROLES["editor"]:
+        fail("business_access_denied", 403)
 
 
 async def update_brand_verification(db: AsyncSession, business_id, *, verified: bool, official: bool, status: str):

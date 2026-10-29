@@ -7,6 +7,7 @@ import asyncio
 import os
 import socket
 import uuid
+from contextlib import asynccontextmanager
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
@@ -859,3 +860,170 @@ async def test_chunked_trailer_is_required():
         with pytest.raises(HTTPException) as rejected:
             await read(payload)
         assert rejected.value.detail["code"] == "video_url_rejected"
+
+
+def _storage_key(business_id) -> str:
+    return f"brand-videos/{business_id}/{uuid.uuid4().hex}{uuid.uuid4().hex}.mp4"
+
+
+@asynccontextmanager
+async def _authority_sessions(tmp_path):
+    """File SQLite with two sessions. Not a PostgreSQL lock proof."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from backend.core.utils.dependencies import Base
+    from backend.models.business_brand_assets import BusinessBrandAsset
+    from backend.models.business_yansi import BusinessProfile
+    from backend.models.production import Organization, User
+    from backend.services.business_yansi import service as svc
+
+    engine = create_async_engine(f"sqlite+aiosqlite:///{(tmp_path / 'member-auth.db').as_posix()}")
+    tables = [
+        User.__table__,
+        Organization.__table__,
+        BusinessProfile.__table__,
+        BusinessMember.__table__,
+        BusinessBrandAsset.__table__,
+    ]
+    async with engine.begin() as connection:
+        await connection.run_sync(lambda sync: Base.metadata.create_all(sync, tables=tables))
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+    async with maker() as setup:
+        owner = User(id=uuid.uuid4(), email="owner-member@example.test", role="user", is_active=True)
+        editor = User(id=uuid.uuid4(), email="editor-member@example.test", role="user", is_active=True)
+        org = Organization(id=uuid.uuid4(), name="Auth", status="active")
+        setup.add_all([owner, editor, org])
+        await setup.commit()
+        business = await svc.create_business(setup, owner, {
+            "organizationId": str(org.id),
+            "ownerId": str(owner.id),
+            "slug": "member-auth",
+            "name": "Auth",
+        })
+        setup.add(BusinessMember(business_id=business.id, user_id=editor.id, role="editor"))
+        await setup.commit()
+        business_id = business.id
+        editor_id = editor.id
+    try:
+        yield maker, business_id, editor_id
+    finally:
+        await engine.dispose()
+
+
+async def _asset_rows(maker, business_id) -> int:
+    from sqlalchemy import func, select
+
+    from backend.models.business_brand_assets import BusinessBrandAsset
+
+    async with maker() as db:
+        return await db.scalar(
+            select(func.count()).select_from(BusinessBrandAsset).where(BusinessBrandAsset.business_id == business_id)
+        )
+
+
+async def test_deleted_membership_is_not_reused_from_the_identity_map(tmp_path):
+    """Membership loaded in this session, deleted by another, must not authorize ingest."""
+    async with _authority_sessions(tmp_path) as (maker, business_id, editor_id):
+        async with maker() as stale:
+            cached = await stale.get(BusinessMember, (business_id, editor_id))
+            assert cached is not None and cached.role == "editor"
+            async with maker() as other:
+                row = await other.get(BusinessMember, (business_id, editor_id))
+                await other.delete(row)
+                await other.commit()
+            assert cached.role == "editor"
+            with pytest.raises(HTTPException) as denied:
+                await ingest._insert_asset(
+                    stale, business_id, editor_id,
+                    key=_storage_key(business_id), title="Atolye filmi", caption="", public_allowed=False,
+                )
+            assert denied.value.status_code == 403
+            assert await stale.get(BusinessMember, (business_id, editor_id)) is None
+        assert await _asset_rows(maker, business_id) == 0
+
+
+async def test_locked_authority_rows_decide_ingest(tmp_path):
+    async with _authority_sessions(tmp_path) as (maker, business_id, editor_id):
+        from backend.models.business_yansi import BusinessProfile
+        from backend.models.production import Organization, User
+
+        async with maker() as db:
+            row = await ingest._insert_asset(
+                db, business_id, editor_id,
+                key=_storage_key(business_id), title="Atolye filmi", caption="", public_allowed=False,
+            )
+            assert row.id is not None
+        assert await _asset_rows(maker, business_id) == 1
+
+        async with maker() as stale:
+            cached = await stale.get(BusinessMember, (business_id, editor_id))
+            assert cached.role == "editor"
+            async with maker() as other:
+                member = await other.get(BusinessMember, (business_id, editor_id))
+                member.role = "viewer"
+                await other.commit()
+            assert cached.role == "editor"
+            with pytest.raises(HTTPException) as demoted:
+                await ingest._insert_asset(
+                    stale, business_id, editor_id,
+                    key=_storage_key(business_id), title="Atolye filmi", caption="", public_allowed=False,
+                )
+            assert demoted.value.status_code == 403
+        assert await _asset_rows(maker, business_id) == 1
+
+        async with maker() as other:
+            member = await other.get(BusinessMember, (business_id, editor_id))
+            member.role = "editor"
+            await other.commit()
+
+        async with maker() as stale:
+            await stale.get(User, editor_id)
+            async with maker() as other:
+                user = await other.get(User, editor_id)
+                user.is_active = False
+                await other.commit()
+            with pytest.raises(HTTPException) as inactive:
+                await ingest._insert_asset(
+                    stale, business_id, editor_id,
+                    key=_storage_key(business_id), title="Atolye filmi", caption="", public_allowed=False,
+                )
+            assert inactive.value.status_code == 403
+        assert await _asset_rows(maker, business_id) == 1
+
+        async with maker() as other:
+            user = await other.get(User, editor_id)
+            user.is_active = True
+            await other.commit()
+
+        async with maker() as stale:
+            await stale.get(BusinessProfile, business_id)
+            async with maker() as other:
+                brand = await other.get(BusinessProfile, business_id)
+                brand.status = "suspended"
+                await other.commit()
+            with pytest.raises(HTTPException) as suspended:
+                await ingest._insert_asset(
+                    stale, business_id, editor_id,
+                    key=_storage_key(business_id), title="Atolye filmi", caption="", public_allowed=False,
+                )
+            assert suspended.value.status_code == 404
+        assert await _asset_rows(maker, business_id) == 1
+
+        async with maker() as other:
+            brand = await other.get(BusinessProfile, business_id)
+            brand.status = "active"
+            await other.commit()
+
+        async with maker() as stale:
+            await stale.get(Organization, business_id)
+            async with maker() as other:
+                org = await other.get(Organization, business_id)
+                org.status = "archived"
+                await other.commit()
+            with pytest.raises(HTTPException) as archived:
+                await ingest._insert_asset(
+                    stale, business_id, editor_id,
+                    key=_storage_key(business_id), title="Atolye filmi", caption="", public_allowed=False,
+                )
+            assert archived.value.status_code == 404
+        assert await _asset_rows(maker, business_id) == 1
