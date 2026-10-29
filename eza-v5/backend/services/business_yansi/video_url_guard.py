@@ -268,7 +268,10 @@ async def _chunked(reader, pending: bytearray, max_bytes: int):
             size = int(line.strip().split(b";", 1)[0], 16)
         except ValueError:
             fail("video_url_rejected", 422)
+        if size < 0:
+            fail("video_url_rejected", 422)
         if size == 0:
+            await _chunk_trailer(take)
             return
         if size > max_bytes or total + size > max_bytes:
             fail("video_too_large", 413)
@@ -276,3 +279,20 @@ async def _chunked(reader, pending: bytearray, max_bytes: int):
         yield await take(size)
         if await take(2) != b"\r\n":
             fail("video_url_rejected", 422)
+
+
+MAX_TRAILER_BYTES = 4096
+
+
+async def _chunk_trailer(take) -> None:
+    """Require the terminating CRLF after the zero chunk. Bound trailer headers."""
+    seen = 0
+    while True:
+        line = bytearray()
+        while not line.endswith(b"\r\n"):
+            line += await take(1)
+            seen += 1
+            if seen > MAX_TRAILER_BYTES or len(line) > MAX_TRAILER_BYTES:
+                fail("video_url_rejected", 422)
+        if line == b"\r\n":
+            return

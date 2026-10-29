@@ -9,8 +9,8 @@ from sqlalchemy import select
 from backend.auth.deps import get_current_user, security
 from backend.core.utils.dependencies import get_db
 from backend.models.business_yansi import BusinessProfile, BusinessMember, BusinessKnowledgeVersion, BusinessYansiDraft, BusinessPublication
-from backend.models.production import User
 from backend.services.business_yansi import service as svc
+from backend.services.business_yansi.video_authority import assign_member_role, update_brand_verification
 from backend.services.business_yansi import applications as apps
 from backend.services.business_yansi import platform_admin as padmin
 from backend.services.business_yansi.publication import enabled, publisher, export_editorial_conversation, publish_draft
@@ -242,10 +242,9 @@ async def admin_capability_revoke(body:CapabilityGrant,db=Depends(get_db),claims
 
 @router.patch('/{business_id}/verification')
 async def verification(business_id:uuid.UUID,body:Verify,db=Depends(get_db),claims=Depends(get_current_user)):
-    await svc.platform_admin(db,claims);row=await db.get(BusinessProfile,business_id)
-    if not row: svc.fail('business_not_found',404)
-    if body.official and (not body.verified or row.slug!='bilign'):svc.fail('official_bilign_identity_required',422)
-    row.verified=body.verified;row.official=body.official;row.status=body.status;await db.commit();return await recorded(db,row)
+    await svc.platform_admin(db,claims)
+    row=await update_brand_verification(db,business_id,verified=body.verified,official=body.official,status=body.status)
+    return await recorded(db,row)
 @router.get('/{business_id}/overview')
 async def overview(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
     user,business=await manager(db,claims,business_id)
@@ -268,13 +267,9 @@ async def members(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_cu
     await manager(db,claims,business_id,'owner');return {'items':[record(row) for row in (await db.scalars(select(BusinessMember).where(BusinessMember.business_id==business_id))).all()]}
 @router.put('/{business_id}/members')
 async def member(business_id:uuid.UUID,body:Member,db=Depends(get_db),claims=Depends(get_current_user)):
-    _,business=await manager(db,claims,business_id,'owner')
-    user=await db.get(User,body.userId)
-    if not user or not user.is_active or body.userId==business.owner_id:svc.fail('invalid_member',422)
-    row=await db.get(BusinessMember,(business_id,body.userId))
-    if row:row.role=body.role
-    else:row=BusinessMember(business_id=business_id,user_id=body.userId,role=body.role);db.add(row)
-    await db.commit();return await recorded(db,row)
+    await manager(db,claims,business_id,'owner')
+    row=await assign_member_role(db,business_id,body.userId,body.role)
+    return await recorded(db,row)
 def _asset_payload(body):
     return {'asset_type':body.assetType,'title':body.title,'caption':body.caption,'public_allowed':body.publicAllowed,'locator':body.locator,'latitude':body.latitude,'longitude':body.longitude,'revision':getattr(body,'revision',None)}
 async def _read_image(upload:UploadFile):

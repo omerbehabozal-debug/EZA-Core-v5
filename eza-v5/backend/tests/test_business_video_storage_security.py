@@ -13,7 +13,6 @@ import pytest
 from fastapi import HTTPException
 
 from backend.models.business_yansi import BusinessMember
-from backend.security.rate_limit import reset_in_memory_rate_limits_for_tests
 from backend.services.business_yansi import video_ingest as ingest
 from backend.services.business_yansi import video_mp4
 from backend.services.business_yansi import video_storage as storage
@@ -22,7 +21,9 @@ from backend.services.business_yansi.video_storage import s3_result_ok
 from backend.tests.test_business_video_storage import (
     FakeS3,
     Reader,
+    S3Response,
     Upload,
+    VideoQuotaRedis,
     _asset_count,
     _box,
     _http,
@@ -35,15 +36,12 @@ from backend.tests.test_business_yansi import sample
 
 @pytest.fixture(autouse=True)
 def _isolated_budget(monkeypatch):
-    import importlib
+    quota = VideoQuotaRedis()
 
-    async def no_redis():
-        return None
+    async def client():
+        return quota
 
-    rate_limits = importlib.import_module("backend.security.rate_limit")
-    monkeypatch.setattr(rate_limits, "get_redis", no_redis)
-    monkeypatch.setattr(ingest, "_redis", no_redis)
-    reset_in_memory_rate_limits_for_tests()
+    monkeypatch.setattr(ingest, "_redis", client)
     ingest.reset_video_budget_for_tests()
 
 
@@ -83,25 +81,6 @@ class _WrongSize(FakeS3):
         return response
 
 
-class _FakeRedis:
-    def __init__(self, fail_incr=False):
-        self.values = {}
-        self.fail_incr = fail_incr
-
-    async def incr(self, key):
-        if self.fail_incr:
-            raise ConnectionError("down")
-        self.values[key] = int(self.values.get(key, 0)) + 1
-        return self.values[key]
-
-    async def decr(self, key):
-        self.values[key] = int(self.values.get(key, 0)) - 1
-        return self.values[key]
-
-    async def expire(self, key, ttl):
-        return True
-
-
 def test_s3_success_xml_is_required():
     error = b'<?xml version="1.0"?><Error><Code>InternalError</Code><Message>x</Message></Error>'
     assert s3_result_ok(error, "CompleteMultipartUploadResult") is False
@@ -135,14 +114,14 @@ async def test_copy_error_document_and_size_mismatch_create_no_asset(sample, mon
     with pytest.raises(HTTPException) as copied:
         await _save(sample, _s3_store(fake), _mp4())
     assert copied.value.detail["code"] == "video_storage_failed"
-    assert fake.objects == {}
+    assert all("/staging/" not in key for key in fake.objects)
     assert await _asset_count(sample.db) == 0
 
     wrong = _WrongSize()
     with pytest.raises(HTTPException) as sized:
         await _save(sample, _s3_store(wrong), _mp4())
     assert sized.value.detail["code"] == "video_storage_failed"
-    assert wrong.objects == {}
+    assert all("/staging/" not in key for key in wrong.objects)
     assert await _asset_count(sample.db) == 0
 
 
@@ -289,44 +268,70 @@ async def test_missing_ffprobe_fails_closed(sample, monkeypatch):
     assert await _asset_count(sample.db) == 0
 
 
+class _ProbeStream:
+    def __init__(self, data: bytes):
+        self.data = data
+        self.offset = 0
+
+    async def read(self, count: int) -> bytes:
+        piece = self.data[self.offset : self.offset + count]
+        self.offset += len(piece)
+        return piece
+
+
+class _ProbeProcess:
+    def __init__(self, stdout: bytes = b"", stderr: bytes = b"", code: int = 0):
+        self.stdout = _ProbeStream(stdout)
+        self.stderr = _ProbeStream(stderr)
+        self.returncode = None
+        self.code = code
+        self.killed = False
+
+    def kill(self):
+        self.killed = True
+        self.returncode = -9
+
+    async def wait(self):
+        if self.returncode is None:
+            self.returncode = self.code
+        return self.returncode
+
+
+def _point_at_probe_binaries(monkeypatch, path: str) -> None:
+    monkeypatch.setenv("EZA_BUSINESS_VIDEO_FFPROBE", path)
+    monkeypatch.setenv("EZA_BUSINESS_VIDEO_FFMPEG", path)
+
+
 async def test_probe_requires_h264_frames_and_a_bounded_subprocess(sample, monkeypatch, tmp_path):
     binary = tmp_path / "ffprobe"
     binary.write_bytes(b"")
-    monkeypatch.setenv("EZA_BUSINESS_VIDEO_FFPROBE", str(binary))
-    seen = {}
-
-    class Process:
-        def __init__(self, stdout):
-            self.stdout_bytes = stdout
-            self.returncode = 0
-            self.killed = False
-
-        async def communicate(self):
-            return self.stdout_bytes, b""
-
-        def kill(self):
-            self.killed = True
-
-        async def wait(self):
-            return 0
+    _point_at_probe_binaries(monkeypatch, str(binary))
+    calls = []
 
     async def fake_exec(*args, **kwargs):
-        seen["args"] = args
-        seen["shell"] = kwargs.get("shell")
-        return Process(b'{"streams":[{"codec_name":"h264","nb_read_frames":"1"}]}')
+        calls.append((args, kwargs))
+        if "-f" in args:
+            return _ProbeProcess()
+        return _ProbeProcess(b'{"streams":[{"codec_name":"h264","nb_read_frames":"1"}]}')
 
     monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
     store = storage.MemoryVideoStore()
     row = await _save(sample, store, _mp4())
     assert row.locator_kind == "storage"
-    assert seen["shell"] is None
-    assert seen["args"][0] == str(binary)
-    assert "-count_frames" in seen["args"]
-    assert seen["args"][-1].endswith(".mp4")
-    assert not os.path.exists(seen["args"][-1])
+    assert calls and all(item[1].get("shell") is None for item in calls)
+    ffprobe_args = calls[0][0]
+    ffmpeg_args = calls[1][0]
+    assert ffprobe_args[0] == str(binary)
+    assert "-count_frames" in ffprobe_args
+    assert "v:0" not in ffprobe_args
+    assert ffmpeg_args[0] == str(binary)
+    assert "-f" in ffmpeg_args and "null" in ffmpeg_args
+    assert not os.path.exists(ffprobe_args[-1])
 
-    async def zero_frames(*_args, **_kwargs):
-        return Process(b'{"streams":[{"codec_name":"h264","nb_read_frames":"0"}]}')
+    async def zero_frames(*args, **_kwargs):
+        if "-f" in args:
+            return _ProbeProcess()
+        return _ProbeProcess(b'{"streams":[{"codec_name":"h264","nb_read_frames":"0"}]}')
 
     monkeypatch.setattr(asyncio, "create_subprocess_exec", zero_frames)
     with pytest.raises(HTTPException) as empty:
@@ -334,12 +339,17 @@ async def test_probe_requires_h264_frames_and_a_bounded_subprocess(sample, monke
     assert empty.value.detail["code"] == "video_codec_rejected"
 
     async def slow(*_args, **_kwargs):
-        class Hung(Process):
-            async def communicate(self):
-                await asyncio.sleep(30)
-                return b"{}", b""
+        class Hung(_ProbeProcess):
+            def __init__(self):
+                super().__init__()
 
-        return Hung(b"")
+            async def read_wait(self, _count):
+                await asyncio.sleep(30)
+                return b""
+
+        process = Hung()
+        process.stdout.read = process.read_wait
+        return process
 
     monkeypatch.setattr(video_mp4, "PROBE_TIMEOUT_SECONDS", 0.05)
     monkeypatch.setattr(asyncio, "create_subprocess_exec", slow)
@@ -472,9 +482,10 @@ async def test_user_and_brand_rate_limit_and_deadline(sample, monkeypatch):
     assert limited.value.detail["code"] == "video_rate_limited"
     assert await _asset_count(sample.db) == 0
 
-    reset_in_memory_rate_limits_for_tests()
-    ingest.reset_video_budget_for_tests()
+    monkeypatch.setattr(ingest, "VIDEO_USER_LIMIT", 100)
     monkeypatch.setattr(ingest, "VIDEO_DEADLINE_SECONDS", 0.05)
+    monkeypatch.setattr(ingest, "VIDEO_LEASE_SECONDS", 3600)
+    monkeypatch.setattr(ingest, "VIDEO_BRAND_INFLIGHT", 1)
 
     class SlowUpload(Upload):
         async def read(self, count):
@@ -488,39 +499,70 @@ async def test_user_and_brand_rate_limit_and_deadline(sample, monkeypatch):
         )
     assert deadline.value.status_code == 408
     assert deadline.value.detail["code"] == "video_deadline"
-    assert ingest._inflight == {}
+    released = await ingest._acquire_lease(sample.business.id)
+    await ingest._release_lease(sample.business.id, released)
     assert await _asset_count(sample.db) == 0
 
 
-async def test_inflight_limit_uses_redis_and_memory_fallback(monkeypatch):
+async def test_redis_leases_are_shared_unique_and_fail_closed(sample, monkeypatch):
+    assert "PEXPIRE" in ingest._RATE_SCRIPT
+    assert "ARGV[4]" in ingest._RATE_SCRIPT
+    assert "PEXPIRE" in ingest._LEASE_ACQUIRE_SCRIPT
+    assert "ZREM" in ingest._LEASE_RELEASE_SCRIPT
     monkeypatch.setattr(ingest, "VIDEO_BRAND_INFLIGHT", 1)
-    redis = _FakeRedis()
+    clock = {"now": 1_000_000}
+    monkeypatch.setattr(ingest, "_now_ms", lambda: clock["now"])
+    shared = {}
+    first = VideoQuotaRedis(shared)
+    second = VideoQuotaRedis(shared)
 
     async def client():
-        return redis
+        return first
 
     monkeypatch.setattr(ingest, "_redis", client)
     business = uuid.uuid4()
-    assert await ingest._acquire_inflight(business) == "redis"
+    token_a = await ingest._acquire_lease(business)
     with pytest.raises(HTTPException) as busy:
-        await ingest._acquire_inflight(business)
+        await ingest._acquire_lease(business)
     assert busy.value.detail["code"] == "video_busy"
-    await ingest._release_inflight(business, "redis")
-    assert await ingest._acquire_inflight(business) == "redis"
-    await ingest._release_inflight(business, "redis")
-    assert redis.values
+    clock["now"] += int(ingest.VIDEO_DEADLINE_SECONDS * 1000) + 1
+    token_b = await ingest._acquire_lease(business)
+    assert token_b != token_a
+    await ingest._release_lease(business, token_a)
+    with pytest.raises(HTTPException):
+        await ingest._acquire_lease(business)
+    await ingest._release_lease(business, token_b)
 
-    broken = _FakeRedis(fail_incr=True)
+    monkeypatch.setattr(ingest, "VIDEO_USER_LIMIT", 2)
+    monkeypatch.setattr(ingest, "_now_ms", lambda: 50_000)
+    one = await ingest._consume_window("user:same", 2, 3600)
+    assert one is None
+    await ingest._consume_window("user:same", 2, 3600)
+    with pytest.raises(HTTPException) as limited:
+        await ingest._consume_window("user:same", 2, 3600)
+    assert limited.value.detail["code"] == "video_rate_limited"
 
-    async def down():
-        return broken
+    async def other_worker():
+        return second
 
-    monkeypatch.setattr(ingest, "_redis", down)
-    assert await ingest._acquire_inflight(business) == "memory"
-    with pytest.raises(HTTPException) as local:
-        await ingest._acquire_inflight(business)
-    assert local.value.detail["code"] == "video_busy"
-    await ingest._release_inflight(business, "memory")
+    monkeypatch.setattr(ingest, "_redis", other_worker)
+    monkeypatch.setattr(ingest, "VIDEO_BRAND_INFLIGHT", 1)
+    held = await ingest._acquire_lease(business)
+    monkeypatch.setattr(ingest, "_redis", client)
+    with pytest.raises(HTTPException) as across:
+        await ingest._acquire_lease(business)
+    assert across.value.detail["code"] == "video_busy"
+    await ingest._release_lease(business, held)
+
+    async def offline():
+        return None
+
+    monkeypatch.setattr(ingest, "_redis", offline)
+    with pytest.raises(HTTPException) as closed:
+        await _save(sample, storage.MemoryVideoStore(), b"not-a-video")
+    assert closed.value.status_code == 503
+    assert closed.value.detail["code"] == "video_quota_unavailable"
+    assert await _asset_count(sample.db) == 0
 
 
 async def test_parser_box_and_range_budgets_reject_the_file(sample, monkeypatch):
@@ -537,3 +579,283 @@ async def test_parser_box_and_range_budgets_reject_the_file(sample, monkeypatch)
     with pytest.raises(HTTPException) as reads:
         await _save(sample, storage.MemoryVideoStore(), _mp4())
     assert reads.value.detail["code"] == "video_file_rejected"
+
+
+async def test_failed_copy_does_not_delete_the_winner(monkeypatch):
+    from backend.services.business_yansi.video_storage import VideoStorageError, video_object_key
+
+    body = _mp4()
+    digest = __import__("hashlib").sha256(body).hexdigest()
+    business = uuid.uuid4()
+    final = video_object_key(business, digest)
+    kept = _KeepWinner(final, body, digest)
+    store = _s3_store(kept)
+    with pytest.raises(VideoStorageError):
+        await store.copy_if_absent(f"brand-videos/{business}/staging/one.partial", final, digest, size=len(body))
+    assert kept.deletes == []
+    assert kept.objects[final]["body"] == body
+
+    race = _RacingCopies(final, digest, body)
+    racing = _s3_store(race)
+    stage_a = f"brand-videos/{business}/staging/a.partial"
+    stage_b = f"brand-videos/{business}/staging/b.partial"
+    results = await asyncio.gather(
+        racing.copy_if_absent(stage_a, final, digest, size=len(body)),
+        racing.copy_if_absent(stage_b, final, digest, size=len(body)),
+        return_exceptions=True,
+    )
+    assert any(item == "created" for item in results)
+    assert any(isinstance(item, VideoStorageError) for item in results)
+    assert race.deletes == []
+    assert race.objects[final]["body"] == body
+
+
+class _KeepWinner:
+    def __init__(self, final, body, digest):
+        self.final = final
+        self.body = body
+        self.digest = digest
+        self.objects = {final: {"body": body, "sha": digest}}
+        self.deletes = []
+        self.heads = 0
+
+    async def request(self, method, url, headers, body):
+        from urllib.parse import urlsplit
+        key = urlsplit(url).path.split("/", 2)[2]
+        if method == "HEAD":
+            self.heads += 1
+            if key == self.final and self.heads == 1:
+                return S3Response(404)
+            obj = self.objects.get(key)
+            if obj is None:
+                return S3Response(404)
+            return S3Response(200, size=len(obj["body"]), sha256=obj["sha"])
+        if method == "PUT" and "x-amz-copy-source" in headers:
+            return S3Response(200, b"<Error><Code>InternalError</Code></Error>")
+        if method == "DELETE":
+            self.deletes.append(key)
+            self.objects.pop(key, None)
+            return S3Response(204)
+        return S3Response(500)
+
+
+class _RacingCopies:
+    def __init__(self, final, digest, body):
+        self.final = final
+        self.digest = digest
+        self.body = body
+        self.objects = {}
+        self.deletes = []
+        self.heads = 0
+        self.opened = False
+        self.both_headed = asyncio.Event()
+        self.lock = asyncio.Lock()
+
+    async def request(self, method, url, headers, body):
+        from urllib.parse import urlsplit
+        key = urlsplit(url).path.split("/", 2)[2]
+        if method == "HEAD" and not self.opened:
+            async with self.lock:
+                self.heads += 1
+                count = self.heads
+            if count < 2:
+                await self.both_headed.wait()
+            else:
+                self.opened = True
+                self.both_headed.set()
+            return S3Response(404)
+        if method == "HEAD":
+            obj = self.objects.get(key)
+            if obj is None:
+                return S3Response(404)
+            return S3Response(200, size=len(obj["body"]), sha256=obj["sha"])
+        if method == "PUT" and "x-amz-copy-source" in headers:
+            async with self.lock:
+                if key in self.objects:
+                    return S3Response(200, b"<Error><Code>InternalError</Code></Error>")
+                self.objects[key] = {"body": self.body, "sha": self.digest}
+                return S3Response(200, b"<CopyObjectResult><ETag>\"a\"</ETag></CopyObjectResult>")
+        if method == "DELETE":
+            self.deletes.append(key)
+            self.objects.pop(key, None)
+            return S3Response(204)
+        return S3Response(500)
+
+
+async def test_recheck_reads_a_second_sqlite_session(tmp_path):
+    """Identity-map refresh on SQLite. SQLite ignores FOR UPDATE, so this is not a lock-race proof."""
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    from backend.core.utils.dependencies import Base
+    from backend.models.business_yansi import BusinessMember, BusinessProfile
+    from backend.models.production import Organization, User
+    from backend.services.business_yansi import service as svc
+
+    engine = create_async_engine(f"sqlite+aiosqlite:///{(tmp_path / 'auth.db').as_posix()}")
+    tables = [User.__table__, Organization.__table__, BusinessProfile.__table__, BusinessMember.__table__]
+    async with engine.begin() as connection:
+        await connection.run_sync(lambda sync: Base.metadata.create_all(sync, tables=tables))
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+    async with maker() as setup:
+        owner = User(id=uuid.uuid4(), email="owner-auth@example.test", role="user", is_active=True)
+        editor = User(id=uuid.uuid4(), email="editor-auth@example.test", role="user", is_active=True)
+        org = Organization(id=uuid.uuid4(), name="Auth", status="active")
+        setup.add_all([owner, editor, org])
+        await setup.commit()
+        business = await svc.create_business(setup, owner, {
+            "organizationId": str(org.id),
+            "ownerId": str(owner.id),
+            "slug": "auth-brand",
+            "name": "Auth",
+        })
+        setup.add(BusinessMember(business_id=business.id, user_id=editor.id, role="editor"))
+        await setup.commit()
+        editor_id = editor.id
+        business_id = business.id
+    async with maker() as stale, maker() as other:
+        cached = await stale.get(User, editor_id)
+        assert cached.is_active is True
+        row = await other.get(User, editor_id)
+        row.is_active = False
+        await other.commit()
+        assert cached.is_active is True
+        with pytest.raises(HTTPException) as denied:
+            await ingest._recheck_editor(stale, business_id, editor_id)
+        assert denied.value.status_code == 403
+    await engine.dispose()
+
+
+async def test_probe_cancel_exception_and_output_cap(sample, monkeypatch, tmp_path):
+    binary = tmp_path / "tools"
+    binary.write_bytes(b"")
+    _point_at_probe_binaries(monkeypatch, str(binary))
+    store = storage.MemoryVideoStore()
+    body = _mp4()
+
+    async def chunks():
+        yield body
+
+    key = f"brand-videos/{uuid.uuid4()}/staging/{uuid.uuid4()}.partial"
+    await store.write_stream(key, chunks())
+    started = asyncio.Event()
+    processes = []
+    spilled = []
+
+    async def hanging(*args, **_kwargs):
+        spilled.append(args[-1])
+        process = _ProbeProcess()
+
+        async def hang(_count):
+            started.set()
+            await asyncio.Event().wait()
+            return b""
+
+        process.stdout.read = hang
+        processes.append(process)
+        return process
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", hanging)
+    task = asyncio.create_task(video_mp4.inspect_mp4(video_mp4.Mp4Source(store, key, len(body)), max_seconds=20))
+    await asyncio.wait_for(started.wait(), 2)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(task, 2)
+    assert processes and processes[0].killed
+    assert spilled and not os.path.exists(spilled[0])
+
+    async def decode_error(*args, **_kwargs):
+        if "-f" in args:
+            return _ProbeProcess(stderr=b"error while decoding MB\n", code=0)
+        return _ProbeProcess(b'{"streams":[{"codec_name":"h264","nb_read_frames":"1"}]}')
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", decode_error)
+    with pytest.raises(HTTPException) as broken:
+        await video_mp4.inspect_mp4(video_mp4.Mp4Source(store, key, len(body)), max_seconds=20)
+    assert broken.value.detail["code"] == "video_codec_rejected"
+
+    async def truncated(*args, **_kwargs):
+        if "-f" in args:
+            return _ProbeProcess(code=1)
+        return _ProbeProcess(b'{"streams":[{"codec_name":"h264","nb_read_frames":"1"}]}')
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", truncated)
+    with pytest.raises(HTTPException) as short:
+        await video_mp4.inspect_mp4(video_mp4.Mp4Source(store, key, len(body)), max_seconds=20)
+    assert short.value.detail["code"] == "video_codec_rejected"
+
+    async def flood(*_args, **_kwargs):
+        process = _ProbeProcess()
+
+        async def huge(_count):
+            return b"x" * (80 * 1024)
+
+        process.stdout.read = huge
+        processes.append(process)
+        return process
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", flood)
+    with pytest.raises(HTTPException) as capped:
+        await video_mp4.inspect_mp4(video_mp4.Mp4Source(store, key, len(body)), max_seconds=20)
+    assert capped.value.detail["code"] == "video_codec_rejected"
+    assert processes[-1].killed
+
+
+async def test_multitrack_and_missing_ffmpeg_fail_closed(sample, monkeypatch, tmp_path):
+    store = storage.MemoryVideoStore()
+    with pytest.raises(HTTPException) as extra:
+        await _save(sample, store, _mp4(extra_codec=b"hvc1"))
+    assert extra.value.detail["code"] == "video_codec_rejected"
+    assert await _asset_count(sample.db) == 0
+
+    binary = tmp_path / "ffprobe"
+    binary.write_bytes(b"")
+    monkeypatch.setenv("EZA_BUSINESS_VIDEO_FFPROBE", str(binary))
+    monkeypatch.setenv("EZA_BUSINESS_VIDEO_FFMPEG", "bilign-ffmpeg-missing")
+
+    async def unused(*_args, **_kwargs):
+        raise AssertionError("subprocess should not start")
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", unused)
+    with pytest.raises(HTTPException) as missing:
+        await video_mp4.probe_file(str(binary))
+    assert missing.value.status_code == 503
+    assert missing.value.detail["code"] == "video_probe_unavailable"
+
+    monkeypatch.setenv("EZA_BUSINESS_VIDEO_FFMPEG", str(binary))
+
+    async def second_track(*args, **_kwargs):
+        if "-f" in args:
+            return _ProbeProcess()
+        payload = b'{"streams":[{"codec_name":"h264","nb_read_frames":"1"},{"codec_name":"hevc","nb_read_frames":"1"}]}'
+        return _ProbeProcess(payload)
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", second_track)
+    with pytest.raises(HTTPException) as mixed:
+        await video_mp4.probe_file(str(binary))
+    assert mixed.value.detail["code"] == "video_codec_rejected"
+
+
+async def test_chunked_trailer_is_required():
+    async def resolver(_host):
+        return ["1.1.1.1"]
+
+    async def read(payload: bytes) -> bytes:
+        async def exchange(_ip, _host, _request):
+            return Reader(payload)
+
+        found = b""
+        async for chunk in guard.iter_https("https://cdn.example/a.mp4", max_bytes=100, resolver=resolver, exchange=exchange):
+            found += chunk
+        return found
+
+    assert await read(b"HTTP/1.1 200 TEST\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nabcd\r\n0\r\n\r\n") == b"abcd"
+    for payload in (
+        b"HTTP/1.1 200 TEST\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nabcd\r\n0\r\n",
+        b"HTTP/1.1 200 TEST\r\nTransfer-Encoding: chunked\r\n\r\nzz\r\n",
+        b"HTTP/1.1 200 TEST\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nab",
+        b"HTTP/1.1 200 TEST\r\nTransfer-Encoding: chunked\r\n\r\n-1\r\n",
+        b"HTTP/1.1 200 TEST\r\nTransfer-Encoding: chunked\r\n\r\n0\r\n" + b"X: " + (b"a" * 5000) + b"\r\n\r\n",
+    ):
+        with pytest.raises(HTTPException) as rejected:
+            await read(payload)
+        assert rejected.value.detail["code"] == "video_url_rejected"

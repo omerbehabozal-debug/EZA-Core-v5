@@ -147,7 +147,12 @@ async def update_organization(
     updates: Dict[str, Any]
 ) -> Optional[Organization]:
     """Update organization fields"""
-    org = await get_organization(db, org_id)
+    if "status" in updates:
+        from backend.services.business_yansi.video_authority import lock_organization_status
+
+        org = await lock_organization_status(db, org_id)
+    else:
+        org = await get_organization(db, org_id)
     if not org:
         return None
     
@@ -167,7 +172,9 @@ async def update_organization(
 
 async def archive_organization(db: AsyncSession, org_id: str) -> bool:
     """Soft delete (archive) organization"""
-    org = await get_organization(db, org_id)
+    from backend.services.business_yansi.video_authority import lock_organization_status
+
+    org = await lock_organization_status(db, org_id)
     if not org:
         return False
     

@@ -1,7 +1,12 @@
-"""Read an MP4 container, then require a real H.264 sample.
+"""Read an MP4 container, then require a decoded H.264 sample.
 
-mdat is not treated as proof. moov is capped. ffprobe must then report H.264
-and at least one decoded frame. Production hosts need ffprobe on PATH.
+mdat is not treated as proof. moov is capped. ffprobe must report H.264 on
+every video stream and at least one frame, with an empty error log. ffmpeg
+then decodes every video stream to the null muxer. That is a decode check,
+not a transcode, and it writes no output file. Production hosts need both
+ffprobe and ffmpeg on PATH. Windows has no rlimit; the timeout, output cap,
+and process kill are the bounds there. POSIX also sets CPU and file-size
+rlimits. Address-space rlimits are not set, because they stop ffprobe itself.
 """
 from __future__ import annotations
 
@@ -21,6 +26,8 @@ MAX_BOXES = 256
 MAX_RANGE_READS = 48
 MAX_RANGE_BYTES = MAX_MOOV_BYTES + 256 * 1024
 PROBE_TIMEOUT_SECONDS = 20
+PROBE_REAP_SECONDS = 2
+MAX_PROBE_OUTPUT = 64 * 1024
 _VISUAL_PREFIX = 66
 _SPILL_CHUNK = 64 * 1024
 
@@ -311,50 +318,156 @@ async def _probe_h264(source: Mp4Source) -> None:
                     handle.write(piece)
         await probe_file(path)
     finally:
-        try:
-            os.remove(path)
-        except OSError:
-            pass
+        await _unlink_probe(path)
 
 
-async def probe_file(path: str) -> None:
-    """Run ffprobe on one local file. Missing ffprobe is a hard failure."""
-    configured = os.getenv("EZA_BUSINESS_VIDEO_FFPROBE", "ffprobe")
+class _ProbeOutputLimit(Exception):
+    pass
+
+
+async def _unlink_probe(path: str) -> None:
+    """Retry while Windows still has the file open, then restore cancellation."""
+    current = asyncio.current_task()
+    paused = 0
+    if current is not None:
+        while current.cancelling():
+            current.uncancel()
+            paused += 1
+    try:
+        for _attempt in range(8):
+            try:
+                os.remove(path)
+                return
+            except FileNotFoundError:
+                return
+            except OSError:
+                await asyncio.sleep(0.05)
+    finally:
+        if paused:
+            raise asyncio.CancelledError()
+
+
+def _tool_path(env_name: str, default: str) -> str:
+    configured = os.getenv(env_name, default)
     if os.path.basename(configured) != configured and not os.path.isabs(configured):
         fail("video_probe_unavailable", 503)
     binary = configured if os.path.isabs(configured) else shutil.which(configured)
     if not binary or not os.path.isfile(binary):
         fail("video_probe_unavailable", 503)
+    return binary
+
+
+async def probe_file(path: str) -> None:
+    """Decode the file. Missing ffprobe or ffmpeg is a hard failure."""
+    ffprobe = _tool_path("EZA_BUSINESS_VIDEO_FFPROBE", "ffprobe")
+    ffmpeg = _tool_path("EZA_BUSINESS_VIDEO_FFMPEG", "ffmpeg")
+    listed = await _run_bounded(
+        ffprobe,
+        [
+            "-v", "error",
+            "-hide_banner",
+            "-select_streams", "v",
+            "-show_entries", "stream=codec_name,nb_read_frames",
+            "-count_frames",
+            "-of", "json",
+            path,
+        ],
+    )
+    _require_decoded_h264(listed)
+    await _run_bounded(
+        ffmpeg,
+        ["-v", "error", "-hide_banner", "-i", path, "-map", "0:v", "-f", "null", "-"],
+    )
+
+
+def _require_decoded_h264(stdout: bytes) -> None:
+    try:
+        parsed = json.loads(stdout.decode("utf-8"))
+        streams = parsed.get("streams") or []
+    except (UnicodeError, json.JSONDecodeError, AttributeError):
+        fail("video_codec_rejected", 422)
+    if not streams:
+        fail("video_codec_rejected", 422)
+    for stream in streams:
+        try:
+            frames = int(stream.get("nb_read_frames") or 0)
+        except (TypeError, ValueError):
+            fail("video_codec_rejected", 422)
+        if stream.get("codec_name") != "h264" or frames < 1:
+            fail("video_codec_rejected", 422)
+
+
+async def _run_bounded(binary: str, args: list[str]) -> bytes:
     process = await asyncio.create_subprocess_exec(
         binary,
-        "-v", "error",
-        "-hide_banner",
-        "-select_streams", "v:0",
-        "-show_entries", "stream=codec_name,nb_read_frames",
-        "-count_frames",
-        "-of", "json",
-        path,
+        *args,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
         stdin=asyncio.subprocess.DEVNULL,
         **_probe_limits(),
     )
     try:
-        stdout, _stderr = await asyncio.wait_for(process.communicate(), PROBE_TIMEOUT_SECONDS)
-    except TimeoutError:
-        process.kill()
-        await process.wait()
-        fail("video_file_rejected", 422)
-    if process.returncode != 0 or len(stdout) > 65536:
-        fail("video_codec_rejected", 422)
+        return await _finish_process(process)
+    except asyncio.CancelledError:
+        await _reap_cancelled(process)
+        raise
+
+
+async def _finish_process(process) -> bytes:
     try:
-        parsed = json.loads(stdout.decode("utf-8"))
-        stream = (parsed.get("streams") or [None])[0] or {}
-        frames = int(stream.get("nb_read_frames") or 0)
-    except (ValueError, TypeError, IndexError, json.JSONDecodeError):
+        stdout, stderr = await asyncio.wait_for(
+            asyncio.gather(_read_capped(process.stdout), _read_capped(process.stderr)),
+            PROBE_TIMEOUT_SECONDS,
+        )
+    except TimeoutError:
+        await _kill_and_reap(process)
+        fail("video_file_rejected", 422)
+    except _ProbeOutputLimit:
+        await _kill_and_reap(process)
         fail("video_codec_rejected", 422)
-    if stream.get("codec_name") != "h264" or frames < 1:
+    await _wait_bounded(process)
+    if process.returncode != 0 or stderr:
         fail("video_codec_rejected", 422)
+    return stdout
+
+
+async def _read_capped(stream) -> bytes:
+    buf = bytearray()
+    while True:
+        piece = await stream.read(4096)
+        if not piece:
+            return bytes(buf)
+        if len(buf) + len(piece) > MAX_PROBE_OUTPUT:
+            raise _ProbeOutputLimit()
+        buf.extend(piece)
+
+
+async def _wait_bounded(process) -> None:
+    try:
+        await asyncio.wait_for(process.wait(), PROBE_REAP_SECONDS)
+    except TimeoutError:
+        await _kill_and_reap(process)
+        fail("video_file_rejected", 422)
+
+
+async def _kill_and_reap(process) -> None:
+    if process.returncode is None:
+        try:
+            process.kill()
+        except ProcessLookupError:
+            pass
+    try:
+        await asyncio.wait_for(process.wait(), PROBE_REAP_SECONDS)
+    except (TimeoutError, ProcessLookupError):
+        return
+
+
+async def _reap_cancelled(process) -> None:
+    current = asyncio.current_task()
+    if current is not None:
+        while current.cancelling():
+            current.uncancel()
+    await _kill_and_reap(process)
 
 
 def _probe_limits() -> dict:

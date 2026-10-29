@@ -1,25 +1,29 @@
 """Store a Business video only after the object is complete and valid.
 
 Object storage and Postgres are not one transaction. A staging object is
-removed unless the content-addressed copy exists. The final object is not
-deleted when the database insert fails, because the same bytes may already
-belong to another asset. Incomplete multipart uploads also need a bucket
-lifecycle rule; abort is attempted, and it is not a substitute for that rule.
-Rate windows use Redis when it is reachable. Without Redis each process keeps
-its own window, which does not cap a multi-worker deployment.
+removed unless the content-addressed copy exists. The final object is never
+deleted on the request path: another request may already own that hash, and
+an asset row may already point at it. Orphan finals are a separate
+reference-checked maintenance job. Incomplete multipart uploads also need a
+bucket lifecycle rule.
+
+Quota and in-flight leases use Redis EVAL. If Redis cannot be reached, ingest
+fails closed. A process-local counter is not a global limit. Each request
+uses its own token. Releasing one token does not remove another request's
+lease. Expired leases are dropped on the next acquire.
 """
 from __future__ import annotations
 
 import asyncio
+import time
 import uuid
 from typing import AsyncIterator
 
 from backend.models.business_brand_assets import BusinessBrandAsset as Asset
-from backend.models.production import User
-from backend.security.rate_limit import RateLimitError, consume_rate_bucket
 from backend.services.business_yansi.brand_asset_library import _apply_fields
 from backend.services.business_yansi.brand_assets import normalize_asset
 from backend.services.business_yansi.service import access, fail, uid
+from backend.services.business_yansi.video_authority import lock_editor_rows
 from backend.services.business_yansi.studio_media import business_media_lock
 from backend.services.business_yansi.video_mp4 import Mp4Source, inspect_mp4
 from backend.services.business_yansi.video_storage import (
@@ -43,8 +47,40 @@ VIDEO_BRAND_LIMIT = 30
 VIDEO_BRAND_WINDOW = 3600
 VIDEO_BRAND_INFLIGHT = 2
 VIDEO_DEADLINE_SECONDS = 90
-_inflight: dict[str, int] = {}
-_inflight_lock = asyncio.Lock()
+VIDEO_LEASE_SECONDS = VIDEO_DEADLINE_SECONDS
+_RATE_SCRIPT = """-- video-rate
+local key = KEYS[1]
+local now = tonumber(ARGV[1])
+local window = tonumber(ARGV[2])
+local limit = tonumber(ARGV[3])
+local token = ARGV[4]
+redis.call('ZREMRANGEBYSCORE', key, '-inf', now - window)
+local count = redis.call('ZCARD', key)
+if count >= limit then
+  return 0
+end
+redis.call('ZADD', key, now, token)
+redis.call('PEXPIRE', key, window)
+return 1
+"""
+_LEASE_ACQUIRE_SCRIPT = """-- video-lease-acquire
+local key = KEYS[1]
+local now = tonumber(ARGV[1])
+local ttl = tonumber(ARGV[2])
+local limit = tonumber(ARGV[3])
+local token = ARGV[4]
+redis.call('ZREMRANGEBYSCORE', key, '-inf', now)
+local count = redis.call('ZCARD', key)
+if count >= limit then
+  return 0
+end
+redis.call('ZADD', key, now + ttl, token)
+redis.call('PEXPIRE', key, ttl)
+return 1
+"""
+_LEASE_RELEASE_SCRIPT = """-- video-lease-release
+return redis.call('ZREM', KEYS[1], ARGV[1])
+"""
 
 
 def limits_for(purpose: str) -> tuple[int, int]:
@@ -56,7 +92,12 @@ def limits_for(purpose: str) -> tuple[int, int]:
 
 
 def reset_video_budget_for_tests() -> None:
-    _inflight.clear()
+    """Kept so older tests can call it. Quotas live in Redis, not this process."""
+    return None
+
+
+def _now_ms() -> int:
+    return int(time.time() * 1000)
 
 
 async def ingest_upload(db, business_id, user_id, *, store, upload, title: str, caption: str, purpose: str, public_allowed: bool):
@@ -94,15 +135,12 @@ async def ingest_url(db, business_id, user_id, *, store, url: str, title: str, c
 async def _authorize_start(db, business_id, user_id) -> None:
     await access(db, business_id, user_id, "editor")
     await db.commit()
-    try:
-        await consume_rate_bucket(f"user:{uid(user_id)}", VIDEO_USER_LIMIT, VIDEO_USER_WINDOW, "business_video_user")
-        await consume_rate_bucket(f"brand:{uid(business_id)}", VIDEO_BRAND_LIMIT, VIDEO_BRAND_WINDOW, "business_video_brand")
-    except RateLimitError:
-        fail("video_rate_limited", 429)
+    await _consume_window(f"user:{uid(user_id)}", VIDEO_USER_LIMIT, VIDEO_USER_WINDOW)
+    await _consume_window(f"brand:{uid(business_id)}", VIDEO_BRAND_LIMIT, VIDEO_BRAND_WINDOW)
 
 
 async def _guarded(db, business_id, user_id, **work):
-    backend = await _acquire_inflight(business_id)
+    token = await _acquire_lease(business_id)
     try:
         try:
             async with asyncio.timeout(VIDEO_DEADLINE_SECONDS):
@@ -110,66 +148,75 @@ async def _guarded(db, business_id, user_id, **work):
         except TimeoutError:
             fail("video_deadline", 408)
     finally:
-        await _release_inflight(business_id, backend)
+        await _release_lease(business_id, token)
 
 
 async def _redis():
     from backend.core.utils.dependencies import get_redis
-    return await asyncio.wait_for(get_redis(), 0.3)
-
-
-async def _acquire_inflight(business_id) -> str:
-    key = f"business_video_inflight:{uid(business_id)}"
     try:
-        backend = await asyncio.wait_for(_try_redis_slot(key), 0.5)
-        if backend:
-            return backend
+        return await asyncio.wait_for(get_redis(), 0.3)
+    except Exception:
+        return None
+
+
+async def _eval(script: str, keys: list[str], args: list):
+    redis = await _redis()
+    if redis is None:
+        fail("video_quota_unavailable", 503)
+    try:
+        return await asyncio.wait_for(redis.eval(script, len(keys), *keys, *args), 0.5)
     except Exception as exc:
         from fastapi import HTTPException
         if isinstance(exc, HTTPException):
             raise
-    async with _inflight_lock:
-        count = _inflight.get(key, 0) + 1
-        if count > VIDEO_BRAND_INFLIGHT:
-            fail("video_busy", 429)
-        _inflight[key] = count
-    return "memory"
+        fail("video_quota_unavailable", 503)
 
 
-async def _try_redis_slot(key: str) -> str | None:
-    redis = await _redis()
-    if redis is None:
-        return None
-    count = int(await redis.incr(key))
-    try:
-        await redis.expire(key, int(VIDEO_DEADLINE_SECONDS) + 30)
-    except Exception:
-        pass
-    if count > VIDEO_BRAND_INFLIGHT:
-        try:
-            await redis.decr(key)
-        except Exception:
-            pass
+async def _consume_window(bucket: str, limit: int, window_seconds: int) -> None:
+    token = uuid.uuid4().hex
+    allowed = await _eval(
+        _RATE_SCRIPT,
+        [f"business_video_quota:{bucket}"],
+        [_now_ms(), int(window_seconds * 1000), int(limit), token],
+    )
+    if int(allowed) != 1:
+        fail("video_rate_limited", 429)
+
+
+async def _acquire_lease(business_id) -> str:
+    token = uuid.uuid4().hex
+    ttl = int(VIDEO_LEASE_SECONDS * 1000)
+    allowed = await _eval(
+        _LEASE_ACQUIRE_SCRIPT,
+        [f"business_video_lease:{uid(business_id)}"],
+        [_now_ms(), ttl, int(VIDEO_BRAND_INFLIGHT), token],
+    )
+    if int(allowed) != 1:
         fail("video_busy", 429)
-    return "redis"
+    return token
 
 
-async def _release_inflight(business_id, backend: str) -> None:
-    key = f"business_video_inflight:{uid(business_id)}"
-    if backend == "redis":
-        try:
-            redis = await _redis()
-            if redis is not None:
-                await redis.decr(key)
-                return
-        except Exception:
-            pass
-    async with _inflight_lock:
-        left = _inflight.get(key, 0) - 1
-        if left <= 0:
-            _inflight.pop(key, None)
-        else:
-            _inflight[key] = left
+async def _release_lease(business_id, token: str) -> None:
+    """Drop only this token. A Redis miss leaves the lease until its score expires."""
+    current = asyncio.current_task()
+    paused = 0
+    if current is not None:
+        while current.cancelling():
+            current.uncancel()
+            paused += 1
+    try:
+        redis = await _redis()
+        if redis is None:
+            return
+        await asyncio.wait_for(
+            redis.eval(_LEASE_RELEASE_SCRIPT, 1, f"business_video_lease:{uid(business_id)}", token),
+            0.5,
+        )
+    except Exception:
+        return
+    finally:
+        if paused:
+            raise asyncio.CancelledError()
 
 
 async def _ingest(db, business_id, user_id, *, store, chunks: AsyncIterator[bytes], title, caption, public_allowed, max_bytes, max_seconds):
@@ -198,10 +245,11 @@ async def _ingest(db, business_id, user_id, *, store, chunks: AsyncIterator[byte
     except VideoStorageError:
         fail("video_storage_failed", 502)
     finally:
-        try:
-            await store.delete(staging)
-        except Exception:
-            pass
+        if "/staging/" in staging:
+            try:
+                await store.delete(staging)
+            except Exception:
+                pass
     if not published:
         fail("video_storage_failed", 502)
     return await _insert_asset(db, business_id, user_id, key=final, title=title, caption=caption, public_allowed=public_allowed)
@@ -238,7 +286,13 @@ async def _insert_asset(db, business_id, user_id, *, key: str, title: str, capti
 
 
 async def _recheck_editor(db, business_id, user_id) -> None:
-    user = await db.get(User, uid(user_id))
+    """Re-read authority while the brand lock is held, then lock the other rows.
+
+    Order is organization, user, membership. A revocation that already committed
+    is visible. A revocation that needs one of these rows waits until this
+    insert commits, and does not undo the asset.
+    """
+    user = await lock_editor_rows(db, business_id, user_id)
     if user is None or not user.is_active:
         fail("business_access_denied", 403)
     await access(db, business_id, user_id, "editor")

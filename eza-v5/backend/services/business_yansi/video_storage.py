@@ -348,11 +348,9 @@ class S3VideoStore:
                 raise VideoObjectImmutable(dest)
             return "exists"
         if response.status != 200 or not s3_result_ok(response.body, "CopyObjectResult"):
-            await _delete_quietly(self, dest)
             raise VideoStorageError("copy_failed")
         current = await self.head(dest)
         if current is None or current.sha256 != sha256 or current.size != size:
-            await _delete_quietly(self, dest)
             raise VideoStorageError("copy_failed")
         return "created"
 
@@ -373,7 +371,13 @@ def _complete_xml(parts: list[tuple[int, str]]) -> str:
 
 
 async def _abandon_upload(store: S3VideoStore, key: str, upload_id: str) -> None:
-    """Bound the cleanup. Cancellation is raised again by the caller."""
+    """Abort this request's multipart upload and its staging object only.
+
+    The content-addressed final key is never deleted here. A failed copy can
+    race a successful copy of the same hash, and deleting the destination
+    would remove the winner. Orphan finals need a separate reference-checked
+    maintenance job; this path does not perform that job.
+    """
     try:
         await asyncio.wait_for(
             store._send("DELETE", store._path(key, query=f"uploadId={upload_id}")),
@@ -381,7 +385,8 @@ async def _abandon_upload(store: S3VideoStore, key: str, upload_id: str) -> None
         )
     except BaseException:
         pass
-    await _delete_quietly(store, key)
+    if "/staging/" in key:
+        await _delete_quietly(store, key)
 
 
 async def _delete_quietly(store: S3VideoStore, key: str) -> None:

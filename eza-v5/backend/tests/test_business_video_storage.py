@@ -57,19 +57,57 @@ def _no_live_bucket(monkeypatch):
         monkeypatch.delenv(name, raising=False)
 
 
+class VideoQuotaRedis:
+    """In-process EVAL double shared by test workers. Not a production fallback."""
+
+    def __init__(self, store=None):
+        self.sets = store if store is not None else {}
+
+    async def eval(self, script, numkeys, *rest):
+        keys = rest[:numkeys]
+        argv = rest[numkeys:]
+        if script.startswith("-- video-rate"):
+            return self._rate(keys[0], int(argv[0]), int(argv[1]), int(argv[2]), str(argv[3]))
+        if script.startswith("-- video-lease-acquire"):
+            return self._lease(keys[0], int(argv[0]), int(argv[1]), int(argv[2]), str(argv[3]))
+        if script.startswith("-- video-lease-release"):
+            rows = self.sets.get(keys[0], {})
+            return 1 if rows.pop(str(argv[0]), None) is not None else 0
+        raise RuntimeError("unknown video quota script")
+
+    def _rows(self, key):
+        return self.sets.setdefault(key, {})
+
+    def _rate(self, key, now, window, limit, token):
+        rows = self._rows(key)
+        for member, score in list(rows.items()):
+            if score <= now - window:
+                del rows[member]
+        if len(rows) >= limit:
+            return 0
+        rows[token] = now
+        return 1
+
+    def _lease(self, key, now, ttl, limit, token):
+        rows = self._rows(key)
+        for member, score in list(rows.items()):
+            if score <= now:
+                del rows[member]
+        if len(rows) >= limit:
+            return 0
+        rows[token] = now + ttl
+        return 1
+
+
 @pytest.fixture(autouse=True)
 def _isolated_video_budget(monkeypatch):
-    import importlib
+    quota = VideoQuotaRedis()
 
-    async def no_redis():
-        return None
+    async def client():
+        return quota
 
-    rate_limits = importlib.import_module("backend.security.rate_limit")
-    monkeypatch.setattr(rate_limits, "get_redis", no_redis)
-    monkeypatch.setattr("backend.services.business_yansi.video_ingest._redis", no_redis)
-    from backend.security.rate_limit import reset_in_memory_rate_limits_for_tests
+    monkeypatch.setattr("backend.services.business_yansi.video_ingest._redis", client)
     from backend.services.business_yansi.video_ingest import reset_video_budget_for_tests
-    reset_in_memory_rate_limits_for_tests()
     reset_video_budget_for_tests()
 
 
@@ -134,7 +172,7 @@ def _visual(codec: bytes) -> bytes:
     return _box(codec, bytes(body) + extra)
 
 
-def _mp4(*, codec=b"avc1", seconds=1, timescale=1000, handler=b"vide", pad=0, wide_mdat=False) -> bytes:
+def _mp4(*, codec=b"avc1", seconds=1, timescale=1000, handler=b"vide", pad=0, wide_mdat=False, extra_codec=None) -> bytes:
     duration = seconds * timescale
     ftyp = _box(b"ftyp", b"isom" + b"\x00\x00\x00\x00" + b"isom")
     real = codec in {b"avc1", b"avc3"} and handler == b"vide"
@@ -154,7 +192,13 @@ def _mp4(*, codec=b"avc1", seconds=1, timescale=1000, handler=b"vide", pad=0, wi
         entry = (16).to_bytes(4, "big") + codec + b"\x00" * 8
         stbl_body = _box(b"stsd", b"\x00\x00\x00\x00" + (1).to_bytes(4, "big") + entry)
     trak = _box(b"trak", _box(b"mdia", mdhd + hdlr + _box(b"minf", _box(b"stbl", stbl_body))))
-    moov = _box(b"moov", mvhd + trak)
+    second = b""
+    if extra_codec is not None:
+        entry = (16).to_bytes(4, "big") + extra_codec + b"\x00" * 8
+        stsd2 = _box(b"stsd", b"\x00\x00\x00\x00" + (1).to_bytes(4, "big") + entry)
+        hdlr2 = _box(b"hdlr", b"\x00" * 8 + b"vide" + b"\x00" * 13)
+        second = _box(b"trak", _box(b"mdia", mdhd + hdlr2 + _box(b"minf", _box(b"stbl", stsd2))))
+    moov = _box(b"moov", mvhd + trak + second)
     return ftyp + mdat + moov
 
 
