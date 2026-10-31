@@ -28,7 +28,11 @@ MAX_RANGE_BYTES = MAX_MOOV_BYTES + 256 * 1024
 PROBE_TIMEOUT_SECONDS = 20
 PROBE_REAP_SECONDS = 2
 MAX_PROBE_OUTPUT = 64 * 1024
-_VISUAL_PREFIX = 66
+# Bytes in the sample-entry payload before its child boxes. The payload starts
+# after the 8-byte box header: SampleEntry is 8 bytes and the fixed
+# VisualSampleEntry fields are 70, including the three reserved uint32 values.
+# 66 dropped those 12 bytes and treated the compressor name as avcC.
+_VISUAL_PREFIX = 78
 _SPILL_CHUNK = 64 * 1024
 
 

@@ -159,15 +159,15 @@ def _avcc() -> bytes:
 
 
 def _visual(codec: bytes) -> bytes:
-    body = bytearray(66)
+    body = bytearray(78)
     body[6:8] = (1).to_bytes(2, "big")
-    body[12:14] = (16).to_bytes(2, "big")
-    body[14:16] = (16).to_bytes(2, "big")
-    body[16:20] = (0x00480000).to_bytes(4, "big")
-    body[20:24] = (0x00480000).to_bytes(4, "big")
-    body[28:30] = (1).to_bytes(2, "big")
-    body[62:64] = (0x0018).to_bytes(2, "big")
-    body[64:66] = b"\xff\xff"
+    body[24:26] = (16).to_bytes(2, "big")
+    body[26:28] = (16).to_bytes(2, "big")
+    body[28:32] = (0x00480000).to_bytes(4, "big")
+    body[32:36] = (0x00480000).to_bytes(4, "big")
+    body[40:42] = (1).to_bytes(2, "big")
+    body[74:76] = (0x0018).to_bytes(2, "big")
+    body[76:78] = b"\xff\xff"
     extra = _box(b"avcC", _avcc()) if codec in {b"avc1", b"avc3"} else b""
     return _box(codec, bytes(body) + extra)
 
@@ -632,6 +632,48 @@ async def test_non_h264_is_rejected_without_an_asset(sample, codec, purpose, sec
         await _save(sample, store, _mp4(codec=codec, seconds=seconds), purpose=purpose)
     assert rejected.value.detail["code"] == error
     assert store.objects == {} and await _asset_count(sample.db) == 0
+
+
+def test_visual_sample_entry_child_boxes_start_at_the_iso_offset():
+    visual = _visual(b"avc1")
+    payload = visual[8:]
+    assert payload[78:82] != b""
+    assert payload[82:86] == b"avcC"
+    assert int.from_bytes(payload[78:82], "big") == len(payload) - 78
+
+
+async def test_malformed_visual_sample_entries_are_rejected(sample):
+    store = MemoryVideoStore()
+    valid = _mp4()
+    assert await _save(sample, store, valid)
+
+    short = bytearray(valid)
+    avc1 = short.find(b"avc1")
+    short[avc1 - 4 : avc1] = (40).to_bytes(4, "big")
+    with pytest.raises(HTTPException) as truncated:
+        await _save(sample, MemoryVideoStore(), bytes(short))
+    assert truncated.value.detail["code"] == "video_file_rejected"
+
+    overrun = bytearray(valid)
+    avc1 = overrun.find(b"avc1")
+    overrun[avc1 - 4 : avc1] = (8 + 78 + 4).to_bytes(4, "big")
+    with pytest.raises(HTTPException) as boundary:
+        await _save(sample, MemoryVideoStore(), bytes(overrun))
+    assert boundary.value.detail["code"] == "video_file_rejected"
+
+    huge = bytearray(valid)
+    avcc = huge.find(b"avcC")
+    huge[avcc - 4 : avcc] = (1 << 24).to_bytes(4, "big")
+    with pytest.raises(HTTPException) as child:
+        await _save(sample, MemoryVideoStore(), bytes(huge))
+    assert child.value.detail["code"] == "video_file_rejected"
+
+    broken = bytearray(valid)
+    avcc = broken.find(b"avcC")
+    broken[avcc + 4] = 0
+    with pytest.raises(HTTPException) as config:
+        await _save(sample, MemoryVideoStore(), bytes(broken))
+    assert config.value.detail["code"] == "video_file_rejected"
 
 
 async def test_corrupt_duration_and_size_limits(sample, monkeypatch):
