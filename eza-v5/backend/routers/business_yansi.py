@@ -3,6 +3,7 @@ import uuid
 from typing import Literal
 from datetime import datetime
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from starlette.datastructures import UploadFile as ParsedUploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
@@ -11,6 +12,7 @@ from backend.core.utils.dependencies import get_db
 from backend.models.business_yansi import BusinessProfile, BusinessMember, BusinessKnowledgeVersion, BusinessYansiDraft, BusinessPublication
 from backend.services.business_yansi import service as svc
 from backend.services.business_yansi.video_authority import assign_member_role, update_brand_verification
+from backend.services.business_yansi.video_upload_gate import admit_video_upload
 from backend.services.business_yansi import applications as apps
 from backend.services.business_yansi import platform_admin as padmin
 from backend.services.business_yansi.publication import enabled, publisher, export_editorial_conversation, publish_draft
@@ -291,17 +293,32 @@ async def add_brand_image(business_id:uuid.UUID,file:UploadFile=File(...),title:
     row=await assets.create_asset(db,business_id,user.id,{'asset_type':'image','title':title,'caption':caption,'public_allowed':publicAllowed.lower() in {'1','true','on','yes'}},image_bytes=await _read_image(file))
     return await _asset_view(db,business_id,row.id)
 @router.post('/{business_id}/assets/video')
-async def add_stored_video(business_id:uuid.UUID,file:UploadFile=File(...),title:str=Form(...),caption:str=Form(''),purpose:str=Form(...),publicAllowed:str=Form('false'),db=Depends(get_db),claims=Depends(get_current_user)):
-    """Store an uploaded H.264 MP4 in object storage, then create the asset."""
+async def add_stored_video(business_id:uuid.UUID, request:Request, _upload_gate=Depends(admit_video_upload), db=Depends(get_db), claims=Depends(get_current_user)):
+    """Store an uploaded H.264 MP4 only after authentication. The body is not a File() parameter."""
     from backend.services.business_yansi.video_ingest import ingest_upload
     from backend.services.business_yansi.video_storage import video_store_from_env
-    user=await svc.actor(db,claims)
-    store=video_store_from_env()
+    from backend.services.business_yansi.video_upload_gate import read_upload_form
+    form = await read_upload_form(request)
     try:
-        row=await ingest_upload(db,business_id,user.id,store=store,upload=file,title=title,caption=caption,purpose=purpose,public_allowed=publicAllowed.lower() in {'1','true','on','yes'})
+        upload = form.get('file')
+        title = form.get('title')
+        caption = form.get('caption') or ''
+        purpose = form.get('purpose')
+        public = form.get('publicAllowed') or 'false'
+        if not isinstance(upload, ParsedUploadFile) or not isinstance(title, str) or not title.strip() or not isinstance(purpose, str) or not isinstance(caption, str):
+            svc.fail('video_file_rejected', 422)
+        user=await svc.actor(db,claims)
+        store=video_store_from_env()
+        try:
+            row=await ingest_upload(
+                db, business_id, user.id, store=store, upload=upload, title=title, caption=caption,
+                purpose=purpose, public_allowed=str(public).lower() in {'1','true','on','yes'},
+            )
+        finally:
+            await store.aclose()
+        return await _asset_view(db, business_id, row.id)
     finally:
-        await store.aclose()
-    return await _asset_view(db,business_id,row.id)
+        await form.close()
 @router.post('/{business_id}/assets/video-import')
 async def import_stored_video(business_id:uuid.UUID,body:VideoImport,db=Depends(get_db),claims=Depends(get_current_user)):
     """Copy one HTTPS video into object storage, then create the asset."""
