@@ -883,6 +883,34 @@ async def test_tenant_isolation_and_existing_media_remain(sample, asset_dir):
     assert all(not path.name.endswith(".mp4") for path in asset_dir.rglob("*"))
 
 
+async def test_stored_video_is_not_public_and_archive_keeps_the_object(sample):
+    body = _mp4(seconds=1)
+    store = MemoryVideoStore()
+    row = await _save(sample, store, body, public_allowed=True)
+    assert media.public_block(row) is None
+    listed = await library.listed_assets(sample.db, sample.business.id)
+    shown = next(item for item in listed if item["id"] == str(row.id))
+    assert shown["locator"] is None and shown["locator_kind"] == "storage"
+    with pytest.raises(HTTPException) as preview:
+        await library.stored_preview(sample.db, sample.business.id, sample.editor.id, row.id)
+    assert preview.value.status_code == 422
+    assert preview.value.detail["code"] == "asset_locator_rejected"
+    foreign = f"brand-videos/{uuid.uuid4()}/{'ab' * 32}.mp4"
+    with pytest.raises(HTTPException) as crossed:
+        normalize_asset(
+            business_id=sample.business.id,
+            asset_type="video",
+            title="Baska marka",
+            locator_kind="storage",
+            locator=foreign,
+        )
+    assert crossed.value.detail["code"] == "asset_locator_rejected"
+    key = row.locator
+    archived = await library.archive_asset(sample.db, sample.business.id, sample.editor.id, row.id, row.revision)
+    assert archived.status == "archived" and archived.public_allowed is False
+    assert store.objects[key][0] == body
+
+
 async def test_s3_ingest_streams_parts_and_routes_do_not_open_playback(sample, asset_dir, monkeypatch):
     fake = FakeS3()
     s3 = _s3_store(fake, part_bytes=1024)
