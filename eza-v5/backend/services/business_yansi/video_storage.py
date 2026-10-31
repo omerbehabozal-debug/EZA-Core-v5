@@ -205,6 +205,27 @@ def s3_result_ok(body: bytes, result_name: str) -> bool:
     return root.tag.rsplit("}", 1)[-1] == result_name
 
 
+def storage_provider(endpoint: str) -> str:
+    """Return the only providers whose destination create-once behavior is explicit.
+
+    ``r2`` is the production provider. Its atomic guard is the beta header
+    ``cf-copy-destination-if-none-match``, checked by R2 when the copy commits.
+    ``localstack`` is the loopback emulator, which honored ``If-None-Match`` on
+    CopyObject. ``video_store_from_env`` never selects ``localstack``. Any other
+    endpoint has no known atomic destination precondition and must not copy.
+    """
+    parts = urlsplit(endpoint)
+    host = (parts.hostname or "").lower()
+    labels = host.split(".")
+    if parts.scheme != "https" or not host:
+        return ""
+    if labels[1:] == ["r2", "cloudflarestorage", "com"] and labels[0]:
+        return "r2"
+    if host in {"127.0.0.1", "localhost", "::1"}:
+        return "localstack"
+    return ""
+
+
 class S3VideoStore:
     """HTTPS S3-compatible client. Payload hash is UNSIGNED-PAYLOAD so the body can stream."""
 
@@ -220,6 +241,9 @@ class S3VideoStore:
         self.transport = transport
         self.part_bytes = part_bytes
         self._host = parts.netloc
+        self.provider = storage_provider(self.endpoint)
+        if not self.provider:
+            fail("video_storage_unconfigured", 503)
 
     def _path(self, key: str, *, query: str = "") -> str:
         path = "/" + self.bucket.strip("/") + "/" + key.lstrip("/")
@@ -326,22 +350,35 @@ class S3VideoStore:
             raise VideoStorageError("range_unavailable")
         return response.body
 
+    def copy_request_headers(self, source: str, sha256: str) -> dict[str, str]:
+        """Headers for one server-side copy. The destination guard is required.
+
+        A prior HEAD is not the atomic guard. R2 ignores ``If-None-Match`` on
+        CopyObject, so that header is not sent to R2. The beta header
+        ``cf-copy-destination-if-none-match: *`` is sent only to R2 and is not
+        retried away. A provider outside ``storage_provider`` never reaches
+        this method.
+        """
+        headers = {
+            "x-amz-copy-source": quote(f"/{self.bucket}/{source}", safe="/"),
+            "x-amz-metadata-directive": "REPLACE",
+            "x-amz-meta-sha256": sha256,
+        }
+        if self.provider == "r2":
+            headers["cf-copy-destination-if-none-match"] = "*"
+        elif self.provider == "localstack":
+            headers["if-none-match"] = "*"
+        else:
+            raise VideoStorageError("atomic_copy_unavailable")
+        return headers
+
     async def copy_if_absent(self, source: str, dest: str, sha256: str, *, size: int) -> str:
         current = await self.head(dest)
         if current is not None:
             if current.sha256 != sha256 or current.size != size:
                 raise VideoObjectImmutable(dest)
             return "exists"
-        response = await self._send(
-            "PUT",
-            self._path(dest),
-            extra={
-                "if-none-match": "*",
-                "x-amz-copy-source": quote(f"/{self.bucket}/{source}", safe="/"),
-                "x-amz-metadata-directive": "REPLACE",
-                "x-amz-meta-sha256": sha256,
-            },
-        )
+        response = await self._send("PUT", self._path(dest), extra=self.copy_request_headers(source, sha256))
         if response.status == 412:
             current = await self.head(dest)
             if current is None or current.sha256 != sha256 or current.size != size:
@@ -397,7 +434,7 @@ async def _delete_quietly(store: S3VideoStore, key: str) -> None:
 
 
 def video_store_from_env() -> S3VideoStore:
-    """Build the configured store. Missing or non-HTTPS settings are an error."""
+    """Build the production store. Only an HTTPS Cloudflare R2 endpoint is accepted."""
     values = {
         "endpoint": (os.getenv("EZA_BUSINESS_VIDEO_S3_ENDPOINT") or "").strip(),
         "bucket": (os.getenv("EZA_BUSINESS_VIDEO_S3_BUCKET") or "").strip(),
@@ -405,7 +442,7 @@ def video_store_from_env() -> S3VideoStore:
         "access_key": (os.getenv("EZA_BUSINESS_VIDEO_S3_ACCESS_KEY_ID") or "").strip(),
         "secret_key": (os.getenv("EZA_BUSINESS_VIDEO_S3_SECRET_ACCESS_KEY") or "").strip(),
     }
-    if not all(values.values()):
+    if not all(values.values()) or storage_provider(values["endpoint"]) != "r2":
         fail("video_storage_unconfigured", 503)
     import httpx
 

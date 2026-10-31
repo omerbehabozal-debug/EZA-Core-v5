@@ -281,6 +281,7 @@ class FakeS3:
         self.complete_body = _COMPLETE_XML
         self.copy_body = _COPY_XML
         self.size_override = {}
+        self.destination_guards = []
 
     async def request(self, method, url, headers, body):
         parsed = urlsplit(url)
@@ -324,7 +325,13 @@ class FakeS3:
             return S3Response(206, data, size=len(data))
         if method == "PUT" and "x-amz-copy-source" in headers:
             async with self.lock:
-                if headers.get("if-none-match") == "*" and key in self.objects:
+                if headers.get("cf-copy-destination-if-none-match") == "*":
+                    self.destination_guards.append("cf-copy-destination-if-none-match")
+                elif headers.get("if-none-match") == "*":
+                    self.destination_guards.append("if-none-match")
+                else:
+                    self.destination_guards.append("")
+                if key in self.objects and self.destination_guards[-1]:
                     return S3Response(412)
                 source = headers["x-amz-copy-source"].lstrip("/").split("/", 1)[1]
                 original = self.objects[source]
@@ -372,7 +379,7 @@ async def _save(sample, store, body, *, purpose="cover", user=None, public_allow
 
 def _s3_store(fake, part_bytes=1024):
     return S3VideoStore(
-        endpoint="https://video.example",
+        endpoint="https://example.r2.cloudflarestorage.com",
         bucket="bilign-video",
         region="auto",
         access_key="test-key",
@@ -415,9 +422,19 @@ def test_limits_and_signature_and_missing_configuration(monkeypatch):
         video_store_from_env()
     assert plain.value.status_code == 503
     monkeypatch.setenv("EZA_BUSINESS_VIDEO_S3_ENDPOINT", "https://video.example")
+    with pytest.raises(HTTPException) as foreign:
+        video_store_from_env()
+    assert foreign.value.status_code == 503
+    monkeypatch.setenv("EZA_BUSINESS_VIDEO_S3_ENDPOINT", "https://127.0.0.1:9000")
+    with pytest.raises(HTTPException) as loopback:
+        video_store_from_env()
+    assert loopback.value.status_code == 503
+    monkeypatch.setenv("EZA_BUSINESS_VIDEO_S3_ENDPOINT", "https://example.r2.cloudflarestorage.com")
     store = video_store_from_env()
-    assert isinstance(store, S3VideoStore)
+    assert isinstance(store, S3VideoStore) and store.provider == "r2"
     assert not isinstance(store, MemoryVideoStore)
+    assert store.copy_request_headers("brand-videos/x/staging/y.partial", "a" * 64)["cf-copy-destination-if-none-match"] == "*"
+    assert "if-none-match" not in store.copy_request_headers("brand-videos/x/staging/y.partial", "a" * 64)
     asyncio.run(store.aclose())
 
 
@@ -742,6 +759,7 @@ async def test_concurrent_copies_keep_one_object_and_do_not_overwrite():
         staged.append(key)
     copied = await asyncio.gather(*(s3.copy_if_absent(key, final, digest, size=len(body)) for key in staged))
     assert copied.count("created") == 1
+    assert fake.destination_guards and set(fake.destination_guards) == {"cf-copy-destination-if-none-match"}
     assert fake.objects[final]["body"] == body and fake.objects[final]["sha"] == digest
     fake.objects[final] = {"body": b"other", "sha": "c" * 64}
     with pytest.raises(VideoObjectImmutable):
