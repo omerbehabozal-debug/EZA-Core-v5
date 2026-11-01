@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { AuthorizedVideo, CoverPreparation } from './CoverPreparation';
 import {
+  STORED_VIDEO_MAX_BYTES,
   businessRequest,
   fetchBrandAssetPreview,
   replaceBrandImage,
   uploadBrandImage,
+  uploadBrandVideo,
   type BrandAsset,
   type Knowledge,
 } from '@/lib/eza/businessYansi';
@@ -28,6 +31,9 @@ const COPY: Record<string, string> = {
   revision_conflict: 'Bu kayıt başka bir kayıtla değişti. Listeyi yenileyip tekrar deneyin.',
   published_knowledge_required: 'Yalnızca güncel bilgi kaydı seçilebilir.',
   archived_asset: 'Arşivlenmiş içerik düzenlenemez.',
+  video_too_large: 'Video 40 MB sınırını aşıyor.',
+  video_too_long: 'Video 60 saniyeden uzun olamaz.',
+  video_file_rejected: 'Video MP4 olmalı.',
 };
 
 function messageOf(error: unknown) {
@@ -54,14 +60,14 @@ function AssetPreview({ businessId, asset }: { businessId: string; asset: BrandA
       .then((next) => {
         url = next;
         if (active) setSrc(next);
-        else URL.revokeObjectURL(next);
+        else if (typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(next);
       })
       .catch(() => {
         if (active) setSrc('');
       });
     return () => {
       active = false;
-      if (url) URL.revokeObjectURL(url);
+      if (url && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url);
     };
   }, [asset.asset_type, asset.id, asset.locator_kind, asset.revision, businessId]);
 
@@ -71,6 +77,9 @@ function AssetPreview({ businessId, asset }: { businessId: string; asset: BrandA
     ) : (
       <div className="biz-asset-placeholder">Görsel önizlemesi</div>
     );
+  }
+  if (asset.asset_type === 'video' && asset.locator_kind === 'storage') {
+    return <AuthorizedVideo businessId={businessId} assetId={asset.id} label="Yüklenen video" />;
   }
   if (asset.asset_type === 'video' && asset.locator) {
     return <video className="biz-asset-preview" src={asset.locator} controls preload="metadata" />;
@@ -114,6 +123,8 @@ export default function BusinessAssetLibrary({
   const [editing, setEditing] = useState<BrandAsset | null>(null);
   const [assetType, setAssetType] = useState<AssetType>('image');
   const [saving, setSaving] = useState(false);
+  const [uploadRatio, setUploadRatio] = useState<number | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [error, setError] = useState('');
   const published = useMemo(
     () => knowledge.filter((row) => row.status === 'published'),
@@ -127,6 +138,7 @@ export default function BusinessAssetLibrary({
   function openNew() {
     setEditing(null);
     setAssetType('image');
+    setVideoFile(null);
     setFormOpen(true);
     setDirty(false);
     setError('');
@@ -135,6 +147,7 @@ export default function BusinessAssetLibrary({
   function openEdit(asset: BrandAsset) {
     setEditing(asset);
     setAssetType(asset.asset_type);
+    setVideoFile(null);
     setFormOpen(true);
     setDirty(false);
     setError('');
@@ -157,12 +170,19 @@ export default function BusinessAssetLibrary({
     const versionIds = data.getAll('knowledge').map(String);
     const file = data.get('file');
     const chosen = editing?.asset_type || assetType;
+    const selectedVideo = videoFile && videoFile.size > 0 ? videoFile : null;
     setSaving(true);
+    setUploadRatio(null);
     setError('');
     try {
       let saved: BrandAsset;
       const fields = { title, caption, publicAllowed };
-      if (chosen === 'image') {
+      if (chosen === 'video' && !editing) {
+        const video = selectedVideo;
+        if (!video) throw new Error('Video dosyası seçin.');
+        if (video.size > STORED_VIDEO_MAX_BYTES) throw new Error('video_too_large');
+        saved = await uploadBrandVideo(businessId, video, fields, setUploadRatio);
+      } else if (chosen === 'image') {
         const image = file instanceof File && file.size > 0 ? file : null;
         if (editing && image) saved = await replaceBrandImage(businessId, editing.id, image, { ...fields, revision: editing.revision });
         else if (editing) {
@@ -174,12 +194,13 @@ export default function BusinessAssetLibrary({
         } else if (image) saved = await uploadBrandImage(businessId, image, fields);
         else throw new Error('Görsel seçin.');
       } else {
+        const storedVideo = editing?.asset_type === 'video' && editing.locator_kind === 'storage';
         const body = {
           assetType: chosen,
           title,
           caption,
           publicAllowed,
-          locator: chosen === 'place' ? null : String(data.get('locator') || '').trim(),
+          locator: chosen === 'place' || storedVideo ? null : String(data.get('locator') || '').trim(),
           latitude: chosen === 'place' ? String(data.get('latitude') || '').trim() : null,
           longitude: chosen === 'place' ? String(data.get('longitude') || '').trim() : null,
           ...(editing ? { revision: editing.revision } : {}),
@@ -201,12 +222,14 @@ export default function BusinessAssetLibrary({
       }
       setFormOpen(false);
       setEditing(null);
+      setVideoFile(null);
       setDirty(false);
       await onChanged();
     } catch (err) {
       setError(messageOf(err));
     } finally {
       setSaving(false);
+      setUploadRatio(null);
     }
   }
 
@@ -275,11 +298,33 @@ export default function BusinessAssetLibrary({
               <input name="file" aria-label="Görsel dosyası" type="file" accept="image/png,image/jpeg,image/webp" disabled={saving} />
             </label>
           ) : null}
-          {assetType === 'video' ? (
+          {assetType === 'video' && !editing ? (
+            <label>
+              Video dosyası
+              <input
+                name="file"
+                aria-label="Video dosyası"
+                type="file"
+                accept="video/mp4"
+                disabled={saving}
+                onChange={(event) => setVideoFile(event.target.files?.[0] || null)}
+              />
+              <span className="biz-card-meta">MP4, en fazla 60 saniye ve 40 MB. Kapak kendiliğinden hazırlanır.</span>
+            </label>
+          ) : null}
+          {assetType === 'video' && editing?.locator_kind === 'https' ? (
             <label>
               HTTPS video adresi
-              <input name="locator" aria-label="Video adresi" type="url" inputMode="url" placeholder="https://" defaultValue={editing?.locator || ''} required disabled={saving} />
+              <input name="locator" aria-label="Video adresi" type="url" inputMode="url" placeholder="https://" defaultValue={editing.locator || ''} required disabled={saving} />
             </label>
+          ) : null}
+          {assetType === 'video' && editing?.locator_kind === 'storage' ? (
+            <p className="biz-card-meta">Yüklenen video duruyor. Kapak kendiliğinden hazırlanır.</p>
+          ) : null}
+          {uploadRatio !== null ? (
+            <p className="biz-card-meta" data-testid="biz-video-progress" role="status">
+              Yükleniyor… {Math.round(uploadRatio * 100)}%
+            </p>
           ) : null}
           {assetType === 'link' ? (
             <label>
@@ -336,6 +381,9 @@ export default function BusinessAssetLibrary({
           return (
             <article className="biz-asset-card" key={asset.id} data-testid={`biz-asset-${asset.id}`}>
               <AssetPreview businessId={businessId} asset={asset} />
+              {asset.asset_type === 'video' && asset.locator_kind === 'storage' && asset.status !== 'archived' ? (
+                <CoverPreparation businessId={businessId} assetId={asset.id} />
+              ) : null}
               <div className="biz-card-head">
                 <h3>{asset.title}</h3>
                 <span className={`biz-status biz-status--${asset.status === 'archived' ? 'archived' : asset.public_allowed ? 'published' : 'draft'}`}>{statusLabel(asset)}</span>

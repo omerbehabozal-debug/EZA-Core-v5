@@ -53,7 +53,12 @@ export type Draft = {
   status: string;
   revision: number;
   conversation_id: string | null;
-  media_plan?: { coverAssetId: string | null; blocks: DraftMediaBlock[][]; seal: string | null } | null;
+  media_plan?: {
+    coverAssetId: string | null;
+    blocks: DraftMediaBlock[][];
+    seal: string | null;
+    coverMode?: 'automatic' | 'explicit' | null;
+  } | null;
 };
 export type Publication = { slug: string; journey_version: number; visibility?: string };
 export type BrandApplication = {
@@ -301,6 +306,83 @@ export async function replaceBrandImage(
   body.append('publicAllowed', fields.publicAllowed ? 'true' : 'false');
   body.append('revision', String(fields.revision));
   return sendBrandForm(`/${businessId}/assets/${assetId}/image`, body);
+}
+
+export const STORED_VIDEO_MAX_BYTES = 40 * 1024 * 1024;
+
+export type CoverJob = {
+  status: string;
+  resultAssetId: string | null;
+  errorCode: string | null;
+  startSeconds: number | null;
+  endSeconds: number | null;
+};
+
+export async function fetchCoverJob(businessId: string, assetId: string): Promise<CoverJob> {
+  return businessRequest(`/${businessId}/assets/${assetId}/cover-job`);
+}
+
+export async function retryCoverJob(businessId: string, assetId: string): Promise<CoverJob> {
+  return businessRequest(`/${businessId}/assets/${assetId}/cover-retry`, 'POST');
+}
+
+export async function requestCoverSegment(
+  businessId: string,
+  assetId: string,
+  startSeconds: number,
+  endSeconds: number,
+): Promise<CoverJob> {
+  return businessRequest(`/${businessId}/assets/${assetId}/cover-segment`, 'POST', { startSeconds, endSeconds });
+}
+
+export function uploadBrandVideo(
+  businessId: string,
+  file: File,
+  fields: { title: string; caption: string; publicAllowed: boolean },
+  onProgress?: (ratio: number) => void,
+): Promise<BrandAsset> {
+  const token = getAuthToken();
+  if (!token) return Promise.reject(new Error('Business yönetimi için giriş yapmalısın.'));
+  const body = new FormData();
+  body.append('file', file);
+  body.append('title', fields.title);
+  body.append('caption', fields.caption);
+  body.append('purpose', 'step');
+  body.append('publicAllowed', fields.publicAllowed ? 'true' : 'false');
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', getApiUrl().replace(/\/$/, '') + `/api/business-yansi/${businessId}/assets/video`);
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0 && onProgress) onProgress(event.loaded / event.total);
+    };
+    xhr.onload = () => {
+      let data: { detail?: unknown } | null = null;
+      try {
+        data = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        data = null;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data as BrandAsset);
+      else reject(new BusinessApiError(xhr.status, data?.detail ?? null));
+    };
+    xhr.onerror = () => reject(new BusinessApiError(0, 'network_error'));
+    xhr.send(body);
+  });
+}
+
+export async function fetchBrandVideoPreview(businessId: string, assetId: string): Promise<string> {
+  const token = getAuthToken();
+  if (!token) throw new Error('Business yönetimi için giriş yapmalısın.');
+  const response = await fetch(
+    getApiUrl().replace(/\/$/, '') + `/api/business-yansi/${businessId}/assets/${assetId}/video`,
+    { headers: { Authorization: `Bearer ${token}`, Range: 'bytes=0-' }, cache: 'no-store' },
+  );
+  if (response.status !== 200 && response.status !== 206) {
+    const data = await response.json().catch(() => null);
+    throw new BusinessApiError(response.status, data?.detail ?? null);
+  }
+  return URL.createObjectURL(await response.blob());
 }
 
 export async function fetchBrandAssetPreview(businessId: string, assetId: string): Promise<string> {

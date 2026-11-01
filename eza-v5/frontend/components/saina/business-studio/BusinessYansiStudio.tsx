@@ -20,6 +20,7 @@ import {
   type StudioGeneration,
   type StudioTopic,
 } from '@/lib/eza/businessStudio';
+import { CoverPreparation } from './CoverPreparation';
 import StudioChatPreview, { type StudioBrand } from './StudioChatPreview';
 import StudioGenerationStatus from './StudioGenerationStatus';
 import StudioStepRail, { type StudioRailStep, type StudioRailStepId } from './StudioStepRail';
@@ -39,6 +40,12 @@ type Props = {
 type FlowPhase = 'sources' | 'topics' | 'chat' | 'preview';
 
 const emptySteps = (): Step[] => Array.from({ length: 8 }, () => ({ question: '', answer: '', sources: [] }));
+
+function coverChoiceFromDraft(draft?: Draft | null): string {
+  const plan = draft?.media_plan;
+  if (!plan || plan.coverMode === 'automatic' || !plan.coverAssetId) return '';
+  return plan.coverAssetId;
+}
 
 function publishedSources(knowledge: Knowledge[]): Knowledge[] {
   return knowledge.filter((k) => k.status === 'published' && k.public_allowed);
@@ -84,7 +91,7 @@ export default function BusinessYansiStudio({
   const [title, setTitle] = useState(editDraft?.title || '');
   const [summary, setSummary] = useState(editDraft?.summary || '');
   const [steps, setSteps] = useState<Step[]>(editDraft?.steps?.length === 8 ? editDraft.steps : emptySteps());
-  const [coverAssetId, setCoverAssetId] = useState(editDraft?.media_plan?.coverAssetId || '');
+  const [coverAssetId, setCoverAssetId] = useState(coverChoiceFromDraft(editDraft));
   const coverChoices = useMemo(() => {
     const sourceIds = new Set(steps.flatMap((step) => step.sources));
     return assets.filter(
@@ -411,28 +418,41 @@ export default function BusinessYansiStudio({
   }, [steps, draftResult, sourceTitles]);
 
   const coverPicker = coverChoices.length ? (
-    <label className="biz-studio-hint">
-      Kapak
-      <select
-        aria-label="Yansı kapağı"
-        data-testid="biz-studio-cover-choice"
-        value={coverChoices.some((asset) => asset.id === coverAssetId) ? coverAssetId : ''}
-        disabled={busy}
-        onChange={(event) => setCoverAssetId(event.target.value)}
-      >
-        <option value="">Otomatik öneri</option>
-        {coverChoices.map((asset) => (
-          <option key={asset.id} value={asset.id}>
-            {asset.title} · {asset.asset_type === 'video' ? 'video' : 'görsel'}
-          </option>
-        ))}
-      </select>
+    <div className="biz-studio-hint">
+      <label>
+        Kapak
+        <select
+          aria-label="Yansı kapağı"
+          data-testid="biz-studio-cover-choice"
+          value={coverChoices.some((asset) => asset.id === coverAssetId) ? coverAssetId : ''}
+          disabled={busy}
+          onChange={(event) => setCoverAssetId(event.target.value)}
+        >
+          <option value="">Otomatik öneri</option>
+          {coverChoices.map((asset) => (
+            <option key={asset.id} value={asset.id}>
+              {asset.title} · {asset.asset_type === 'video' ? 'video' : 'görsel'}
+            </option>
+          ))}
+        </select>
+      </label>
       <p className="biz-card-meta" data-testid="biz-studio-selected-cover">
         {selectedCover
           ? `Seçilen kapak: ${selectedCover.title} · ${selectedCover.asset_type === 'video' ? 'video' : 'görsel'}`
           : 'Seçilen kapak: otomatik öneri'}
       </p>
-    </label>
+      {selectedCover ? (
+        <p className="biz-card-meta" data-testid="biz-studio-explicit-cover">Seçtiğiniz kapak duruyor.</p>
+      ) : (
+        <div data-testid="biz-studio-automatic-cover">
+          {coverChoices
+            .filter((asset) => asset.asset_type === 'video' && asset.locator_kind === 'storage')
+            .map((asset) => (
+              <CoverPreparation key={asset.id} businessId={businessId} assetId={asset.id} />
+            ))}
+        </div>
+      )}
+    </div>
   ) : null;
 
   if (!canEdit) {
