@@ -21,6 +21,7 @@ from sqlalchemy.schema import CreateSchema, DropSchema
 
 from backend.core.utils.dependencies import Base
 from backend.models.business_brand_assets import BusinessBrandAsset
+from backend.models.business_video_cover_jobs import BusinessVideoCoverJob
 from backend.models.business_yansi import BusinessMember, BusinessProfile
 from backend.models.production import Organization, User
 from backend.services.business_yansi import service as svc
@@ -76,6 +77,7 @@ async def _database():
                         BusinessProfile.__table__,
                         BusinessMember.__table__,
                         BusinessBrandAsset.__table__,
+                        BusinessVideoCoverJob.__table__,
                     ],
                 )
 
@@ -126,6 +128,9 @@ async def _insert(db, business_id, editor_id):
         title="Atolye filmi",
         caption="",
         public_allowed=False,
+        size_bytes=1000,
+        duration=1000,
+        timescale=1000,
     )
 
 

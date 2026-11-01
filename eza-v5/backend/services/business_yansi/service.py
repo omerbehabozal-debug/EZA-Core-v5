@@ -229,11 +229,13 @@ async def transition_draft(db,business_id,user_id,draft_id,target,revision):
         row=await draft_row(db,business_id,draft_id,True)
         if row.revision!=revision: fail('revision_conflict',409)
         if target not in TRANSITIONS.get(row.status,set()) or target=='published': fail('invalid_transition',409)
+        if target in {'review','approved'} and row.media_plan is not None:
+            from backend.services.business_yansi.studio_media import assert_live_plan
+            await assert_live_plan(db,business_id,row.steps,row.media_plan)
         if target=='approved':
             if len(await published_knowledge(db,business_id,row.knowledge_snapshot))!=len(row.knowledge_snapshot): fail('source_snapshot_unavailable',409)
             if row.media_plan is not None:
-                from backend.services.business_yansi.studio_media import assert_live_plan, media_seal
-                await assert_live_plan(db,business_id,row.steps,row.media_plan)
+                from backend.services.business_yansi.studio_media import media_seal
                 plan={'coverAssetId':row.media_plan.get('coverAssetId'),'blocks':row.media_plan.get('blocks') or [],'seal':None}
                 plan['seal']=media_seal(plan)
                 row.media_plan=plan
@@ -241,7 +243,10 @@ async def transition_draft(db,business_id,user_id,draft_id,target,revision):
         elif target=='draft':
             row.approved_by=None
             if isinstance(row.media_plan,dict):
-                row.media_plan={'coverAssetId':row.media_plan.get('coverAssetId'),'blocks':row.media_plan.get('blocks') or [],'seal':None}
+                plan={'coverAssetId':row.media_plan.get('coverAssetId'),'blocks':row.media_plan.get('blocks') or [],'seal':None}
+                if row.media_plan.get('coverMode')=='automatic' and not row.media_plan.get('seal'):
+                    plan['coverMode']='automatic'
+                row.media_plan=plan
         row.status=target;row.revision+=1;await db.commit();await db.refresh(row);return row
 
 async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,steps,cover_asset_id=None):

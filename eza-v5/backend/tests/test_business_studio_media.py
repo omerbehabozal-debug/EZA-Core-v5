@@ -192,9 +192,8 @@ async def test_revoked_media_drops_out_of_public_view_without_a_substitute(sampl
     assert hidden["coverAssetId"] is None
     assert all(step == [] for step in hidden["blocks"])
     await library.archive_asset(sample.db, sample.business.id, sample.editor.id, image.id, image.revision)
-    draft = await svc.transition_draft(sample.db, sample.business.id, sample.editor.id, draft.id, "review", draft.revision)
     with pytest.raises(HTTPException) as unavailable:
-        await svc.transition_draft(sample.db, sample.business.id, sample.owner.id, draft.id, "approved", draft.revision)
+        await svc.transition_draft(sample.db, sample.business.id, sample.editor.id, draft.id, "review", draft.revision)
     assert unavailable.value.detail["code"] == "sealed_media_unavailable"
 
 
@@ -207,17 +206,27 @@ async def test_video_asset_can_be_selected_and_sealed_as_cover(sample, asset_dir
         locator="https://cdn.bilign.example/atolye.mp4", public_allowed=True,
     )
     draft = await svc.create_draft(sample.db, sample.business.id, sample.editor.id, "Atolye filmi", "Atolye filmi", _steps(knowledge))
-    assert draft.media_plan["coverAssetId"] == str(video.id)
-    assert str(image.id) != draft.media_plan["coverAssetId"]
-    assert "https://" not in str(draft.media_plan)
-    assert "atolye.mp4" not in str(draft.media_plan)
+    assert draft.media_plan["coverAssetId"] != str(video.id)
+    with pytest.raises(HTTPException) as rejected:
+        await svc.create_draft(
+            sample.db, sample.business.id, sample.editor.id, "Atolye filmi", "Atolye filmi", _steps(knowledge),
+            cover_asset_id=video.id,
+        )
+    assert rejected.value.detail["code"] == "video_cover_rejected"
+    image_draft = await svc.create_draft(
+        sample.db, sample.business.id, sample.editor.id, "Depo rafti", "Depo rafti", _steps(knowledge),
+        cover_asset_id=image.id,
+    )
+    assert image_draft.media_plan["coverAssetId"] == str(image.id)
+    assert "https://" not in str(image_draft.media_plan)
+    assert "atolye.mp4" not in str(image_draft.media_plan)
     for state in ("review", "approved"):
         actor = sample.owner.id if state == "approved" else sample.editor.id
-        draft = await svc.transition_draft(sample.db, sample.business.id, actor, draft.id, state, draft.revision)
-    assert draft.media_plan["seal"] == media.media_seal(draft.media_plan)
-    assert draft.media_plan["seal"] == svc.source_hash(media.media_identity(draft.media_plan))
-    changed = {**draft.media_plan, "coverAssetId": str(image.id)}
-    assert media.media_seal(changed) != draft.media_plan["seal"]
+        image_draft = await svc.transition_draft(sample.db, sample.business.id, actor, image_draft.id, state, image_draft.revision)
+    assert image_draft.media_plan["seal"] == media.media_seal(image_draft.media_plan)
+    assert image_draft.media_plan["seal"] == svc.source_hash(media.media_identity(image_draft.media_plan))
+    changed = {**image_draft.media_plan, "coverAssetId": None}
+    assert media.media_seal(changed) != image_draft.media_plan["seal"]
 
 
 @pytest.mark.asyncio
@@ -228,10 +237,11 @@ async def test_sealed_video_cover_keeps_its_locator(sample, asset_dir):
         locator="https://cdn.bilign.example/atolye.mp4", public_allowed=True,
     )
     draft = await svc.create_draft(sample.db, sample.business.id, sample.editor.id, "Atolye filmi", "Atolye filmi", _steps(knowledge))
-    for state in ("review", "approved"):
-        actor = sample.owner.id if state == "approved" else sample.editor.id
-        draft = await svc.transition_draft(sample.db, sample.business.id, actor, draft.id, state, draft.revision)
-    sealed = draft.media_plan["seal"]
+    historical = {"coverAssetId": str(video.id), "blocks": draft.media_plan["blocks"], "seal": None}
+    historical["seal"] = media.media_seal(historical)
+    draft.media_plan = historical
+    await sample.db.commit()
+    sealed = historical["seal"]
     sample.db.add(MirrorNetworkNode(
         slug="atolye-muhur", user_id=sample.owner.id, visibility="public", safety_status="open",
         card_title="Atolye", card_date="2026-10-28", public_payload={}, private_payload={},
@@ -319,7 +329,7 @@ async def test_explicit_cover_choice_beats_word_ranking(sample, asset_dir):
         locator="https://cdn.bilign.example/atolye.mp4", public_allowed=True,
     )
     automatic = await svc.create_draft(sample.db, sample.business.id, sample.editor.id, "Atolye filmi", "Atolye filmi", _steps(knowledge))
-    assert automatic.media_plan["coverAssetId"] == str(video.id)
+    assert automatic.media_plan["coverAssetId"] is None
     chosen = await svc.create_draft(
         sample.db, sample.business.id, sample.editor.id, "Atolye filmi", "Atolye filmi", _steps(knowledge),
         cover_asset_id=image.id,
@@ -373,9 +383,8 @@ async def test_other_brand_video_cannot_become_the_cover(sample, asset_dir):
     assert draft.media_plan["coverAssetId"] is None
     draft.media_plan = {**draft.media_plan, "coverAssetId": str(foreign.id)}
     await sample.db.commit()
-    draft = await svc.transition_draft(sample.db, sample.business.id, sample.editor.id, draft.id, "review", draft.revision)
     with pytest.raises(HTTPException) as rejected:
-        await svc.transition_draft(sample.db, sample.business.id, sample.owner.id, draft.id, "approved", draft.revision)
+        await svc.transition_draft(sample.db, sample.business.id, sample.editor.id, draft.id, "review", draft.revision)
     assert rejected.value.detail["code"] == "sealed_media_unavailable"
 
 
@@ -401,7 +410,12 @@ async def test_a_seal_written_under_the_brand_lock_blocks_the_url(sample, asset_
         sample, knowledge, asset_type="video", title="Atolye filmi", caption="",
         locator="https://cdn.bilign.example/atolye.mp4", public_allowed=True,
     )
-    draft = await svc.create_draft(sample.db, sample.business.id, sample.editor.id, "Atolye filmi", "Atolye filmi", _steps(knowledge))
+    draft = await svc.create_draft(
+        sample.db, sample.business.id, sample.editor.id, "Atolye filmi", "Atolye filmi", _steps(knowledge),
+        media_choices=[[{"type": "video", "assetId": str(video.id)}]] + [[] for _ in range(7)],
+    )
+    assert draft.media_plan["coverAssetId"] != str(video.id)
+    assert draft.media_plan["blocks"][0] == [{"type": "video", "assetId": str(video.id)}]
     real_lock = media.business_media_lock
 
     @asynccontextmanager
@@ -423,7 +437,7 @@ async def test_a_seal_written_under_the_brand_lock_blocks_the_url(sample, asset_
     assert blocked.value.detail["code"] == "sealed_media_immutable"
     await sample.db.refresh(video)
     assert video.locator == "https://cdn.bilign.example/atolye.mp4"
-    assert media.media_seal({"coverAssetId": str(video.id), "blocks": draft.media_plan["blocks"]}) == media.media_seal(draft.media_plan)
+    assert media.media_seal({"coverAssetId": draft.media_plan.get("coverAssetId"), "blocks": draft.media_plan["blocks"]}) == media.media_seal(draft.media_plan)
 
 
 @pytest.mark.asyncio

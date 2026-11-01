@@ -6,7 +6,7 @@ inherit that confirmation. Unlinked assets remain stored and are not public.
 """
 import uuid
 
-from sqlalchemy import Column, String, Text, Boolean, Integer, DateTime, ForeignKey, Numeric, UniqueConstraint, CheckConstraint, ForeignKeyConstraint
+from sqlalchemy import BigInteger, Column, String, Text, Boolean, Integer, DateTime, ForeignKey, Numeric, UniqueConstraint, CheckConstraint, ForeignKeyConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 
@@ -29,6 +29,13 @@ class BusinessBrandAsset(Base):
     created_by = Column(UUID(as_uuid=True), ForeignKey("production_users.id"), nullable=False)
     approved_by = Column(UUID(as_uuid=True), ForeignKey("production_users.id"))
     revision = Column(Integer, nullable=False, default=1)
+    # Server-measured at ingest. Null means the file was never measured here.
+    verified_duration = Column(BigInteger, nullable=True)
+    verified_timescale = Column(BigInteger, nullable=True)
+    verified_size_bytes = Column(BigInteger, nullable=True)
+    # False only when the parser saw no audio track. Null is not silent.
+    verified_has_audio = Column(Boolean, nullable=True)
+    source_asset_id = Column(UUID(as_uuid=True), ForeignKey("business_brand_assets.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     __table_args__ = (

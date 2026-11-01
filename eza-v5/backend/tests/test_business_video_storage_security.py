@@ -873,6 +873,7 @@ async def _authority_sessions(tmp_path):
 
     from backend.core.utils.dependencies import Base
     from backend.models.business_brand_assets import BusinessBrandAsset
+    from backend.models.business_video_cover_jobs import BusinessVideoCoverJob
     from backend.models.business_yansi import BusinessProfile
     from backend.models.production import Organization, User
     from backend.services.business_yansi import service as svc
@@ -884,6 +885,7 @@ async def _authority_sessions(tmp_path):
         BusinessProfile.__table__,
         BusinessMember.__table__,
         BusinessBrandAsset.__table__,
+        BusinessVideoCoverJob.__table__,
     ]
     async with engine.begin() as connection:
         await connection.run_sync(lambda sync: Base.metadata.create_all(sync, tables=tables))
@@ -936,6 +938,7 @@ async def test_deleted_membership_is_not_reused_from_the_identity_map(tmp_path):
                 await ingest._insert_asset(
                     stale, business_id, editor_id,
                     key=_storage_key(business_id), title="Atolye filmi", caption="", public_allowed=False,
+                    size_bytes=1000, duration=1000, timescale=1000,
                 )
             assert denied.value.status_code == 403
             assert await stale.get(BusinessMember, (business_id, editor_id)) is None
@@ -951,6 +954,7 @@ async def test_locked_authority_rows_decide_ingest(tmp_path):
             row = await ingest._insert_asset(
                 db, business_id, editor_id,
                 key=_storage_key(business_id), title="Atolye filmi", caption="", public_allowed=False,
+                    size_bytes=1000, duration=1000, timescale=1000,
             )
             assert row.id is not None
         assert await _asset_rows(maker, business_id) == 1
@@ -967,6 +971,7 @@ async def test_locked_authority_rows_decide_ingest(tmp_path):
                 await ingest._insert_asset(
                     stale, business_id, editor_id,
                     key=_storage_key(business_id), title="Atolye filmi", caption="", public_allowed=False,
+                    size_bytes=1000, duration=1000, timescale=1000,
                 )
             assert demoted.value.status_code == 403
         assert await _asset_rows(maker, business_id) == 1
@@ -986,6 +991,7 @@ async def test_locked_authority_rows_decide_ingest(tmp_path):
                 await ingest._insert_asset(
                     stale, business_id, editor_id,
                     key=_storage_key(business_id), title="Atolye filmi", caption="", public_allowed=False,
+                    size_bytes=1000, duration=1000, timescale=1000,
                 )
             assert inactive.value.status_code == 403
         assert await _asset_rows(maker, business_id) == 1
@@ -1005,6 +1011,7 @@ async def test_locked_authority_rows_decide_ingest(tmp_path):
                 await ingest._insert_asset(
                     stale, business_id, editor_id,
                     key=_storage_key(business_id), title="Atolye filmi", caption="", public_allowed=False,
+                    size_bytes=1000, duration=1000, timescale=1000,
                 )
             assert suspended.value.status_code == 404
         assert await _asset_rows(maker, business_id) == 1
@@ -1024,6 +1031,7 @@ async def test_locked_authority_rows_decide_ingest(tmp_path):
                 await ingest._insert_asset(
                     stale, business_id, editor_id,
                     key=_storage_key(business_id), title="Atolye filmi", caption="", public_allowed=False,
+                    size_bytes=1000, duration=1000, timescale=1000,
                 )
             assert archived.value.status_code == 404
         assert await _asset_rows(maker, business_id) == 1

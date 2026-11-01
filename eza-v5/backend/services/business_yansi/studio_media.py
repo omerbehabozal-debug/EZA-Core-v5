@@ -87,6 +87,43 @@ def select_step_blocks(question, answer, assets, choice=None):
     return picked
 
 
+def _measured_video(asset):
+    """Return server-measured ticks only. Client fields are not read."""
+    duration = getattr(asset, "verified_duration", None)
+    scale = getattr(asset, "verified_timescale", None)
+    size = getattr(asset, "verified_size_bytes", None)
+    if type(duration) is not int or type(scale) is not int or type(size) is not int:
+        return None
+    if duration < 0 or scale <= 0 or size <= 0:
+        return None
+    if max(duration, scale, size) > 2**63 - 1:
+        return None
+    return duration, scale, size
+
+
+def video_may_be_cover(asset) -> bool:
+    """A new video cover needs the duration and size recorded at ingest.
+
+    Locator type does not grant an exception. A video with missing or unusable
+    facts is refused. Images are unchanged. This check is not used when an
+    already published Yansı is read back.
+    """
+    if getattr(asset, "asset_type", None) != "video":
+        return True
+    measured = _measured_video(asset)
+    if measured is None:
+        return False
+    duration, scale, size = measured
+    from backend.services.business_yansi.video_ingest import COVER_MAX_BYTES, COVER_MAX_SECONDS
+    if size > COVER_MAX_BYTES:
+        return False
+    if duration > COVER_MAX_SECONDS * scale:
+        return False
+    heard = getattr(asset, "verified_has_audio", None)
+    silent = heard is False or heard == 0
+    return silent
+
+
 def accept_cover_choice(cover_asset_id, assets):
     """A brand may name one eligible image or video. A URL is refused."""
     if cover_asset_id is None or cover_asset_id == "":
@@ -99,20 +136,29 @@ def accept_cover_choice(cover_asset_id, assets):
     match = next((asset for asset in assets if str(asset.id) == token and asset.asset_type in {"image", "video"}), None)
     if match is None:
         fail("asset_choice_rejected", 422)
+    if not video_may_be_cover(match):
+        fail("video_cover_rejected", 422)
     return str(match.id)
 
 
-def select_cover(title, summary, assets):
-    covers = [asset for asset in assets if asset.asset_type in {"image", "video"}]
-    context = f"{title} {summary}"
-    ranked = _rank(context, covers)
+def select_cover(title, summary, assets, steps=None):
+    """Pick the eligible cover that shares the most words with this Yansı.
+
+    Images and silent video covers use the same score. The context is the
+    title, summary, questions, and answers. Asset titles and captions are the
+    metadata. A tie uses the asset id in lexicographic order. Job time and
+    upload order are not part of the score.
+    """
+    parts = [title or "", summary or ""]
+    for step in steps or []:
+        if isinstance(step, dict):
+            parts.append(str(step.get("question") or ""))
+            parts.append(str(step.get("answer") or ""))
+    covers = [asset for asset in assets if asset.asset_type in {"image", "video"} and video_may_be_cover(asset)]
+    ranked = _rank(" ".join(parts), covers)
     if not ranked:
         return None
-    words = _words(context)
-    best = max(len(words & _words(f"{asset.title} {asset.caption or ''}")) for asset in ranked)
-    tied = [asset for asset in ranked if len(words & _words(f"{asset.title} {asset.caption or ''}")) == best]
-    images = [asset for asset in tied if asset.asset_type == "image"]
-    return str((images or tied)[0].id)
+    return str(ranked[0].id)
 
 
 def public_media_view(plan, eligible_ids):
@@ -182,6 +228,11 @@ async def bind_media_plan(db, business_id, title, summary, steps, media_choices=
         fail("asset_choice_rejected", 422)
     version_ids = [source for step in steps for source in step["sources"]]
     try:
+        from backend.services.business_yansi.cover_jobs import sync_ready_cover_links
+        await sync_ready_cover_links(db, business_id)
+    except (OperationalError, ProgrammingError):
+        pass
+    try:
         grouped = await eligible_for_versions(db, business_id, version_ids)
     except (OperationalError, ProgrammingError):
         grouped = {}
@@ -196,11 +247,18 @@ async def bind_media_plan(db, business_id, title, summary, steps, media_choices=
         blocks.append(select_step_blocks(step["question"], step["answer"], unique, choice))
         cover_assets.extend(asset for asset in unique if asset.asset_type in {"image", "video"})
     pool = list({asset.id: asset for asset in cover_assets}.values())
-    chosen = accept_cover_choice(cover_asset_id, pool)
+    explicit = not (cover_asset_id is None or cover_asset_id == "")
+    if explicit:
+        chosen = accept_cover_choice(cover_asset_id, pool)
+        mode = "explicit"
+    else:
+        chosen = select_cover(title, summary, pool, steps)
+        mode = "automatic"
     plan = {
-        "coverAssetId": chosen or select_cover(title, summary, pool),
+        "coverAssetId": chosen,
         "blocks": blocks,
         "seal": None,
+        "coverMode": mode,
     }
     return plan
 
@@ -257,6 +315,11 @@ async def assert_live_plan(db, business_id, steps, plan):
     grouped = await eligible_for_versions(db, business_id, version_ids)
     if not plan_is_live(steps, plan, grouped):
         fail("sealed_media_unavailable", 409)
+    cover = str((plan or {}).get("coverAssetId") or "")
+    if cover:
+        chosen = next((asset for rows in grouped.values() for asset in rows if str(asset.id) == cover), None)
+        if chosen is not None and not video_may_be_cover(chosen):
+            fail("video_cover_rejected", 422)
 
 
 def media_asset_ids(blocks):

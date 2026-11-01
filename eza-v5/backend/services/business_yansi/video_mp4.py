@@ -40,6 +40,9 @@ _SPILL_CHUNK = 64 * 1024
 class Mp4Info:
     duration_seconds: float
     codec: str
+    duration: int = 0
+    timescale: int = 0
+    has_audio: bool = True
 
 
 class Mp4Source:
@@ -141,7 +144,9 @@ def _parse_moov(payload: bytes, max_seconds: int, file_size: int) -> tuple[Mp4In
     codecs = {track[1] for track in videos}
     if codecs - {"avc1", "avc3"}:
         fail("video_codec_rejected", 422)
-    longest = 0.0
+    longest = -1.0
+    chosen_duration = 0
+    chosen_scale = 0
     sample = None
     for _handler, codec, scale, duration, located in videos:
         if scale <= 0:
@@ -155,11 +160,21 @@ def _parse_moov(payload: bytes, max_seconds: int, file_size: int) -> tuple[Mp4In
         offset, sample_size, length_size = located
         if sample_size <= 0 or offset < 0 or offset + sample_size > file_size:
             fail("video_file_rejected", 422)
-        longest = max(longest, duration / scale)
+        seconds = duration / scale
+        if seconds > longest:
+            longest = seconds
+            chosen_duration = duration
+            chosen_scale = scale
         sample = (offset, sample_size, length_size)
     if sample is None:
         fail("video_file_rejected", 422)
-    return Mp4Info(duration_seconds=longest, codec=sorted(codecs)[0]), sample
+    return Mp4Info(
+        duration_seconds=longest,
+        codec=sorted(codecs)[0],
+        duration=chosen_duration,
+        timescale=chosen_scale,
+        has_audio=any(track[0] == "soun" for track in tracks),
+    ), sample
 
 
 def _track(payload: bytes):

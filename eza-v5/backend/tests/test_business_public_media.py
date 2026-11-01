@@ -96,7 +96,8 @@ async def test_published_video_cover_is_authorized_and_not_replaced(sample, asse
         locator="https://cdn.bilign.example/atolye.mp4", public_allowed=True,
     )
     draft = await svc.create_draft(sample.db, sample.business.id, sample.editor.id, "Atolye filmi", "Atolye filmi", _steps(knowledge))
-    assert draft.media_plan["coverAssetId"] == str(video.id)
+    assert draft.media_plan["coverAssetId"] != str(video.id)
+    draft.media_plan = {"coverAssetId": str(video.id), "blocks": draft.media_plan["blocks"], "seal": None}
     sample.db.add(_node(sample.owner.id, "atolye-video"))
     await sample.db.commit()
     sample.db.add(BusinessPublication(

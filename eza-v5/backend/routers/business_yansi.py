@@ -71,6 +71,9 @@ class AssetLinks(Body):
     revision: int=Field(ge=1)
 class AssetArchive(Body):
     revision: int=Field(ge=1)
+class CoverSegment(Body):
+    startSeconds: float=Field(ge=0)
+    endSeconds: float=Field(gt=0)
 class KnowledgeCreate(Body):
     itemId: uuid.UUID|None=None
     title: str=Field(min_length=1,max_length=160)
@@ -346,6 +349,50 @@ async def confirm_brand_asset_links(business_id:uuid.UUID,asset_id:uuid.UUID,bod
     user=await svc.actor(db,claims)
     row=await assets.set_links(db,business_id,user.id,asset_id,body.knowledgeVersionIds,body.revision)
     return await _asset_view(db,business_id,row.id)
+@router.get('/{business_id}/assets/{asset_id}/cover-job')
+async def cover_job(business_id:uuid.UUID,asset_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
+    """Preparation status. No storage key and no playback URL."""
+    from backend.services.business_yansi.cover_jobs import latest_for_asset, present_job
+    user=await svc.actor(db,claims)
+    await svc.access(db,business_id,user.id,'viewer')
+    job=await latest_for_asset(db,business_id,asset_id)
+    if job is None: svc.fail('cover_job_not_found',404)
+    from backend.models.business_brand_assets import BusinessBrandAsset
+    source=await db.get(BusinessBrandAsset,asset_id)
+    scale=source.verified_timescale if source is not None and source.business_id==business_id else None
+    return present_job(job, scale if type(scale) is int else None)
+@router.post('/{business_id}/assets/{asset_id}/cover-segment')
+async def cover_segment(business_id:uuid.UUID,asset_id:uuid.UUID,body:CoverSegment,db=Depends(get_db),claims=Depends(get_current_user)):
+    """Ask for a different cover window. The uploaded video stays intact."""
+    from backend.services.business_yansi.cover_jobs import present_job, retarget_cover
+    user=await svc.actor(db,claims)
+    job=await retarget_cover(db,business_id,user.id,asset_id,body.startSeconds,body.endSeconds)
+    from backend.models.business_brand_assets import BusinessBrandAsset
+    source=await db.get(BusinessBrandAsset,asset_id)
+    scale=source.verified_timescale if source is not None else None
+    return present_job(job, scale if type(scale) is int else None)
+@router.post('/{business_id}/assets/{asset_id}/cover-retry')
+async def cover_retry(business_id:uuid.UUID,asset_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
+    """Try a failed cover again. This does not edit an approved Yansı."""
+    from backend.services.business_yansi.cover_jobs import present_job, retry_cover
+    user=await svc.actor(db,claims)
+    job=await retry_cover(db,business_id,user.id,asset_id)
+    from backend.models.business_brand_assets import BusinessBrandAsset
+    source=await db.get(BusinessBrandAsset,asset_id)
+    scale=source.verified_timescale if source is not None else None
+    return present_job(job, scale if type(scale) is int else None)
+@router.get('/{business_id}/assets/{asset_id}/video')
+async def brand_video_preview(business_id:uuid.UUID,asset_id:uuid.UUID,request:Request,db=Depends(get_db),claims=Depends(get_current_user)):
+    """Private byte range for a brand member. No storage key and no public URL."""
+    from backend.services.business_yansi.video_preview import preview_video
+    from backend.services.business_yansi.video_storage import video_store_from_env
+    user=await svc.actor(db,claims)
+    store=video_store_from_env()
+    try:
+        payload=await preview_video(db,business_id,user.id,asset_id,request.headers.get('range'),store)
+    finally:
+        await store.aclose()
+    return Response(content=payload['body'],status_code=payload['status'],media_type='video/mp4',headers=payload['headers'])
 @router.post('/{business_id}/assets/{asset_id}/archive')
 async def archive_brand_asset(business_id:uuid.UUID,asset_id:uuid.UUID,body:AssetArchive,db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims)

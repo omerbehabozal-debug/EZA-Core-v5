@@ -172,7 +172,7 @@ def _visual(codec: bytes) -> bytes:
     return _box(codec, bytes(body) + extra)
 
 
-def _mp4(*, codec=b"avc1", seconds=1, timescale=1000, handler=b"vide", pad=0, wide_mdat=False, extra_codec=None) -> bytes:
+def _mp4(*, codec=b"avc1", seconds=1, timescale=1000, handler=b"vide", pad=0, wide_mdat=False, extra_codec=None, with_audio=False) -> bytes:
     duration = seconds * timescale
     ftyp = _box(b"ftyp", b"isom" + b"\x00\x00\x00\x00" + b"isom")
     real = codec in {b"avc1", b"avc3"} and handler == b"vide"
@@ -198,7 +198,11 @@ def _mp4(*, codec=b"avc1", seconds=1, timescale=1000, handler=b"vide", pad=0, wi
         stsd2 = _box(b"stsd", b"\x00\x00\x00\x00" + (1).to_bytes(4, "big") + entry)
         hdlr2 = _box(b"hdlr", b"\x00" * 8 + b"vide" + b"\x00" * 13)
         second = _box(b"trak", _box(b"mdia", mdhd + hdlr2 + _box(b"minf", _box(b"stbl", stsd2))))
-    moov = _box(b"moov", mvhd + trak + second)
+    audio = b""
+    if with_audio:
+        sound = _box(b"hdlr", b"\x00" * 8 + b"soun" + b"\x00" * 13)
+        audio = _box(b"trak", _box(b"mdia", mdhd + sound))
+    moov = _box(b"moov", mvhd + trak + second + audio)
     return ftyp + mdat + moov
 
 
@@ -684,14 +688,14 @@ async def test_corrupt_duration_and_size_limits(sample, monkeypatch):
     with pytest.raises(HTTPException) as audio:
         await _save(sample, store, _mp4(handler=b"soun"))
     assert audio.value.detail["code"] == "video_codec_rejected"
-    with pytest.raises(HTTPException) as cover_long:
-        await _save(sample, store, _mp4(seconds=21), purpose="cover")
-    assert cover_long.value.detail["code"] == "video_too_long"
+    stored_cover = await _save(sample, store, _mp4(seconds=21), purpose="cover")
+    assert stored_cover.verified_duration == 21 * 1000
+    assert stored_cover.verified_has_audio is False
     with pytest.raises(HTTPException) as step_long:
         await _save(sample, store, _mp4(seconds=61), purpose="step")
     assert step_long.value.detail["code"] == "video_too_long"
     assert await _save(sample, MemoryVideoStore(), _mp4(seconds=60), purpose="step")
-    monkeypatch.setattr(ingest_module, "COVER_MAX_BYTES", 10)
+    monkeypatch.setattr(ingest_module, "STEP_MAX_BYTES", 10)
     monkeypatch.setattr(ingest_module, "CHUNK_BYTES", 8)
     upload = Upload(b"x" * 40)
     limited = MemoryVideoStore()

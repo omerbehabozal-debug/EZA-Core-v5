@@ -102,7 +102,9 @@ def _now_ms() -> int:
 
 async def ingest_upload(db, business_id, user_id, *, store, upload, title: str, caption: str, purpose: str, public_allowed: bool):
     await _authorize_start(db, business_id, user_id)
-    max_bytes, max_seconds = limits_for(purpose)
+    if purpose not in {"cover", "step"}:
+        fail("video_purpose_rejected", 422)
+    max_bytes, max_seconds = STEP_MAX_BYTES, STEP_MAX_SECONDS
 
     async def chunks():
         while True:
@@ -119,7 +121,9 @@ async def ingest_upload(db, business_id, user_id, *, store, upload, title: str, 
 
 async def ingest_url(db, business_id, user_id, *, store, url: str, title: str, caption: str, purpose: str, public_allowed: bool, resolver=None, exchange=None):
     await _authorize_start(db, business_id, user_id)
-    max_bytes, max_seconds = limits_for(purpose)
+    if purpose not in {"cover", "step"}:
+        fail("video_purpose_rejected", 422)
+    max_bytes, max_seconds = STEP_MAX_BYTES, STEP_MAX_SECONDS
     kwargs = {}
     if resolver is not None:
         kwargs["resolver"] = resolver
@@ -229,7 +233,7 @@ async def _ingest(db, business_id, user_id, *, store, chunks: AsyncIterator[byte
             fail("video_file_rejected", 422)
         if stat.size > max_bytes:
             fail("video_too_large", 413)
-        await inspect_mp4(Mp4Source(store, staging, stat.size), max_seconds=max_seconds)
+        inspected = await inspect_mp4(Mp4Source(store, staging, stat.size), max_seconds=max_seconds)
         final = video_object_key(business_id, stat.sha256)
         assert_brand_key(business_id, final)
         if not final.endswith(f"/{stat.sha256}.mp4"):
@@ -252,7 +256,11 @@ async def _ingest(db, business_id, user_id, *, store, chunks: AsyncIterator[byte
                 pass
     if not published:
         fail("video_storage_failed", 502)
-    return await _insert_asset(db, business_id, user_id, key=final, title=title, caption=caption, public_allowed=public_allowed)
+    return await _insert_asset(
+        db, business_id, user_id, key=final, title=title, caption=caption, public_allowed=public_allowed,
+        size_bytes=stat.size, duration=inspected.duration, timescale=inspected.timescale,
+        has_audio=inspected.has_audio,
+    )
 
 
 async def _bounded(chunks: AsyncIterator[bytes], max_bytes: int) -> AsyncIterator[bytes]:
@@ -266,7 +274,11 @@ async def _bounded(chunks: AsyncIterator[bytes], max_bytes: int) -> AsyncIterato
         yield chunk
 
 
-async def _insert_asset(db, business_id, user_id, *, key: str, title: str, caption: str, public_allowed: bool):
+async def _insert_asset(db, business_id, user_id, *, key: str, title: str, caption: str, public_allowed: bool, size_bytes: int, duration: int, timescale: int, has_audio: bool = True):
+    if type(size_bytes) is not int or type(duration) is not int or type(timescale) is not int or type(has_audio) is not bool:
+        fail("video_file_rejected", 422)
+    if size_bytes <= 0 or duration < 0 or timescale <= 0 or max(size_bytes, duration, timescale) > 2**63 - 1:
+        fail("video_file_rejected", 422)
     async with business_media_lock(db, business_id):
         await _recheck_editor(db, business_id, user_id)
         fields = normalize_asset(
@@ -279,7 +291,20 @@ async def _insert_asset(db, business_id, user_id, *, key: str, title: str, capti
         )
         row = Asset(business_id=uid(business_id), created_by=uid(user_id), revision=1)
         _apply_fields(row, fields, user_id, public_allowed)
+        row.verified_duration = duration
+        row.verified_timescale = timescale
+        row.verified_size_bytes = size_bytes
+        row.verified_has_audio = has_audio
         db.add(row)
+        await db.flush()
+        from backend.services.business_yansi.cover_jobs import ensure_cover_job
+        await ensure_cover_job(db, row, user_id)
+        from sqlalchemy.exc import OperationalError, ProgrammingError
+        try:
+            from backend.services.business_yansi.media_observations import ensure_observation
+            await ensure_observation(db, row, user_id)
+        except (OperationalError, ProgrammingError):
+            pass
         await db.commit()
         await db.refresh(row)
         return row

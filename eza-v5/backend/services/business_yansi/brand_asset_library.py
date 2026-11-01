@@ -222,6 +222,13 @@ async def create_asset(db, business_id, user_id, data, *, image_bytes=None):
     row = Asset(business_id=uid(business_id), created_by=uid(user_id), revision=1)
     _apply_fields(row, fields, user_id, data.get("public_allowed", False))
     db.add(row)
+    await db.flush()
+    from sqlalchemy.exc import OperationalError, ProgrammingError
+    try:
+        from backend.services.business_yansi.media_observations import ensure_observation
+        await ensure_observation(db, row, user_id)
+    except (OperationalError, ProgrammingError):
+        pass
     await db.commit()
     await db.refresh(row)
     return row
@@ -258,12 +265,21 @@ async def update_asset(db, business_id, user_id, asset_id, data, *, image_bytes=
             latitude=data.get("latitude", row.latitude),
             longitude=data.get("longitude", row.longitude),
         )
+        measurements_stale = row.asset_type == "video" and (
+            (fields.get("locator") or None) != (row.locator or None)
+            or fields.get("locator_kind") != row.locator_kind
+        )
         if content_fields_changed(row, fields):
             if await sealed_content_uses_asset(db, business_id, row.id):
                 fail("sealed_media_immutable", 409)
             if pending_image is not None:
                 store_image(business_id, pending_image)
         _apply_fields(row, fields, user_id, data.get("public_allowed", False))
+        if measurements_stale:
+            row.verified_duration = None
+            row.verified_timescale = None
+            row.verified_size_bytes = None
+            row.verified_has_audio = None
         row.revision += 1
         await db.commit()
         await db.refresh(row)
