@@ -85,11 +85,20 @@ async def _video(sample, store, knowledge, title):
 
 
 async def _ready(sample, asset):
-    job = await process_one(sample.db)
-    await sample.db.commit()
-    assert job is not None and job.source_asset_id == asset.id and job.status == "ready"
-    assert job.result_asset_id == asset.id
-    return job
+    """Finish this asset's job. Claim order follows created_at and id, not upload order."""
+    for _ignored in range(8):
+        current = await latest_for_asset(sample.db, sample.business.id, asset.id)
+        if current is not None and current.status == "ready":
+            assert current.result_asset_id == asset.id
+            return current
+        claimed = await process_one(sample.db)
+        await sample.db.commit()
+        if claimed is None:
+            break
+    current = await latest_for_asset(sample.db, sample.business.id, asset.id)
+    assert current is not None and current.source_asset_id == asset.id and current.status == "ready"
+    assert current.result_asset_id == asset.id
+    return current
 
 
 async def test_context_ranks_covers_and_a_finished_job_does_not_replace_one(sample, asset_dir, monkeypatch):
@@ -243,3 +252,53 @@ async def test_context_ranks_covers_and_a_finished_job_does_not_replace_one(samp
     await sample.db.refresh(published)
     assert published.media_plan["seal"] == sealed
     assert published.media_plan["coverAssetId"] == str(early[0].id)
+
+
+async def test_omitted_cover_field_keeps_the_explicit_choice_and_null_returns_to_automatic(sample, asset_dir):
+    import httpx
+    from fastapi import FastAPI
+
+    from backend.routers import business_yansi as routes
+
+    knowledge = await source(sample, content="Kayit metni secimi icin yeterince aciktir.")
+    lamp = await _image(sample, knowledge, "Lamba isigi")
+    other = await _image(sample, knowledge, "Zeytinyagi hasadi")
+    steps = _phrase_steps(knowledge, "Lamba isigi")
+    explicit = await svc.create_draft(
+        sample.db, sample.business.id, sample.editor.id, "Lamba isigi", "Lamba isigi ozeti", steps,
+        cover_asset_id=lamp.id,
+    )
+    approved = await svc.create_draft(
+        sample.db, sample.business.id, sample.editor.id, "Lamba isigi", "Lamba isigi ozeti", steps,
+        cover_asset_id=lamp.id,
+    )
+    approved = await svc.transition_draft(sample.db, sample.business.id, sample.editor.id, approved.id, "review", approved.revision)
+    approved = await svc.transition_draft(sample.db, sample.business.id, sample.owner.id, approved.id, "approved", approved.revision)
+    sealed = approved.media_plan["seal"]
+    app = FastAPI()
+    app.include_router(routes.router)
+    app.dependency_overrides[routes.get_db] = lambda: sample.db
+    app.dependency_overrides[routes.get_current_user] = lambda: {"user_id": str(sample.editor.id)}
+    body = {"title": "Lamba isigi", "summary": "Yeni ozet", "revision": explicit.revision, "steps": steps}
+    async with httpx.AsyncClient(app=app, base_url="http://test") as client:
+        omitted = await client.patch(f"/api/business-yansi/{sample.business.id}/drafts/{explicit.id}", json=body)
+        assert omitted.status_code == 200, omitted.text
+        plan = omitted.json()["media_plan"]
+        assert plan["coverMode"] == "explicit" and plan["coverAssetId"] == str(lamp.id) and plan["seal"] is None
+        body["revision"] = omitted.json()["revision"]
+        body["coverAssetId"] = None
+        body["summary"] = "Zeytinyagi hasadi ozeti"
+        body["title"] = "Zeytinyagi hasadi"
+        automatic = await client.patch(f"/api/business-yansi/{sample.business.id}/drafts/{explicit.id}", json=body)
+        assert automatic.status_code == 200, automatic.text
+        switched = automatic.json()["media_plan"]
+        assert switched["coverMode"] == "automatic" and switched["coverAssetId"] == str(other.id)
+        denied = await client.patch(
+            f"/api/business-yansi/{sample.business.id}/drafts/{approved.id}",
+            json={"title": approved.title, "summary": approved.summary, "revision": approved.revision, "steps": steps},
+        )
+        assert denied.status_code == 409
+    await sample.db.refresh(approved)
+    assert approved.media_plan["seal"] == sealed
+    assert approved.media_plan["coverAssetId"] == str(lamp.id)
+    assert "coverMode" not in approved.media_plan

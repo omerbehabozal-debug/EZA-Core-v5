@@ -19,7 +19,7 @@ from backend.services.business_yansi.brand_asset_library import _apply_fields
 from backend.services.business_yansi.brand_assets import normalize_asset
 from backend.services.business_yansi.service import uid
 from backend.services.business_yansi.video_ingest import COVER_MAX_BYTES, COVER_MAX_SECONDS
-from backend.services.business_yansi.video_mp4 import Mp4Source, _tool_path, inspect_mp4
+from backend.services.business_yansi.video_mp4 import Mp4Source, _reap_cancelled, _tool_path, inspect_mp4
 from backend.services.business_yansi.video_storage import (
     MemoryVideoStore,
     VideoObjectImmutable,
@@ -111,6 +111,9 @@ async def encode_window(source_path: str, dest_path: str, *, start: float, durat
             process.kill()
         await process.wait()
         raise CoverEncodeError("cover_encode_timeout", retryable=True)
+    except asyncio.CancelledError:
+        await _reap_cancelled(process)
+        raise
     if code != 0:
         raise CoverEncodeError("cover_encode_failed", retryable=True)
 
@@ -153,8 +156,8 @@ async def render_cover(store, source, job) -> tuple[bytes, object]:
             _unlink(path)
 
 
-async def store_cover(db, store, source, user_id, data: bytes, info) -> Asset:
-    """Copy a verified derivative to an immutable key and link it to the original.
+async def publish_cover_object(store, source, data: bytes, info):
+    """Copy a verified derivative to an immutable key. No database lock is held here.
 
     Staging is removed. The original key and the final key are not deleted.
     """
@@ -192,6 +195,11 @@ async def store_cover(db, store, source, user_id, data: bytes, info) -> Asset:
                 pass
     if not published or final is None:
         raise CoverEncodeError("video_storage_failed", retryable=True)
+    return final
+
+
+async def attach_published_cover(db, source, user_id, final: str, data_len: int, info) -> Asset:
+    """Record the already-copied derivative. The caller holds the short brand lock."""
     row = Asset(business_id=uid(source.business_id), created_by=uid(user_id), revision=1)
     fields = normalize_asset(
         business_id=source.business_id,
@@ -204,12 +212,18 @@ async def store_cover(db, store, source, user_id, data: bytes, info) -> Asset:
     _apply_fields(row, fields, user_id, bool(source.public_allowed))
     row.verified_duration = info.duration
     row.verified_timescale = info.timescale
-    row.verified_size_bytes = len(data)
+    row.verified_size_bytes = data_len
     row.verified_has_audio = False
     row.source_asset_id = source.id
     db.add(row)
     await db.flush()
     return row
+
+
+async def store_cover(db, store, source, user_id, data: bytes, info) -> Asset:
+    """Copy a verified derivative, then record it. Callers that hold a lock should publish first."""
+    final = await publish_cover_object(store, source, data, info)
+    return await attach_published_cover(db, source, user_id, final, len(data), info)
 
 
 async def _inspect(data: bytes):

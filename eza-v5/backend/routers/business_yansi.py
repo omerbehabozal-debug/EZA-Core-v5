@@ -455,7 +455,7 @@ async def public_profile(slug:str,db=Depends(get_db)):
 @router.patch('/{business_id}/drafts/{draft_id}')
 async def edit_draft(business_id:uuid.UUID,draft_id:uuid.UUID,body:DraftUpdate,db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims)
-    return await recorded(db,await svc.revise_draft(db,business_id,user.id,draft_id,body.revision,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps],body.coverAssetId))
+    return await recorded(db,await svc.revise_draft(db,business_id,user.id,draft_id,body.revision,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps],body.coverAssetId,cover_specified='coverAssetId' in body.model_fields_set))
 
 @router.delete('/{business_id}/members/{user_id}')
 async def remove_member(business_id:uuid.UUID,user_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):

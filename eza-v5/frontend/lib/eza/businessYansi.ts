@@ -60,6 +60,15 @@ export type Draft = {
     coverMode?: 'automatic' | 'explicit' | null;
   } | null;
 };
+
+/** Omit the key when a revision did not choose a cover. Null asks for automatic selection. */
+export function revisionCoverPayload(
+  selection: string,
+  specified: boolean,
+): { coverAssetId?: string | null } {
+  if (!specified) return {};
+  return { coverAssetId: selection ? selection : null };
+}
 export type Publication = { slug: string; journey_version: number; visibility?: string };
 export type BrandApplication = {
   id: string;

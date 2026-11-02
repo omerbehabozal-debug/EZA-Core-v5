@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BusinessApiError } from '@/lib/eza/businessYansi';
+import { BusinessApiError, revisionCoverPayload } from '@/lib/eza/businessYansi';
 
 describe('BusinessApiError classification', () => {
   it('maps feature-flag detail not_found to unavailable copy', () => {
@@ -24,5 +24,12 @@ describe('BusinessApiError classification', () => {
     expect(new BusinessApiError(403, 'business_access_denied').kind).toBe('forbidden');
     expect(new BusinessApiError(500, null).kind).toBe('server');
     expect(new BusinessApiError(0, 'network_error').kind).toBe('network');
+  });
+
+  it('omits an untouched cover and sends null only for an explicit automatic choice', () => {
+    expect(revisionCoverPayload('asset-1', false)).toEqual({});
+    expect(revisionCoverPayload('', false)).toEqual({});
+    expect(revisionCoverPayload('', true)).toEqual({ coverAssetId: null });
+    expect(revisionCoverPayload('asset-1', true)).toEqual({ coverAssetId: 'asset-1' });
   });
 });

@@ -236,4 +236,38 @@ describe('business studio video experience', () => {
     const body = mocks.businessRequest.mock.calls.at(-1)?.[2] as { coverAssetId: string | null };
     expect(body.coverAssetId).toBeNull();
   });
+
+  it('leaves coverAssetId out of a revision that does not touch an explicit cover', async () => {
+    const editDraft: Draft = {
+      id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      title: 'Atolye',
+      summary: 'Atolye ozeti',
+      steps,
+      status: 'draft',
+      revision: 1,
+      conversation_id: null,
+      media_plan: { coverAssetId: image.id, blocks: [], seal: null, coverMode: 'explicit' },
+    };
+    mocks.businessRequest.mockResolvedValue({});
+    render(
+      <BusinessYansiStudio
+        businessId="biz-1"
+        knowledge={[knowledge]}
+        canEdit
+        editDraft={editDraft}
+        assets={[image, film]}
+        onDraftSaved={vi.fn()}
+      />,
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByTestId('biz-studio-cover-choice')).toHaveValue(image.id);
+    fireEvent.click(screen.getByTestId('biz-studio-save-draft'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    const body = mocks.businessRequest.mock.calls.at(-1)?.[2] as { coverAssetId?: string | null };
+    expect(body).not.toHaveProperty('coverAssetId');
+  });
 });

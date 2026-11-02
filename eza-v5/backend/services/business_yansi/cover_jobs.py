@@ -208,7 +208,14 @@ async def _mark_ready(db, job, result) -> None:
 
 async def encode_claimed(db, job, store):
     """Encode a claimed derivative. A lost token stores nothing."""
-    from backend.services.business_yansi.cover_encode import CoverEncodeError, render_cover, store_cover
+    from types import SimpleNamespace
+
+    from backend.services.business_yansi.cover_encode import (
+        CoverEncodeError,
+        attach_published_cover,
+        publish_cover_object,
+        render_cover,
+    )
     from backend.services.business_yansi.studio_media import business_media_lock
     from backend.services.business_yansi.video_authority import lock_editor_rows
 
@@ -241,24 +248,48 @@ async def encode_claimed(db, job, store):
         _stop(current, "cover_authority_lost", retryable=False)
         await db.flush()
         return current
+    frozen_source = SimpleNamespace(
+        id=source.id, business_id=source.business_id, locator=source.locator,
+        locator_kind=source.locator_kind, verified_size_bytes=source.verified_size_bytes,
+        verified_timescale=source.verified_timescale, title=source.title, caption=source.caption,
+        public_allowed=source.public_allowed, status=source.status,
+    )
+    frozen_job = SimpleNamespace(
+        id=current.id, claim_token=current.claim_token, strategy=current.strategy,
+        start_ticks=current.start_ticks, end_ticks=current.end_ticks,
+        business_id=current.business_id, created_by=current.created_by,
+    )
+    await db.commit()
     try:
-        data, info = await render_cover(store, source, current)
+        data, info = await render_cover(store, frozen_source, frozen_job)
+        final = await publish_cover_object(store, frozen_source, data, info)
     except CoverEncodeError as exc:
-        _stop(current, exc.code, retryable=exc.retryable)
-        await db.flush()
+        current = await db.scalar(select(Job).where(Job.id == frozen_job.id, Job.claim_token == frozen_job.claim_token, Job.status == "running"))
+        if current is not None:
+            _stop(current, exc.code, retryable=exc.retryable)
+            await db.flush()
         return current
     try:
-        async with business_media_lock(db, current.business_id):
-            await lock_editor_rows(db, current.business_id, current.created_by)
-            owned = await db.scalar(select(Job).where(Job.id == current.id, Job.claim_token == current.claim_token, Job.status == "running"))
-            if not _owned(current, owned):
+        async with business_media_lock(db, frozen_job.business_id):
+            await lock_editor_rows(db, frozen_job.business_id, frozen_job.created_by)
+            owned = await db.scalar(
+                select(Job).where(
+                    Job.id == frozen_job.id, Job.claim_token == frozen_job.claim_token, Job.status == "running",
+                ).with_for_update()
+            )
+            fresh = await db.scalar(select(Asset).where(Asset.id == frozen_source.id, Asset.business_id == frozen_job.business_id))
+            if not _owned(frozen_job, owned) or fresh is None or fresh.status == "archived":
                 return None
-            existing = await _reusable_derivative(db, source, owned)
+            if fresh.locator != frozen_source.locator or fresh.verified_size_bytes != frozen_source.verified_size_bytes:
+                _stop(owned, "cover_source_missing", retryable=False)
+                await db.flush()
+                return owned
+            existing = await _reusable_derivative(db, fresh, owned)
             if existing is None:
-                existing = await store_cover(db, store, source, current.created_by, data, info)
-                await mirror_source_links(db, source, existing)
+                existing = await attach_published_cover(db, fresh, frozen_job.created_by, final, len(data), info)
+                await mirror_source_links(db, fresh, existing)
             else:
-                await mirror_source_links(db, source, existing)
+                await mirror_source_links(db, fresh, existing)
             await _mark_ready(db, owned, existing)
             return owned
     except HTTPException:

@@ -8,20 +8,25 @@ The process claims nothing unless the feature flag and a vision model are set.
 It does not call main() from tests.
 """
 import asyncio
+import logging
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 POLL_SECONDS = 1.0
+logger = logging.getLogger(__name__)
 
 
 async def _finish(session_factory, held, completer, reader, materialize, extract):
     from backend.services.business_yansi.video_observe import analyze_media_claim
 
-    async with session_factory() as db:
-        await analyze_media_claim(
-            db, held, completer=completer, reader=reader, materialize=materialize, extract=extract,
-        )
-        await db.commit()
+    try:
+        async with session_factory() as db:
+            await analyze_media_claim(
+                db, held, completer=completer, reader=reader, materialize=materialize, extract=extract,
+            )
+            await db.commit()
+    except Exception:
+        logger.info("observation_worker_isolated code=observation_analysis_failed")
 
 
 async def serve(
@@ -57,7 +62,7 @@ async def serve(
         if held:
             await asyncio.gather(*[
                 _finish(session_factory, item, completer, reader, materialize, extract) for item in held
-            ])
+            ], return_exceptions=True)
             continue
         if stop is not None and stop.is_set():
             return

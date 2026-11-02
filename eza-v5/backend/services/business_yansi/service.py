@@ -249,7 +249,7 @@ async def transition_draft(db,business_id,user_id,draft_id,target,revision):
                 row.media_plan=plan
         row.status=target;row.revision+=1;await db.commit();await db.refresh(row);return row
 
-async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,steps,cover_asset_id=None):
+async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,steps,cover_asset_id=None,*,cover_specified=True):
     await access(db,business_id,user_id,'editor')
     row=await draft_row(db,business_id,draft_id,True)
     if row.revision!=revision or row.status!='draft' or row.conversation_id:
@@ -262,6 +262,9 @@ async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,st
         if not step['sources'] or any(v not in allowed for v in step['sources']): fail('published_sources_required',422)
         if not any(step['answer'] in allowed[v].content for v in step['sources']): fail('answer_not_supported_by_source',422)
     from backend.services.business_yansi.studio_media import bind_media_plan
+    if not cover_specified and isinstance(row.media_plan, dict):
+        if row.media_plan.get("coverMode") == "explicit" and row.media_plan.get("coverAssetId"):
+            cover_asset_id = row.media_plan.get("coverAssetId")
     row.title=title;row.summary=summary;row.steps=steps
     row.media_plan=await bind_media_plan(db,business_id,title,summary,steps,cover_asset_id=cover_asset_id)
     row.knowledge_snapshot=sorted({v for step in steps for v in step['sources']})

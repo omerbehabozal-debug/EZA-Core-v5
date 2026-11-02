@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { BrandAsset, Knowledge, Step, Draft } from '@/lib/eza/businessYansi';
-import { businessRequest as api } from '@/lib/eza/businessYansi';
+import { businessRequest as api, revisionCoverPayload } from '@/lib/eza/businessYansi';
 import {
   classifyStudioAvailability,
   fetchStudioGeneration,
@@ -92,6 +92,7 @@ export default function BusinessYansiStudio({
   const [summary, setSummary] = useState(editDraft?.summary || '');
   const [steps, setSteps] = useState<Step[]>(editDraft?.steps?.length === 8 ? editDraft.steps : emptySteps());
   const [coverAssetId, setCoverAssetId] = useState(coverChoiceFromDraft(editDraft));
+  const [coverTouched, setCoverTouched] = useState(false);
   const coverChoices = useMemo(() => {
     const sourceIds = new Set(steps.flatMap((step) => step.sources));
     return assets.filter(
@@ -390,7 +391,7 @@ export default function BusinessYansiStudio({
         title,
         summary,
         steps,
-        coverAssetId: coverAssetId || null,
+        ...revisionCoverPayload(coverAssetId, !editDraft || coverTouched),
         ...(editDraft ? { revision: editDraft.revision } : {}),
       });
       onClearEdit?.();
@@ -426,7 +427,10 @@ export default function BusinessYansiStudio({
           data-testid="biz-studio-cover-choice"
           value={coverChoices.some((asset) => asset.id === coverAssetId) ? coverAssetId : ''}
           disabled={busy}
-          onChange={(event) => setCoverAssetId(event.target.value)}
+          onChange={(event) => {
+            setCoverTouched(true);
+            setCoverAssetId(event.target.value);
+          }}
         >
           <option value="">Otomatik öneri</option>
           {coverChoices.map((asset) => (

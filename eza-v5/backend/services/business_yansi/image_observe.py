@@ -13,6 +13,7 @@ import os
 import httpx
 from fastapi import HTTPException
 from PIL import Image, UnidentifiedImageError
+from PIL.Image import DecompressionBombError
 from sqlalchemy import select
 
 from backend.models.business_brand_assets import BusinessBrandAsset as Asset
@@ -32,6 +33,7 @@ _PROMPT = (
 )
 _ALLOWED = {"summary", "tags", "visibleText"}
 _MAX_EDGE = 512
+_MAX_PIXELS = 16_777_216
 
 
 class ObservationFailure(Exception):
@@ -57,11 +59,20 @@ def credentials_ready() -> bool:
 
 
 def resize_for_vision(data: bytes) -> tuple[bytes, str]:
-    """Fit the long edge to 512px. The original file is not rewritten."""
+    """Fit the long edge to 512px. The original file is not rewritten.
+
+    Dimensions are rejected before the pixels are decoded. A decompression
+    bomb is a bad source, not a reason to retry the provider.
+    """
     try:
         image = Image.open(io.BytesIO(data))
+        width, height = image.size
+        if width < 1 or height < 1 or width * height > _MAX_PIXELS:
+            raise ObservationFailure("observation_image_rejected", retryable=False)
         image.load()
-    except (UnidentifiedImageError, OSError, ValueError) as exc:
+    except ObservationFailure:
+        raise
+    except (UnidentifiedImageError, DecompressionBombError, OSError, ValueError) as exc:
         raise ObservationFailure("observation_image_rejected", retryable=False) from exc
     if image.format not in {"JPEG", "PNG", "WEBP"}:
         raise ObservationFailure("observation_image_rejected", retryable=False)
@@ -192,90 +203,110 @@ async def default_completer(payload: dict) -> dict:
     return data
 
 
-def _stop(job, code: str, *, retryable: bool) -> None:
-    job.claim_token = None
-    job.deadline_at = None
-    if retryable and job.attempts < job.max_attempts:
-        job.status = "queued"
-        job.error_code = None
-        return
-    job.status = "failed"
-    job.error_code = code
+async def _fail(db, held, code: str, *, retryable: bool):
+    from backend.services.business_yansi.media_observations import fail_owned
+
+    logger.info("image_observation_failed code=%s", code)
+    await fail_owned(db, held, code, retryable=retryable)
 
 
 async def analyze_image_claim(db, held, *, completer=None, reader=None):
     """Describe the claimed image. A wrong token, a video, or a URL changes nothing useful.
 
-    held is (observation id, claim token, business id).
+    held is (observation id, claim token, business id). Bytes are hashed before
+    the provider call and again before the result is stored. The database
+    transaction is committed before that file read and the provider call.
     """
     from backend.services.business_yansi.brand_asset_library import read_stored_image
+    from backend.services.business_yansi.media_observations import (
+        complete_owned,
+        digest_bytes,
+        finish_authorized,
+        note_changed_source,
+        owned_observation,
+        provenance_ok,
+    )
 
     job_id, token, business_id = held
     if not token:
         return None
-    job = await db.scalar(
-        select(Observation).where(
-            Observation.id == job_id,
-            Observation.business_id == business_id,
-            Observation.claim_token == token,
-            Observation.status == "running",
-        )
-    )
+    job = await owned_observation(db, held)
     if job is None:
         return None
     asset = await db.scalar(
         select(Asset).where(Asset.id == job.asset_id, Asset.business_id == job.business_id)
     )
     if asset is None:
-        _stop(job, "observation_source_missing", retryable=False)
-        await db.flush()
-        return job
+        await _fail(db, held, "observation_source_missing", retryable=False)
+        return None
     locator = getattr(asset, "locator", None)
     if asset.asset_type != "image" or asset.locator_kind != "storage" or not isinstance(locator, str) or "://" in locator:
-        _stop(job, "observation_not_stored", retryable=False)
-        await db.flush()
-        return job
+        await _fail(db, held, "observation_not_stored", retryable=False)
+        return None
+    expected = job.content_sha256
+    created_by = job.created_by
+    asset_id = job.asset_id
+    await db.commit()
     read = reader or read_stored_image
+
+    def load():
+        return read(business_id, locator)
+
     try:
-        data, _mime = read(job.business_id, locator)
-        prepared, mime = resize_for_vision(data)
-    except ObservationFailure as exc:
-        logger.info("image_observation_failed code=%s", exc.code)
-        _stop(job, exc.code, retryable=exc.retryable)
-        await db.flush()
-        return job
+        data, _mime = load()
+        actual = digest_bytes(data)
     except HTTPException as exc:
         detail = exc.detail if isinstance(exc.detail, dict) else {}
         code = "observation_source_missing" if detail.get("code") == "asset_file_unavailable" else "observation_image_rejected"
-        logger.info("image_observation_failed code=%s", code)
-        _stop(job, code, retryable=False)
-        await db.flush()
-        return job
+        await _fail(db, held, code, retryable=False)
+        return None
+    asset = await db.scalar(select(Asset).where(Asset.id == asset_id, Asset.business_id == business_id))
+    if not provenance_ok(expected, asset, actual):
+        await finish_authorized(
+            db, held, business_id, created_by,
+            lambda: note_changed_source(db, held, asset, created_by, actual),
+        )
+        return None
+    try:
+        prepared, mime = resize_for_vision(data)
+    except ObservationFailure as exc:
+        await _fail(db, held, exc.code, retryable=exc.retryable)
+        return None
     call = completer or default_completer
     model = vision_model() or "unconfigured"
     try:
         payload = await call(vision_request(prepared, mime, model))
         parsed = parse_visual_observation(_content(payload))
+        again, _mime = load()
+        actual = digest_bytes(again)
     except ObservationFailure as exc:
-        logger.info("image_observation_failed code=%s", exc.code)
-        _stop(job, exc.code, retryable=exc.retryable)
-        await db.flush()
-        return job
+        await _fail(db, held, exc.code, retryable=exc.retryable)
+        return None
+    except HTTPException as exc:
+        detail = exc.detail if isinstance(exc.detail, dict) else {}
+        code = "observation_source_missing" if detail.get("code") == "asset_file_unavailable" else "observation_image_rejected"
+        await _fail(db, held, code, retryable=False)
+        return None
     except Exception:
-        logger.info("image_observation_failed code=observation_analysis_failed")
-        _stop(job, "observation_analysis_failed", retryable=True)
-        await db.flush()
-        return job
+        await _fail(db, held, "observation_analysis_failed", retryable=True)
+        return None
+    asset = await db.scalar(select(Asset).where(Asset.id == asset_id, Asset.business_id == business_id))
+    if not provenance_ok(expected, asset, actual):
+        await finish_authorized(
+            db, held, business_id, created_by,
+            lambda: note_changed_source(db, held, asset, created_by, actual),
+        )
+        return None
     provider_model, prompt_tokens, completion_tokens = _usage(payload)
-    job.status = "ready"
-    job.error_code = None
-    job.claim_token = None
-    job.deadline_at = None
-    job.summary = parsed["summary"]
-    job.tags = parsed["tags"]
-    job.visible_text = parsed["visible_text"]
-    job.provider_model = provider_model
-    job.input_tokens = prompt_tokens
-    job.output_tokens = completion_tokens
-    await db.flush()
-    return job
+
+    async def write():
+        fresh = await db.scalar(select(Asset).where(Asset.id == asset_id, Asset.business_id == business_id))
+        if not provenance_ok(expected, fresh, actual):
+            return await note_changed_source(db, held, fresh, created_by, actual)
+        return await complete_owned(
+            db, held,
+            summary=parsed["summary"], tags=parsed["tags"], visible_text=parsed["visible_text"],
+            provider_model=provider_model, input_tokens=prompt_tokens, output_tokens=completion_tokens,
+        )
+
+    return await finish_authorized(db, held, business_id, created_by, write)

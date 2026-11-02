@@ -148,9 +148,162 @@ async def _same_bytes(db, business_id, profile, digest):
     )
 
 
-async def recover_stale(db, *, now=None) -> int:
-    """Return an expired claim to the queue, or fail it once attempts are spent."""
+def _moment(now=None):
     moment = now or datetime.now(timezone.utc)
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment
+
+
+def _live(job_id, business_id, token, moment):
+    """The claim that may still write: same job, brand, token, and a live deadline."""
+    return (
+        Observation.id == job_id,
+        Observation.business_id == business_id,
+        Observation.status == "running",
+        Observation.claim_token == token,
+        Observation.deadline_at.is_not(None),
+        Observation.deadline_at > moment,
+    )
+
+
+def digest_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def digest_path(path: str) -> str:
+    hasher = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            hasher.update(block)
+    return hasher.hexdigest()
+
+
+def provenance_ok(content_sha256: str, asset, actual: str) -> bool:
+    """The stored bytes, the locator, and this observation are one file."""
+    if asset is None or not isinstance(actual, str):
+        return False
+    located = content_sha_from_locator(getattr(asset, "locator", None))
+    return actual == content_sha256 and located == content_sha256
+
+
+async def _expire_job(db, job_id) -> None:
+    found = await db.get(Observation, job_id)
+    if found is not None:
+        db.expire(found)
+
+
+async def owned_observation(db, held, *, now=None):
+    """Load the row only while this token still owns a live deadline."""
+    job_id, token, business_id = held
+    if not token:
+        return None
+    return await db.scalar(select(Observation).where(*_live(job_id, business_id, token, _moment(now))))
+
+
+async def fail_owned(db, held, code: str, *, retryable: bool, now=None) -> bool:
+    """Requeue or fail only if this token still owns the row. A newer claim is left alone."""
+    job_id, token, business_id = held
+    moment = _moment(now)
+    current = await owned_observation(db, held, now=moment)
+    if current is None:
+        return False
+    attempts, maximum = current.attempts, current.max_attempts
+    await _expire_job(db, job_id)
+    if retryable and attempts < maximum:
+        values = {"status": "queued", "error_code": None, "claim_token": None, "deadline_at": None}
+    else:
+        values = {"status": "failed", "error_code": code, "claim_token": None, "deadline_at": None}
+    result = await db.execute(
+        update(Observation)
+        .where(*_live(job_id, business_id, token, moment), Observation.attempts == attempts)
+        .values(**values)
+        .execution_options(synchronize_session=False)
+    )
+    return result.rowcount == 1
+
+
+async def complete_owned(db, held, *, summary, tags, visible_text, provider_model, input_tokens, output_tokens, frames=None, now=None) -> bool:
+    """Store the description and its frames only after this claim still matches.
+
+    The frame rows are added in the same transaction, and only after the
+    conditional update matches. A lost or expired claim writes neither.
+    """
+    job_id, token, business_id = held
+    moment = _moment(now)
+    await _expire_job(db, job_id)
+    result = await db.execute(
+        update(Observation)
+        .where(*_live(job_id, business_id, token, moment))
+        .values(
+            status="ready",
+            error_code=None,
+            claim_token=None,
+            deadline_at=None,
+            summary=summary,
+            tags=tags,
+            visible_text=visible_text,
+            provider_model=provider_model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
+        .execution_options(synchronize_session=False)
+    )
+    if result.rowcount != 1:
+        return False
+    if frames:
+        from sqlalchemy import delete
+
+        from backend.models.business_media_observations import BusinessMediaObservationFrame as Frame
+
+        await db.execute(delete(Frame).where(Frame.observation_id == job_id, Frame.business_id == business_id))
+        for item in frames:
+            db.add(Frame(
+                observation_id=job_id,
+                business_id=business_id,
+                timestamp_ms=item["timestamp_ms"],
+                note=item["note"],
+                tags=item["tags"],
+            ))
+    await db.flush()
+    return True
+
+
+async def note_changed_source(db, held, asset, created_by, actual: str) -> bool:
+    """Fail the old hash and queue a separate observation for the new bytes."""
+    job_id, _token, _business_id = held
+    current = await db.get(Observation, job_id)
+    previous = None if current is None else current.content_sha256
+    wrote = await fail_owned(db, held, "observation_source_stale", retryable=False)
+    if not wrote or asset is None or not isinstance(actual, str) or len(actual) != 64 or actual == previous:
+        return wrote
+    await ensure_observation(db, asset, created_by, content_sha256=actual)
+    return True
+
+
+async def finish_authorized(db, held, business_id, user_id, write):
+    """Re-check brand authority, then let write() persist inside that short transaction."""
+    from fastapi import HTTPException
+
+    from backend.services.business_yansi.studio_media import business_media_lock
+    from backend.services.business_yansi.video_authority import lock_editor_rows
+
+    try:
+        async with business_media_lock(db, business_id):
+            await lock_editor_rows(db, business_id, user_id)
+            return await write()
+    except HTTPException:
+        await fail_owned(db, held, "observation_authority_lost", retryable=False)
+        return None
+
+
+async def recover_stale(db, *, now=None) -> int:
+    """Return an expired claim to the queue, or fail it once attempts are spent.
+
+    The update matches the token and deadline that were read. A newer claim
+    has a different token, so this recovery does not take it back.
+    """
+    moment = _moment(now)
     expired = list((await db.scalars(
         select(Observation).where(
             Observation.status == "running",
@@ -160,16 +313,28 @@ async def recover_stale(db, *, now=None) -> int:
     )).all())
     restored = 0
     for job in expired:
-        job.claim_token = None
-        job.deadline_at = None
-        if job.attempts < job.max_attempts:
-            job.status = "queued"
-            job.error_code = None
-            restored += 1
+        job_id, business_id, token = job.id, job.business_id, job.claim_token
+        attempts, maximum = job.attempts, job.max_attempts
+        await _expire_job(db, job_id)
+        if attempts < maximum:
+            values = {"status": "queued", "claim_token": None, "deadline_at": None, "error_code": None}
         else:
-            job.status = "failed"
-            job.error_code = "observation_job_stale"
-    await db.flush()
+            values = {"status": "failed", "claim_token": None, "deadline_at": None, "error_code": "observation_job_stale"}
+        result = await db.execute(
+            update(Observation)
+            .where(
+                Observation.id == job_id,
+                Observation.business_id == business_id,
+                Observation.status == "running",
+                Observation.claim_token == token,
+                Observation.deadline_at.is_not(None),
+                Observation.deadline_at < moment,
+            )
+            .values(**values)
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount == 1 and attempts < maximum:
+            restored += 1
     return restored
 
 

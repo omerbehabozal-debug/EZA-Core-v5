@@ -14,15 +14,13 @@ import shutil
 import tempfile
 
 from fastapi import HTTPException
-from sqlalchemy import delete, select
+from sqlalchemy import select
 
 from backend.models.business_brand_assets import BusinessBrandAsset as Asset
 from backend.models.business_media_observations import BusinessMediaObservation as Observation
-from backend.models.business_media_observations import BusinessMediaObservationFrame as Frame
 from backend.services.business_yansi.image_observe import (
     ObservationFailure,
     _content,
-    _stop,
     _usage,
     default_completer,
     parse_visual_observation,
@@ -229,6 +227,11 @@ async def _grab(binary: str, source: str, stamp: int, dest: str) -> None:
             process.kill()
         await process.wait()
         raise ObservationFailure("observation_frames_unavailable", retryable=True)
+    except asyncio.CancelledError:
+        from backend.services.business_yansi.video_mp4 import _reap_cancelled
+
+        await _reap_cancelled(process)
+        raise
     if code != 0 or not os.path.isfile(dest):
         raise ObservationFailure("observation_frames_unavailable", retryable=True)
 
@@ -311,26 +314,38 @@ def _stored_video(locator) -> bool:
     return isinstance(locator, str) and "://" not in locator and not locator.lower().startswith("http") and "/staging/" not in locator
 
 
+async def _fail(db, held, code: str, *, retryable: bool):
+    from backend.services.business_yansi.media_observations import fail_owned
+
+    logger.info("video_observation_failed code=%s", code)
+    await fail_owned(db, held, code, retryable=retryable)
+
+
 async def analyze_video_claim(db, held, *, completer=None, materialize=None, extract=None):
-    """Describe one original video from local frames. A derivative is not sent."""
-    job_id, token, business_id = held
+    """Describe one original video from local frames. A derivative is not sent.
+
+    The claim transaction ends before the file is copied or ffmpeg runs. The
+    spilled bytes are hashed before the provider call and again before completion.
+    """
+    from backend.services.business_yansi.media_observations import (
+        complete_owned,
+        digest_path,
+        finish_authorized,
+        note_changed_source,
+        owned_observation,
+        provenance_ok,
+    )
+
+    _job_id, token, business_id = held
     if not token:
         return None
-    job = await db.scalar(
-        select(Observation).where(
-            Observation.id == job_id,
-            Observation.business_id == business_id,
-            Observation.claim_token == token,
-            Observation.status == "running",
-        )
-    )
+    job = await owned_observation(db, held)
     if job is None:
         return None
     asset = await db.scalar(select(Asset).where(Asset.id == job.asset_id, Asset.business_id == job.business_id))
     if asset is None:
-        _stop(job, "observation_source_missing", retryable=False)
-        await db.flush()
-        return job
+        await _fail(db, held, "observation_source_missing", retryable=False)
+        return None
     locator = getattr(asset, "locator", None)
     if (
         asset.asset_type != "video"
@@ -338,19 +353,20 @@ async def analyze_video_claim(db, held, *, completer=None, materialize=None, ext
         or asset.source_asset_id is not None
         or not _stored_video(locator)
     ):
-        _stop(job, "observation_not_stored", retryable=False)
-        await db.flush()
-        return job
+        await _fail(db, held, "observation_not_stored", retryable=False)
+        return None
     try:
         stamps = frame_timestamps(duration_ms(asset))
         size = asset.verified_size_bytes
         if type(size) is not int:
             raise ObservationFailure("observation_video_rejected", retryable=False)
     except ObservationFailure as exc:
-        logger.info("video_observation_failed code=%s", exc.code)
-        _stop(job, exc.code, retryable=exc.retryable)
-        await db.flush()
-        return job
+        await _fail(db, held, exc.code, retryable=exc.retryable)
+        return None
+    expected = job.content_sha256
+    created_by = job.created_by
+    asset_id = job.asset_id
+    await db.commit()
     handle = tempfile.NamedTemporaryFile(prefix="bilign-video-", suffix=".bin", delete=False)
     path = handle.name
     handle.close()
@@ -358,17 +374,30 @@ async def analyze_video_claim(db, held, *, completer=None, materialize=None, ext
     grab = extract or extract_frames
     copy = materialize
     if copy is None:
-        async def copy(owner, key, dest, expected):
+        async def copy(owner, key, dest, expected_size):
             from backend.services.business_yansi.video_storage import video_store_from_env
 
             store = video_store_from_env()
             try:
-                await spill_video(store, owner, key, dest, expected)
+                await spill_video(store, owner, key, dest, expected_size)
             finally:
                 await store.aclose()
+
+    async def changed(actual: str):
+        fresh = await db.scalar(select(Asset).where(Asset.id == asset_id, Asset.business_id == business_id))
+        await finish_authorized(
+            db, held, business_id, created_by,
+            lambda: note_changed_source(db, held, fresh, created_by, actual),
+        )
+
     try:
         try:
-            await copy(job.business_id, locator, path, size)
+            await copy(business_id, locator, path, size)
+            actual = digest_path(path)
+            asset = await db.scalar(select(Asset).where(Asset.id == asset_id, Asset.business_id == business_id))
+            if not provenance_ok(expected, asset, actual):
+                await changed(actual)
+                return None
             produced = grab(path, stamps)
             if asyncio.iscoroutine(produced):
                 produced = await produced
@@ -376,38 +405,31 @@ async def analyze_video_claim(db, held, *, completer=None, materialize=None, ext
                 raise ObservationFailure("observation_frames_unavailable", retryable=True)
             payload = await call(video_request(produced, vision_model() or "unconfigured"))
             parsed = parse_video_observation(_content(payload), stamps)
+            actual = digest_path(path)
         except ObservationFailure as exc:
-            logger.info("video_observation_failed code=%s", exc.code)
-            _stop(job, exc.code, retryable=exc.retryable)
-            await db.flush()
-            return job
+            await _fail(db, held, exc.code, retryable=exc.retryable)
+            return None
         except Exception:
-            logger.info("video_observation_failed code=observation_analysis_failed")
-            _stop(job, "observation_analysis_failed", retryable=True)
-            await db.flush()
-            return job
+            await _fail(db, held, "observation_analysis_failed", retryable=True)
+            return None
+        asset = await db.scalar(select(Asset).where(Asset.id == asset_id, Asset.business_id == business_id))
+        if not provenance_ok(expected, asset, actual):
+            await changed(actual)
+            return None
         provider_model, prompt_tokens, completion_tokens = _usage(payload)
-        await db.execute(delete(Frame).where(Frame.observation_id == job.id, Frame.business_id == job.business_id))
-        for item in parsed["frames"]:
-            db.add(Frame(
-                observation_id=job.id,
-                business_id=job.business_id,
-                timestamp_ms=item["timestamp_ms"],
-                note=item["note"],
-                tags=item["tags"],
-            ))
-        job.status = "ready"
-        job.error_code = None
-        job.claim_token = None
-        job.deadline_at = None
-        job.summary = parsed["summary"]
-        job.tags = parsed["tags"]
-        job.visible_text = parsed["visible_text"]
-        job.provider_model = provider_model
-        job.input_tokens = prompt_tokens
-        job.output_tokens = completion_tokens
-        await db.flush()
-        return job
+
+        async def write():
+            fresh = await db.scalar(select(Asset).where(Asset.id == asset_id, Asset.business_id == business_id))
+            if fresh is None or not provenance_ok(expected, fresh, actual):
+                return await note_changed_source(db, held, fresh, created_by, actual)
+            return await complete_owned(
+                db, held,
+                summary=parsed["summary"], tags=parsed["tags"], visible_text=parsed["visible_text"],
+                provider_model=provider_model, input_tokens=prompt_tokens, output_tokens=completion_tokens,
+                frames=parsed["frames"],
+            )
+
+        return await finish_authorized(db, held, business_id, created_by, write)
     finally:
         try:
             os.remove(path)

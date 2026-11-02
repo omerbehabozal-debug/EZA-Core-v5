@@ -1,5 +1,6 @@
 """Cover jobs are durable, silent reuse is measured, and sealed plans stay put."""
 import asyncio
+import tempfile
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -549,6 +550,7 @@ async def test_real_forty_second_source_becomes_a_silent_cover(sample, asset_dir
         _tool_path("EZA_BUSINESS_VIDEO_FFPROBE", "ffprobe")
     except HTTPException:
         pytest.skip("ffmpeg is not available")
+    monkeypatch.setattr(tempfile, "tempdir", str(asset_dir))
     monkeypatch.setattr("backend.services.business_yansi.video_mp4.probe_file", live_probe)
     binary = _tool_path("EZA_BUSINESS_VIDEO_FFMPEG", "ffmpeg")
     path = asset_dir / "forty.mp4"
@@ -589,3 +591,65 @@ async def test_real_forty_second_source_becomes_a_silent_cover(sample, asset_dir
     assert store.objects[original.locator][0] == original_bytes
     assert original.verified_has_audio is True
     assert not any("/staging/" in key for key in store.objects)
+
+
+async def test_cancelled_cover_encode_reaps_the_process(tmp_path, monkeypatch):
+    from backend.services.business_yansi.cover_encode import encode_window
+
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    killed = {}
+
+    class Proc:
+        def __init__(self):
+            self.returncode = None
+
+        def kill(self):
+            killed["yes"] = True
+            self.returncode = -9
+
+        async def wait(self):
+            if self.returncode is None:
+                await asyncio.sleep(30)
+            return self.returncode
+
+    async def fake_exec(*_args, **_kwargs):
+        return Proc()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+    monkeypatch.setattr("backend.services.business_yansi.cover_encode._tool_path", lambda *_args, **_kwargs: "ffmpeg")
+    task = asyncio.create_task(encode_window(str(tmp_path / "in.mp4"), str(tmp_path / "out.mp4"), start=0, duration=1))
+    await asyncio.sleep(0.05)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert killed.get("yes") is True
+    assert list(tmp_path.glob("bilign-cover-*")) == []
+
+
+async def test_cover_encoding_commits_before_ffmpeg(sample, asset_dir, monkeypatch):
+    from backend.services.business_yansi.cover_encode import CoverEncodeError
+    from backend.services.business_yansi.cover_jobs import claim_encode, encode_claimed
+
+    knowledge = await source(sample, content="Atolye filmi kapak secimi icin yeterince aciktir.")
+    await _confirm(sample, knowledge, await _keep(sample, _mp4(seconds=12, with_audio=True), title="Sesli film"))
+    classified = await process_one(sample.db)
+    await sample.db.commit()
+    assert classified.status == "awaiting_encode"
+    order = []
+    commit = sample.db.commit
+
+    async def recording():
+        order.append("commit")
+        await commit()
+
+    async def render(_store, _source, _job):
+        order.append("render")
+        raise CoverEncodeError("cover_encode_failed", retryable=True)
+
+    monkeypatch.setattr(sample.db, "commit", recording)
+    monkeypatch.setattr("backend.services.business_yansi.cover_encode.render_cover", render)
+    claimed = await claim_encode(sample.db)
+    await sample.db.commit()
+    order.clear()
+    await encode_claimed(sample.db, claimed, MemoryVideoStore())
+    assert order[:2] == ["commit", "render"]

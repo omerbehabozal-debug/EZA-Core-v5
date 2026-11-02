@@ -1,5 +1,6 @@
 """Video frames stay local. A cover window cannot borrow the whole-video summary."""
 import asyncio
+import hashlib
 import io
 import json
 import os
@@ -44,8 +45,18 @@ def _jpeg() -> bytes:
     return out.getvalue()
 
 
+_FILES: dict[str, bytes] = {}
+
+
+def _file(label: str) -> bytes:
+    return f"bilign-video-{label}".encode()
+
+
 def _sha(label: str) -> str:
-    return (label * 64)[:64]
+    data = _file(label)
+    digest = hashlib.sha256(data).hexdigest()
+    _FILES[digest] = data
+    return digest
 
 
 def _response(stamps, summary=_SUMMARY):
@@ -89,7 +100,7 @@ async def _asset(sample, digest, duration, *, title="Film", source_id=None, audi
         id=uuid.uuid4(), business_id=sample.business.id, asset_type="video", title=title,
         locator_kind="storage", locator=f"brand-videos/{sample.business.id}/{digest}.mp4",
         public_allowed=True, status="published", created_by=sample.editor.id, revision=1,
-        verified_duration=duration, verified_timescale=1000, verified_size_bytes=32,
+        verified_duration=duration, verified_timescale=1000, verified_size_bytes=len(_FILES[digest]),
         verified_has_audio=audio, source_asset_id=source_id,
     )
     sample.db.add(row)
@@ -103,7 +114,10 @@ def _tools(sample):
     async def materialize(_business, locator, dest, size):
         paths.append(dest)
         assert "://" not in locator and not str(locator).lower().startswith("http")
-        Path(dest).write_bytes(b"x" * size)
+        stem = str(locator).rsplit("/", 1)[-1].removesuffix(".mp4")
+        data = _FILES[stem]
+        assert size == len(data)
+        Path(dest).write_bytes(data)
 
     def extract(path, stamps):
         assert os.path.isfile(path)
@@ -166,10 +180,13 @@ async def test_ffmpeg_extracts_each_bucket_and_deletes_the_frames(tmp_path):
     made = []
     original = tempfile.mkdtemp
 
-    def tracking(prefix="tmp"):
-        path = original(prefix=prefix)
+    def tracking(*args, **kwargs):
+        kwargs["dir"] = str(tmp_path)
+        path = original(*args, **kwargs)
+        prefix = kwargs.get("prefix", args[0] if args else "")
         if prefix == "bilign-frames-":
             made.append(path)
+            assert str(tmp_path) in path
         return path
 
     video.tempfile.mkdtemp = tracking
@@ -488,3 +505,69 @@ async def test_ready_video_observation_does_not_change_selection_or_seals(sample
     assert published.media_plan["seal"] == sealed
     assert published.media_plan["coverAssetId"] == str(olive.id)
     assert media.media_identity(published.media_plan) == {"coverAssetId": str(olive.id), "blocks": published.media_plan["blocks"]}
+
+
+async def test_changed_video_bytes_do_not_reuse_the_old_hash(sample, asset_dir, monkeypatch):
+    monkeypatch.setenv("BILIGN_BUSINESS_MEDIA_OBSERVATIONS_ENABLED", "true")
+    monkeypatch.setenv("BILIGN_BUSINESS_VISION_CONCURRENCY", "1")
+    original = await _asset(sample, _sha("kept"), 8_000, title="Eski film")
+    job = await observe.ensure_observation(sample.db, original, sample.editor.id)
+    await sample.db.commit()
+    calls = []
+    other = b"bilign-video-replaced"
+
+    async def materialize(_business, locator, dest, size):
+        assert "://" not in locator
+        Path(dest).write_bytes(other)
+
+    def extract(path, stamps):
+        raise AssertionError("frames are not extracted for a different file")
+
+    async def completer(payload):
+        calls.append(payload)
+        return _response([0])
+
+    stop = asyncio.Event()
+    await serve(
+        _sessions(sample.db, stop, 2), stop=stop, completer=completer, materialize=materialize, extract=extract,
+    )
+    await sample.db.refresh(job)
+    queued = await sample.db.scalar(
+        select(Observation).where(Observation.content_sha256 == hashlib.sha256(other).hexdigest())
+    )
+    assert calls == []
+    assert job.status == "failed" and job.error_code == "observation_source_stale" and job.summary is None
+    assert queued is not None and queued.id != job.id and queued.status == "queued"
+
+
+async def test_cancelled_frame_extract_reaps_the_process_and_deletes_the_directory(tmp_path, monkeypatch):
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    killed = {}
+
+    class Proc:
+        def __init__(self):
+            self.returncode = None
+
+        def kill(self):
+            killed["yes"] = True
+            self.returncode = -9
+
+        async def wait(self):
+            if self.returncode is None:
+                await asyncio.sleep(30)
+            return self.returncode
+
+    async def fake_exec(*_args, **_kwargs):
+        return Proc()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+    monkeypatch.setattr("backend.services.business_yansi.video_mp4._tool_path", lambda *_args, **_kwargs: "ffmpeg")
+    source = tmp_path / "clip.mp4"
+    source.write_bytes(b"not-a-real-video")
+    task = asyncio.create_task(video.extract_frames(str(source), [1000]))
+    await asyncio.sleep(0.05)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert killed.get("yes") is True
+    assert list(tmp_path.glob("bilign-frames-*")) == []

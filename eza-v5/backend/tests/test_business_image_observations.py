@@ -1,5 +1,6 @@
 """Image observations. The model result is stored data, not a Yansı decision."""
 import asyncio
+import hashlib
 import importlib.util
 import io
 import json
@@ -366,8 +367,11 @@ async def test_invalid_output_missing_file_and_bad_bytes_do_not_invent_a_summary
     stop = asyncio.Event()
     await serve(_sessions(sample.db, stop, 2), stop=stop, completer=unused)
     rejected = await sample.db.scalar(select(Observation).where(Observation.asset_id == bad_file.id))
-    assert rejected.status == "failed" and rejected.error_code == "observation_image_rejected"
-    assert calls == []
+    assert rejected.status == "failed" and rejected.error_code == "observation_source_stale"
+    assert rejected.summary is None and calls == []
+    replacement = hashlib.sha256(_picture(8, 8, fmt="GIF")).hexdigest()
+    queued = await sample.db.scalar(select(Observation).where(Observation.content_sha256 == replacement))
+    assert queued is not None and queued.id != rejected.id and queued.status == "queued"
     assert await sample.db.get(BusinessBrandAsset, bad_file.id) is not None
 
 
@@ -384,7 +388,8 @@ async def test_disabled_mode_and_video_rows_make_no_vision_call(sample, asset_di
     assert await observe.observation_count(sample.db, sample.business.id) == 0
     sample.db.add(Observation(
         id=uuid.uuid4(), business_id=sample.business.id, asset_id=image.id,
-        content_sha256="a" * 64, analyzer_profile=observe.PROFILE, idempotency_key="b" * 64,
+        content_sha256=image.locator.rsplit("/", 1)[-1].split(".", 1)[0],
+        analyzer_profile=observe.PROFILE, idempotency_key="b" * 64,
         status="queued", attempts=0, max_attempts=3, origin="upload", created_by=sample.editor.id,
     ))
     video = BusinessBrandAsset(
@@ -426,31 +431,12 @@ async def test_disabled_mode_and_video_rows_make_no_vision_call(sample, asset_di
     assert video_job.status == "queued" and video_job.attempts == 0
 
 
-async def test_one_call_at_a_time_when_the_limit_is_one(tmp_path, monkeypatch):
+async def test_one_call_at_a_time_when_the_limit_is_one(sample, asset_dir, monkeypatch):
     monkeypatch.setenv("BILIGN_BUSINESS_MEDIA_OBSERVATIONS_ENABLED", "true")
     monkeypatch.setenv("BILIGN_BUSINESS_VISION_CONCURRENCY", "1")
-    engine = create_async_engine(f"sqlite+aiosqlite:///{(tmp_path / 'limit.db').as_posix()}")
-    async with engine.begin() as connection:
-        await connection.run_sync(
-            lambda sync: Base.metadata.create_all(sync, tables=[BusinessBrandAsset.__table__, Observation.__table__]),
-        )
-    maker = async_sessionmaker(engine, expire_on_commit=False)
-    business_id = uuid.uuid4()
-    picture = _picture(16, 16)
-    async with maker() as db:
-        for index in range(2):
-            asset_id = uuid.uuid4()
-            db.add(BusinessBrandAsset(
-                id=asset_id, business_id=business_id, asset_type="image", title=f"Kare {index}",
-                locator_kind="storage", locator=f"brand-assets/{business_id}/{index}.png",
-                public_allowed=True, status="published", created_by=uuid.uuid4(), revision=1,
-            ))
-            db.add(Observation(
-                id=uuid.uuid4(), business_id=business_id, asset_id=asset_id,
-                content_sha256=f"{index}" * 64, analyzer_profile=observe.PROFILE, idempotency_key=f"{index + 2}" * 64,
-                status="queued", attempts=0, max_attempts=3, origin="upload", created_by=uuid.uuid4(),
-            ))
-        await db.commit()
+    await _image(sample, "Bir", (1, 1, 1))
+    await _image(sample, "Iki", (2, 2, 2))
+    await sample.db.commit()
     state = {"open": 0, "max": 0}
 
     async def completer(payload):
@@ -460,17 +446,12 @@ async def test_one_call_at_a_time_when_the_limit_is_one(tmp_path, monkeypatch):
         state["open"] -= 1
         return _ok(usage=False)
 
-    def reader(_business, _locator):
-        return picture, "image/png"
-
     stop = asyncio.Event()
-    await serve(_maker_sessions(maker, stop, 4), stop=stop, completer=completer, reader=reader)
+    await serve(_sessions(sample.db, stop, 4), stop=stop, completer=completer)
     assert state["max"] == 1
-    async with maker() as db:
-        rows = (await db.scalars(select(Observation))).all()
-        assert len(rows) == 2 and {row.status for row in rows} == {"ready"}
-        assert all(row.input_tokens is None and row.provider_model == "configured-vision" for row in rows)
-    await engine.dispose()
+    rows = (await sample.db.scalars(select(Observation))).all()
+    assert len(rows) == 2 and {row.status for row in rows} == {"ready"}
+    assert all(row.input_tokens is None and row.provider_model == "configured-vision" for row in rows)
 
 
 async def test_analysis_does_not_change_ranking_drafts_or_seals(sample, asset_dir, monkeypatch):
@@ -552,3 +533,173 @@ async def test_analysis_does_not_change_ranking_drafts_or_seals(sample, asset_di
     assert published.media_plan["seal"] == sealed
     assert published.media_plan["coverAssetId"] == str(olive.id)
     assert "tags" not in media.media_identity(published.media_plan)
+
+
+async def test_stale_worker_cannot_overwrite_a_newer_claim(tmp_path):
+    from sqlalchemy import update
+
+    from backend.models.business_media_observations import BusinessMediaObservationFrame as Frame
+
+    engine = create_async_engine(f"sqlite+aiosqlite:///{(tmp_path / 'fence.db').as_posix()}")
+    async with engine.begin() as connection:
+        await connection.run_sync(
+            lambda sync: Base.metadata.create_all(sync, tables=[Observation.__table__, Frame.__table__]),
+        )
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+    job_id = uuid.uuid4()
+    business_id = uuid.uuid4()
+    creator = uuid.uuid4()
+    old_token = "o" + "a" * 32
+    new_token = "o" + "b" * 32
+    async with maker() as db:
+        db.add(Observation(
+            id=job_id, business_id=business_id, asset_id=uuid.uuid4(),
+            content_sha256="d" * 64, analyzer_profile=observe.PROFILE, idempotency_key="e" * 64,
+            status="running", attempts=1, max_attempts=3, origin="upload", created_by=creator,
+            claim_token=old_token, deadline_at=datetime.now(timezone.utc) + timedelta(seconds=60),
+        ))
+        await db.commit()
+    async with maker() as writer:
+        renewed = await writer.execute(
+            update(Observation).where(Observation.id == job_id).values(
+                claim_token=new_token, deadline_at=datetime.now(timezone.utc) + timedelta(seconds=60),
+            )
+        )
+        assert renewed.rowcount == 1
+        await writer.commit()
+    async with maker() as stale:
+        wrote = await observe.complete_owned(
+            stale, (job_id, old_token, business_id),
+            summary="Eski isci yazdi", tags=["eski"], visible_text=None,
+            provider_model="configured-vision", input_tokens=1, output_tokens=1,
+            frames=[{"timestamp_ms": 1, "note": "Eski kare", "tags": ["eski"]}],
+        )
+        await stale.commit()
+        assert wrote is False
+    async with maker() as db:
+        row = await db.get(Observation, job_id)
+        frames = (await db.scalars(select(Frame))).all()
+        assert row.status == "running" and row.claim_token == new_token and row.summary is None
+        assert frames == []
+    async with maker() as recovered, maker() as owner:
+        await recovered.execute(
+            update(Observation).where(Observation.id == job_id).values(
+                deadline_at=datetime.now(timezone.utc) - timedelta(seconds=5),
+            )
+        )
+        await recovered.commit()
+        await owner.execute(
+            update(Observation).where(Observation.id == job_id, Observation.claim_token == new_token).values(
+                claim_token=new_token, deadline_at=datetime.now(timezone.utc) + timedelta(seconds=60),
+            )
+        )
+        await owner.commit()
+        assert await observe.recover_stale(recovered) == 0
+        await recovered.commit()
+    async with maker() as db:
+        row = await db.get(Observation, job_id)
+        assert row.status == "running" and row.claim_token == new_token
+    await engine.dispose()
+
+
+async def test_changed_bytes_are_not_stored_under_the_old_hash(sample, asset_dir, monkeypatch):
+    monkeypatch.setenv("BILIGN_BUSINESS_MEDIA_OBSERVATIONS_ENABLED", "true")
+    monkeypatch.setenv("BILIGN_BUSINESS_VISION_CONCURRENCY", "1")
+    image = await _image(sample, "Ilk", (9, 9, 9))
+    job = await sample.db.scalar(select(Observation).where(Observation.asset_id == image.id))
+    original = job.content_sha256
+    target = Path(os.environ["EZA_BRAND_ASSET_DIR"]) / str(sample.business.id) / image.locator.rsplit("/", 1)[-1]
+    replacement = _picture(12, 12, color=(3, 4, 5))
+    target.write_bytes(replacement)
+    calls = []
+
+    async def completer(payload):
+        calls.append(payload)
+        return _ok(summary="Yanlis dosya")
+
+    stop = asyncio.Event()
+    await serve(_sessions(sample.db, stop, 2), stop=stop, completer=completer)
+    await sample.db.refresh(job)
+    queued = await sample.db.scalar(select(Observation).where(Observation.content_sha256 == hashlib.sha256(replacement).hexdigest()))
+    assert calls == []
+    assert job.status == "failed" and job.error_code == "observation_source_stale" and job.summary is None
+    assert job.content_sha256 == original
+    assert queued is not None and queued.id != job.id and queued.status == "queued"
+
+
+async def test_a_decompression_bomb_fails_one_job_and_the_worker_continues(sample, asset_dir, monkeypatch):
+    monkeypatch.setenv("BILIGN_BUSINESS_MEDIA_OBSERVATIONS_ENABLED", "true")
+    monkeypatch.setenv("BILIGN_BUSINESS_VISION_CONCURRENCY", "1")
+    bomb = struct_png(20_000, 20_000)
+    with pytest.raises(vision.ObservationFailure) as rejected:
+        vision.resize_for_vision(bomb)
+    assert rejected.value.code == "observation_image_rejected" and rejected.value.retryable is False
+
+    class Exploding:
+        size = (32, 32)
+        format = "PNG"
+        mode = "RGB"
+
+        def load(self):
+            raise vision.DecompressionBombError("bomb")
+
+    original_open = vision.Image.open
+    monkeypatch.setattr(vision.Image, "open", lambda _data: Exploding())
+    with pytest.raises(vision.ObservationFailure) as exploded:
+        vision.resize_for_vision(_picture(8, 8))
+    assert exploded.value.retryable is False
+    monkeypatch.setattr(vision.Image, "open", original_open)
+
+    first = await _image(sample, "Birinci", (7, 7, 7))
+    second = await _image(sample, "Ikinci", (8, 8, 8))
+    await sample.db.commit()
+    from backend.services.business_yansi import video_observe as watched
+
+    original = watched.analyze_media_claim
+    state = {"n": 0}
+
+    async def wrapped(db, held, **kwargs):
+        state["n"] += 1
+        if state["n"] == 1:
+            raise RuntimeError("isolated")
+        return await original(db, held, **kwargs)
+
+    monkeypatch.setattr(watched, "analyze_media_claim", wrapped)
+
+    async def completer(_payload):
+        return _ok()
+
+    stop = asyncio.Event()
+
+    def factory():
+        seen = {"n": 0}
+
+        @asynccontextmanager
+        async def sessions():
+            try:
+                yield sample.db
+            finally:
+                seen["n"] += 1
+                if state["n"] >= 2:
+                    stop.set()
+
+        return sessions
+
+    await serve(factory(), stop=stop, completer=completer)
+    assert state["n"] == 2
+    rows = {
+        row.asset_id: row
+        for row in (await sample.db.scalars(select(Observation).where(Observation.asset_id.in_([first.id, second.id])))).all()
+    }
+    assert {rows[first.id].status, rows[second.id].status} == {"running", "ready"}
+
+
+def struct_png(width: int, height: int) -> bytes:
+    import struct
+    import zlib
+
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header)

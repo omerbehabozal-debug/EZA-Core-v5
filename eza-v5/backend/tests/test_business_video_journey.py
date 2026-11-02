@@ -4,6 +4,7 @@ Synthetic boxes are not used here. ffmpeg builds the files, the server
 measures them, and the cover worker produces the silent cover.
 """
 import asyncio
+import tempfile
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 
@@ -92,6 +93,7 @@ def _seconds(row):
 
 
 async def test_real_uploads_keep_the_original_and_prepare_a_silent_cover(sample, asset_dir, monkeypatch):
+    monkeypatch.setattr(tempfile, "tempdir", str(asset_dir))
     binary, _probe = _ffmpeg()
     knowledge = await source(sample, content="Atolye filmi kapak secimi icin yeterince aciktir.")
     image = await library.create_asset(sample.db, sample.business.id, sample.editor.id, {
@@ -210,7 +212,8 @@ async def test_real_uploads_keep_the_original_and_prepare_a_silent_cover(sample,
     assert set(store.objects) == before
 
 
-async def test_cover_worker_starts_and_recovers_an_interrupted_encode(sample, asset_dir):
+async def test_cover_worker_starts_and_recovers_an_interrupted_encode(sample, asset_dir, monkeypatch):
+    monkeypatch.setattr(tempfile, "tempdir", str(asset_dir))
     from backend.models.business_video_cover_jobs import BusinessVideoCoverJob
     from sqlalchemy import select
 
