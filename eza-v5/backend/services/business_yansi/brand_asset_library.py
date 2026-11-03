@@ -108,12 +108,62 @@ def present_asset(asset, links):
     }
 
 
+_ASSET_LOCK_ATTRS = (
+    "status",
+    "public_allowed",
+    "revision",
+    "approved_by",
+    "asset_type",
+    "source_asset_id",
+    "locator",
+    "locator_kind",
+    "verified_duration",
+    "verified_timescale",
+    "verified_size_bytes",
+    "verified_has_audio",
+    "title",
+    "caption",
+)
+
+
 async def _asset_row(db, business_id, asset_id, lock=False):
-    query = select(Asset).where(Asset.id == uid(asset_id), Asset.business_id == uid(business_id))
-    row = await db.scalar(query.with_for_update() if lock else query)
-    if not row:
-        fail("asset_not_found", 404)
-    return row
+    criteria = (Asset.id == uid(asset_id), Asset.business_id == uid(business_id))
+    if not lock:
+        row = await db.scalar(select(Asset).where(*criteria))
+        if not row:
+            fail("asset_not_found", 404)
+        return row
+    from sqlalchemy.orm.attributes import set_committed_value
+
+    with db.no_autoflush:
+        current = await db.execute(
+            select(
+                Asset.id,
+                Asset.status,
+                Asset.public_allowed,
+                Asset.revision,
+                Asset.approved_by,
+                Asset.asset_type,
+                Asset.source_asset_id,
+                Asset.locator,
+                Asset.locator_kind,
+                Asset.verified_duration,
+                Asset.verified_timescale,
+                Asset.verified_size_bytes,
+                Asset.verified_has_audio,
+                Asset.title,
+                Asset.caption,
+            ).where(*criteria).with_for_update()
+        )
+        locked = current.one_or_none()
+        if locked is None:
+            fail("asset_not_found", 404)
+        row = await db.get(Asset, locked.id)
+        if row is None:
+            fail("asset_not_found", 404)
+        for name in _ASSET_LOCK_ATTRS:
+            set_committed_value(row, name, locked._mapping[name])
+        return row
 
 
 def _same_coord(left, right) -> bool:

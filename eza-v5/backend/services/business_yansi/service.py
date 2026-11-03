@@ -179,7 +179,11 @@ async def delete_knowledge(db, business_id, user_id, version_id, revision):
 async def published_knowledge(db,business_id,snapshot=None,*,fresh=False):
     query=select(Knowledge).where(Knowledge.business_id==uid(business_id),Knowledge.status=='published',Knowledge.public_allowed.is_(True),Knowledge.approved_by.is_not(None))
     if snapshot is not None: query=query.where(Knowledge.id.in_([uid(v) for v in snapshot]))
-    return list((await db.scalars(query.order_by(Knowledge.id).execution_options(populate_existing=fresh))).all())
+    query=query.order_by(Knowledge.id).execution_options(populate_existing=fresh)
+    if not fresh:
+        return list((await db.scalars(query)).all())
+    with db.no_autoflush:
+        return list((await db.scalars(query)).all())
 
 def rank_sources(question,rows,limit=4):
     words=set(re.findall(r'[^\W_]{3,}', question.casefold(), re.UNICODE))
@@ -197,19 +201,29 @@ def _qa_steps(steps):
         clean.append({'question':step['question'],'answer':step['answer'],'sources':list(step['sources'])})
     return clean
 
+_DRAFT_LOCK_ATTRS = (
+    'revision', 'status', 'conversation_id', 'media_plan', 'steps',
+    'knowledge_snapshot', 'approved_by', 'title', 'summary', 'source_hash',
+)
+
+def _assert_supported_steps(steps, allowed):
+    for step in steps:
+        if not step['sources'] or any(v not in allowed for v in step['sources']): fail('published_sources_required',422)
+        # Phase 1 accepts only source-exact answers; no unsupported brand claims.
+        if not any(step['answer'] in allowed[v].content for v in step['sources']): fail('answer_not_supported_by_source',422)
+
 async def create_draft(db,business_id,user_id,title,summary,steps,*,commit=True,media_choices=None,cover_asset_id=None):
     await access(db,business_id,user_id,'editor')
     public_content(title,summary,*(s['question'] for s in steps),*(s['answer'] for s in steps))
     if len(steps)!=8: fail('eight_steps_required',422)
     steps=_qa_steps(steps)
-    rows=await published_knowledge(db,business_id);allowed={str(row.id):row for row in rows}
-    for step in steps:
-        if not step['sources'] or any(v not in allowed for v in step['sources']): fail('published_sources_required',422)
-        # Phase 1 accepts only source-exact answers; no unsupported brand claims.
-        if not any(step['answer'] in allowed[v].content for v in step['sources']): fail('answer_not_supported_by_source',422)
-    # Phase 7G-4c.3A: one Business-locked pass — rebuild pool, select cover, persist draft.
+    # Phase 7G-4c.3A remediations: Business lock, re-auth, fresh knowledge, one select+persist.
     from backend.services.business_yansi.studio_media import bind_media_plan, business_media_lock
+    from backend.services.business_yansi.video_authority import require_locked_access
     async with business_media_lock(db, business_id):
+        await require_locked_access(db, business_id, user_id, 'editor')
+        allowed={str(row.id):row for row in await published_knowledge(db,business_id,fresh=True)}
+        _assert_supported_steps(steps, allowed)
         plan=await bind_media_plan(db,business_id,title,summary,steps,media_choices,cover_asset_id)
         snapshot=sorted({v for step in steps for v in step['sources']})
         row=Draft(business_id=uid(business_id),created_by=uid(user_id),title=title,summary=summary,steps=steps,knowledge_snapshot=snapshot,media_plan=plan,source_hash=source_hash(steps),status='draft',revision=1)
@@ -219,15 +233,37 @@ async def create_draft(db,business_id,user_id,title,summary,steps,*,commit=True,
         return row
 
 async def draft_row(db,business_id,draft_id,lock=False):
-    query=select(Draft).where(Draft.id==uid(draft_id),Draft.business_id==uid(business_id))
-    row=await db.scalar(query.with_for_update() if lock else query)
-    if not row: fail('draft_not_found',404)
-    return row
+    criteria=(Draft.id==uid(draft_id),Draft.business_id==uid(business_id))
+    if not lock:
+        row=await db.scalar(select(Draft).where(*criteria))
+        if not row: fail('draft_not_found',404)
+        return row
+    # Lock via column projection, then copy decision attrs with set_committed_value.
+    # Avoids refresh()/populate_existing wiping unrelated pending ORM state.
+    from sqlalchemy.orm.attributes import set_committed_value
+    with db.no_autoflush:
+        current=await db.execute(
+            select(
+                Draft.id, Draft.revision, Draft.status, Draft.conversation_id,
+                Draft.media_plan, Draft.steps, Draft.knowledge_snapshot,
+                Draft.approved_by, Draft.title, Draft.summary, Draft.source_hash,
+            ).where(*criteria).with_for_update()
+        )
+        locked=current.one_or_none()
+        if locked is None: fail('draft_not_found',404)
+        row=await db.get(Draft, locked.id)
+        if row is None: fail('draft_not_found',404)
+        for name in _DRAFT_LOCK_ATTRS:
+            set_committed_value(row, name, locked._mapping[name])
+        return row
 
 async def transition_draft(db,business_id,user_id,draft_id,target,revision):
-    await access(db,business_id,user_id,'owner' if target=='approved' else 'editor')
+    role='owner' if target=='approved' else 'editor'
+    await access(db,business_id,user_id,role)
     from backend.services.business_yansi.studio_media import business_media_lock
+    from backend.services.business_yansi.video_authority import require_locked_access
     async with business_media_lock(db,business_id):
+        await require_locked_access(db,business_id,user_id,role)
         row=await draft_row(db,business_id,draft_id,True)
         if row.revision!=revision: fail('revision_conflict',409)
         if target not in TRANSITIONS.get(row.status,set()) or target=='published': fail('invalid_transition',409)
@@ -235,7 +271,7 @@ async def transition_draft(db,business_id,user_id,draft_id,target,revision):
             from backend.services.business_yansi.studio_media import assert_live_plan
             await assert_live_plan(db,business_id,row.steps,row.media_plan)
         if target=='approved':
-            if len(await published_knowledge(db,business_id,row.knowledge_snapshot))!=len(row.knowledge_snapshot): fail('source_snapshot_unavailable',409)
+            if len(await published_knowledge(db,business_id,row.knowledge_snapshot,fresh=True))!=len(row.knowledge_snapshot): fail('source_snapshot_unavailable',409)
             if row.media_plan is not None:
                 from backend.services.business_yansi.studio_media import media_seal
                 plan={'coverAssetId':row.media_plan.get('coverAssetId'),'blocks':row.media_plan.get('blocks') or [],'seal':None}
@@ -256,16 +292,16 @@ async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,st
     public_content(title,summary,*(s['question'] for s in steps),*(s['answer'] for s in steps))
     if len(steps)!=8: fail('eight_steps_required',422)
     steps=_qa_steps(steps)
-    # Phase 7G-4c.3A: Business lock before Draft FOR UPDATE; one selection pass under that hold.
+    # Phase 7G-4c.3A: Business → re-auth → fresh Draft → knowledge → one selection pass.
     from backend.services.business_yansi.studio_media import bind_media_plan, business_media_lock
+    from backend.services.business_yansi.video_authority import require_locked_access
     async with business_media_lock(db, business_id):
+        await require_locked_access(db, business_id, user_id, 'editor')
         row=await draft_row(db,business_id,draft_id,True)
         if row.revision!=revision or row.status!='draft' or row.conversation_id:
             fail('editable_draft_required',409)
-        allowed={str(v.id):v for v in await published_knowledge(db,business_id)}
-        for step in steps:
-            if not step['sources'] or any(v not in allowed for v in step['sources']): fail('published_sources_required',422)
-            if not any(step['answer'] in allowed[v].content for v in step['sources']): fail('answer_not_supported_by_source',422)
+        allowed={str(v.id):v for v in await published_knowledge(db,business_id,fresh=True)}
+        _assert_supported_steps(steps, allowed)
         if not cover_specified and isinstance(row.media_plan, dict):
             if row.media_plan.get("coverMode") == "explicit" and row.media_plan.get("coverAssetId"):
                 cover_asset_id = row.media_plan.get("coverAssetId")

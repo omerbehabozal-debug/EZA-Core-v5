@@ -196,96 +196,111 @@ def plan_is_live(steps, plan, grouped):
 
 
 async def eligible_for_versions(db, business_id, version_ids):
+    """Rebuild the live eligible pool from current DB attributes.
+
+    Callers hold business_media_lock so concurrent archive/link writers wait.
+    populate_existing refreshes identity-map rows for pool members only; reads run
+    under no_autoflush so unrelated pending ORM rows are not silently persisted.
+    """
     business = uid(business_id)
     ids = [uid(value) for value in version_ids]
-    profile = await db.get(BusinessProfile, business)
-    organization = await db.get(Organization, business)
-    versions = list((await db.scalars(select(Knowledge).where(Knowledge.business_id == business, Knowledge.id.in_(ids)))).all())
-    by_id = {row.id: row for row in versions}
-    grouped = {row.id: [] for row in versions}
-    if not by_id:
+    fresh = {"populate_existing": True}
+    with db.no_autoflush:
+        profile = await db.get(BusinessProfile, business, **fresh)
+        organization = await db.get(Organization, business, **fresh)
+        versions = list((await db.scalars(
+            select(Knowledge).where(Knowledge.business_id == business, Knowledge.id.in_(ids)).execution_options(populate_existing=True)
+        )).all())
+        by_id = {row.id: row for row in versions}
+        grouped = {row.id: [] for row in versions}
+        if not by_id:
+            return grouped
+        links = list((await db.scalars(
+            select(Link).where(
+                Link.business_id == business, Link.status == "active", Link.confirmed_version_id.in_(list(by_id))
+            ).execution_options(populate_existing=True)
+        )).all())
+        asset_ids = [link.asset_id for link in links]
+        assets = {}
+        if asset_ids:
+            assets = {
+                row.id: row
+                for row in (await db.scalars(
+                    select(Asset).where(Asset.business_id == business, Asset.id.in_(asset_ids)).execution_options(populate_existing=True)
+                )).all()
+            }
+        for link in links:
+            asset = assets.get(link.asset_id)
+            knowledge = by_id.get(link.confirmed_version_id)
+            if public_media_allowed(asset=asset, link=link, knowledge=knowledge, profile=profile, organization=organization):
+                grouped[knowledge.id].append(asset)
         return grouped
-    links = list((await db.scalars(
-        select(Link).where(Link.business_id == business, Link.status == "active", Link.confirmed_version_id.in_(list(by_id)))
-    )).all())
-    asset_ids = [link.asset_id for link in links]
-    assets = {}
-    if asset_ids:
-        assets = {
-            row.id: row
-            for row in (await db.scalars(select(Asset).where(Asset.business_id == business, Asset.id.in_(asset_ids)))).all()
-        }
-    for link in links:
-        asset = assets.get(link.asset_id)
-        knowledge = by_id.get(link.confirmed_version_id)
-        if public_media_allowed(asset=asset, link=link, knowledge=knowledge, profile=profile, organization=organization):
-            grouped[knowledge.id].append(asset)
-    return grouped
 
 
 async def bind_media_plan(db, business_id, title, summary, steps, media_choices=None, cover_asset_id=None):
     if media_choices is not None and len(media_choices) != len(steps):
         fail("asset_choice_rejected", 422)
     version_ids = [source for step in steps for source in step["sources"]]
-    try:
-        from backend.services.business_yansi.cover_jobs import sync_ready_cover_links
-        await sync_ready_cover_links(db, business_id)
-    except (OperationalError, ProgrammingError):
-        pass
-    try:
-        grouped = await eligible_for_versions(db, business_id, version_ids)
-    except (OperationalError, ProgrammingError):
-        grouped = {}
-    blocks = []
-    cover_assets = []
-    for index, step in enumerate(steps):
-        pool = []
-        for source in step["sources"]:
-            pool.extend(grouped.get(uid(source), []))
-        unique = list({asset.id: asset for asset in pool}.values())
-        choice = None if media_choices is None else media_choices[index]
-        blocks.append(select_step_blocks(step["question"], step["answer"], unique, choice))
-        cover_assets.extend(asset for asset in unique if asset.asset_type in {"image", "video"})
-    pool = list({asset.id: asset for asset in cover_assets}.values())
-    explicit = not (cover_asset_id is None or cover_asset_id == "")
-    if explicit:
-        chosen = accept_cover_choice(cover_asset_id, pool)
-        mode = "explicit"
-    else:
-        # Phase 7G-4c.2/3A: optional observation-assisted ranking on the existing
-        # eligible pool only. Flag default-off preserves exact select_cover.
-        # Callers (create/revise) hold business_media_lock for one rebuild+select+persist pass.
-        from backend.services.business_yansi.observation_rank import (
-            ranking_enabled,
-            select_cover_ranked,
-        )
-
-        if ranking_enabled():
-            from backend.services.business_yansi.cover_ranking_adapter import (
-                build_cover_ranking_inputs,
-            )
-
-            observations, provenances = await build_cover_ranking_inputs(
-                db, business_id, pool,
-            )
-            chosen = select_cover_ranked(
-                title,
-                summary,
-                pool,
-                steps,
-                observations=observations,
-                provenances=provenances,
-            )
+    # One rebuild+select pass; suppress autoflush so pending caller ORM is not persisted by pool/ranking SELECTs.
+    with db.no_autoflush:
+        try:
+            from backend.services.business_yansi.cover_jobs import sync_ready_cover_links
+            await sync_ready_cover_links(db, business_id)
+        except (OperationalError, ProgrammingError):
+            pass
+        try:
+            grouped = await eligible_for_versions(db, business_id, version_ids)
+        except (OperationalError, ProgrammingError):
+            grouped = {}
+        blocks = []
+        cover_assets = []
+        for index, step in enumerate(steps):
+            pool = []
+            for source in step["sources"]:
+                pool.extend(grouped.get(uid(source), []))
+            unique = list({asset.id: asset for asset in pool}.values())
+            choice = None if media_choices is None else media_choices[index]
+            blocks.append(select_step_blocks(step["question"], step["answer"], unique, choice))
+            cover_assets.extend(asset for asset in unique if asset.asset_type in {"image", "video"})
+        pool = list({asset.id: asset for asset in cover_assets}.values())
+        explicit = not (cover_asset_id is None or cover_asset_id == "")
+        if explicit:
+            chosen = accept_cover_choice(cover_asset_id, pool)
+            mode = "explicit"
         else:
-            chosen = select_cover(title, summary, pool, steps)
-        mode = "automatic"
-    plan = {
-        "coverAssetId": chosen,
-        "blocks": blocks,
-        "seal": None,
-        "coverMode": mode,
-    }
-    return plan
+            # Phase 7G-4c.2/3A: optional observation-assisted ranking on the existing
+            # eligible pool only. Flag default-off preserves exact select_cover.
+            # Callers (create/revise) hold business_media_lock for one rebuild+select+persist pass.
+            from backend.services.business_yansi.observation_rank import (
+                ranking_enabled,
+                select_cover_ranked,
+            )
+
+            if ranking_enabled():
+                from backend.services.business_yansi.cover_ranking_adapter import (
+                    build_cover_ranking_inputs,
+                )
+
+                observations, provenances = await build_cover_ranking_inputs(
+                    db, business_id, pool,
+                )
+                chosen = select_cover_ranked(
+                    title,
+                    summary,
+                    pool,
+                    steps,
+                    observations=observations,
+                    provenances=provenances,
+                )
+            else:
+                chosen = select_cover(title, summary, pool, steps)
+            mode = "automatic"
+        return {
+            "coverAssetId": chosen,
+            "blocks": blocks,
+            "seal": None,
+            "coverMode": mode,
+        }
 
 
 def _plan_uses_asset(plan, asset_id):
@@ -324,12 +339,19 @@ async def business_media_lock(db, business_id):
 
     Every writer takes this lock first, then its own draft, asset, or publication row.
     That order stops an asset update from landing after a seal that it did not see.
+    Lock acquisition itself disables autoflush so unrelated pending ORM rows stay unflushed.
     """
     from backend.models.business_yansi import BusinessProfile
 
-    row = await db.scalar(select(BusinessProfile).where(BusinessProfile.id == uid(business_id)).with_for_update())
-    if row is None:
-        fail("business_not_found", 404)
+    with db.no_autoflush:
+        row = await db.scalar(
+            select(BusinessProfile)
+            .where(BusinessProfile.id == uid(business_id))
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if row is None:
+            fail("business_not_found", 404)
     yield row
 
 

@@ -11,7 +11,11 @@ from backend.auth.deps import get_current_user, security
 from backend.core.utils.dependencies import get_db
 from backend.models.business_yansi import BusinessProfile, BusinessMember, BusinessKnowledgeVersion, BusinessYansiDraft, BusinessPublication
 from backend.services.business_yansi import service as svc
-from backend.services.business_yansi.video_authority import assign_member_role, update_brand_verification
+from backend.services.business_yansi.video_authority import (
+    assign_member_role,
+    remove_business_member,
+    update_brand_verification,
+)
 from backend.services.business_yansi.video_upload_gate import admit_video_upload
 from backend.services.business_yansi import applications as apps
 from backend.services.business_yansi import platform_admin as padmin
@@ -459,11 +463,9 @@ async def edit_draft(business_id:uuid.UUID,draft_id:uuid.UUID,body:DraftUpdate,d
 
 @router.delete('/{business_id}/members/{user_id}')
 async def remove_member(business_id:uuid.UUID,user_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
-    _,business=await manager(db,claims,business_id,'owner')
-    if user_id==business.owner_id:svc.fail('cannot_remove_owner',409)
-    row=await db.get(BusinessMember,(business_id,user_id))
-    if row:await db.delete(row)
-    await db.commit();return {'ok':True}
+    user=await svc.actor(db,claims)
+    await remove_business_member(db,business_id,user.id,user_id)
+    return {'ok':True}
 
 @router.get('/public-media/{business_id}/{asset_id}')
 async def public_brand_media(business_id:uuid.UUID,asset_id:uuid.UUID,db=Depends(get_db)):
