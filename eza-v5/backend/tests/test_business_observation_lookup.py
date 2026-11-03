@@ -89,10 +89,11 @@ def _keep_generation_off(monkeypatch):
 
 def test_lookup_module_has_no_provider_surface():
     text = (_BACKEND / "services/business_yansi/observation_lookup.py").read_text(encoding="utf-8").lower()
-    for banned in ("openai", "httpx", "urlopen", "aiohttp", "https://", "vision_model", "call_vision"):
+    for banned in (
+        "openai", "httpx", "urlopen", "aiohttp", "https://", "vision_model", "call_vision",
+        "populate_existing", "refresh(", "current_asset", "ensure_observation", "select_cover",
+    ):
         assert banned not in text
-    assert "select_cover" not in text
-    assert "ensure_observation" not in text
     assert observe.enabled() is False
 
 
@@ -102,10 +103,13 @@ async def test_valid_ready_observation(sample, asset_dir):
     await sample.db.commit()
     found = await lookup.ready_observation_for_asset(sample.db, sample.business.id, asset)
     assert found is not None
+    assert isinstance(found, lookup.ObservationSnapshot)
     assert found.status == "ready"
     assert found.asset_id == asset.id
     assert found.content_sha256 == _digest(asset)
     assert found.summary == "Zeytinyagi hasadi ozeti"
+    assert found.tags == ("zeytinyagi", "hasadi")
+    assert found.frames == ()
 
 
 async def test_missing_observation_returns_none(sample, asset_dir):
@@ -376,9 +380,63 @@ async def test_dirty_session_emits_no_dml(sample, asset_dir):
     finally:
         stop()
     assert found is not None
+    assert isinstance(found, lookup.ObservationSnapshot)
     assert dirty in sample.db.new
+    assert asset.title == "Kirli degisti"
     dml = [sql for sql in statements if sql.lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE"))]
     assert dml == []
+
+
+async def test_pending_direct_asset_title_survives_lookup(sample, asset_dir):
+    asset = await _image(sample, "BekleyenBaslik", b"pending-title")
+    sample.db.add(_ready(sample, asset))
+    await sample.db.commit()
+    asset.title = "Henuz kaydedilmedi"
+    found = await lookup.ready_observation_for_asset(sample.db, sample.business.id, asset)
+    assert found is not None and found.summary == "Zeytinyagi hasadi ozeti"
+    assert asset.title == "Henuz kaydedilmedi"
+    assert asset in sample.db.dirty
+
+
+async def test_pending_source_asset_title_survives_derivative_lookup(sample, asset_dir):
+    source_asset = await _image(sample, "KaynakBaslik", b"pending-source-title")
+    sample.db.add(_ready(sample, source_asset))
+    await sample.db.commit()
+    derivative = BusinessBrandAsset(
+        id=uuid.uuid4(),
+        business_id=sample.business.id,
+        asset_type="image",
+        title="Turev",
+        caption="",
+        locator_kind="storage",
+        locator=source_asset.locator,
+        public_allowed=False,
+        status="draft",
+        created_by=sample.editor.id,
+        source_asset_id=source_asset.id,
+    )
+    sample.db.add(derivative)
+    await sample.db.commit()
+    source_asset.title = "Kaynak henuz kaydedilmedi"
+    found = await lookup.ready_observation_for_asset(sample.db, sample.business.id, derivative)
+    assert found is not None and found.asset_id == source_asset.id
+    assert source_asset.title == "Kaynak henuz kaydedilmedi"
+    assert source_asset in sample.db.dirty
+
+
+async def test_pending_observation_summary_survives_lookup(sample, asset_dir):
+    asset = await _image(sample, "OzetBekleyen", b"pending-summary")
+    row = _ready(sample, asset, summary="kalici ozet")
+    sample.db.add(row)
+    await sample.db.commit()
+    row.summary = "henuz kaydedilmemis ozet"
+    found = await lookup.ready_observation_for_asset(sample.db, sample.business.id, asset)
+    assert isinstance(found, lookup.ObservationSnapshot)
+    assert found.summary == "kalici ozet"
+    assert row.summary == "henuz kaydedilmemis ozet"
+    assert row in sample.db.dirty
+    # Snapshot must not share mutable state with the pending ORM row.
+    assert found is not row
 
 
 async def test_unsupported_asset_type_returns_none(sample, asset_dir):

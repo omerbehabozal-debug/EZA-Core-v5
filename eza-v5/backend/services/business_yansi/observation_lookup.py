@@ -3,20 +3,73 @@
 This module never mutates observation rows, never enqueues work, and never
 calls a vision provider. Scoring and ranking stay outside this file until a
 later phase explicitly wires them.
+
+Returned snapshots are valid only at lookup time. A ranking consumer that
+makes a durable decision must revalidate source identity and provenance at
+that decision boundary.
 """
 from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy import select
 
+from backend.models.business_brand_assets import BusinessBrandAsset as Asset
 from backend.models.business_media_observations import BusinessMediaObservation as Observation
+from backend.models.business_media_observations import BusinessMediaObservationFrame as Frame
 from backend.services.business_yansi.brand_assets import _storage_locator
 from backend.services.business_yansi.media_observations import (
     active_profile,
     content_sha_from_locator,
-    current_asset,
 )
 from backend.services.business_yansi.service import uid
+
+
+@dataclass(frozen=True)
+class AssetSnapshot:
+    """Committed asset columns only. Not an identity-map instance."""
+
+    id: Any
+    business_id: Any
+    asset_type: str
+    locator_kind: str | None
+    locator: str | None
+    source_asset_id: Any
+
+
+@dataclass(frozen=True)
+class FrameSnapshot:
+    timestamp_ms: int
+    note: str | None
+    tags: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ObservationSnapshot:
+    """Immutable observation view for ranking. Detached from the caller session.
+
+    Valid only for the moment of lookup. Later caller mutations of ORM rows must
+    not alter this object; ranking must revalidate provenance before persistence.
+    """
+
+    id: Any
+    business_id: Any
+    asset_id: Any
+    content_sha256: str
+    analyzer_profile: str
+    status: str
+    summary: str | None
+    tags: tuple[str, ...]
+    visible_text: str | None
+    frames: tuple[FrameSnapshot, ...]
+
+
+def _freeze_tags(value) -> tuple[str, ...]:
+    if not isinstance(value, (list, tuple)):
+        return ()
+    return tuple(str(item) for item in value if isinstance(item, str))
 
 
 def _validated_storage_digest(business_id, asset) -> str | None:
@@ -73,28 +126,93 @@ def observation_integrity_ok(
     return current == stored.lower()
 
 
-async def _ready_exact(db, business_id, asset_id, profile: str, digest: str):
-    """Select the ready observation for this exact brand, asset, profile, and digest."""
-    return await db.scalar(
-        select(Observation)
-        .where(
-            Observation.business_id == uid(business_id),
-            Observation.asset_id == asset_id,
-            Observation.status == "ready",
-            Observation.analyzer_profile == profile,
-            Observation.content_sha256 == digest,
+async def _asset_snapshot(db, business_id, asset_id) -> AssetSnapshot | None:
+    """Read committed asset columns without touching identity-map instances."""
+    row = (
+        await db.execute(
+            select(
+                Asset.id,
+                Asset.business_id,
+                Asset.asset_type,
+                Asset.locator_kind,
+                Asset.locator,
+                Asset.source_asset_id,
+            ).where(Asset.id == asset_id, Asset.business_id == uid(business_id))
         )
-        .execution_options(populate_existing=True)
+    ).mappings().first()
+    if row is None:
+        return None
+    return AssetSnapshot(
+        id=row["id"],
+        business_id=row["business_id"],
+        asset_type=row["asset_type"],
+        locator_kind=row["locator_kind"],
+        locator=row["locator"],
+        source_asset_id=row["source_asset_id"],
     )
 
 
-async def ready_observation_for_asset(db, business_id, asset, *, profile: str | None = None):
-    """Return the ready observation that may safely describe this cover asset.
+async def _observation_snapshot(db, business_id, asset_id, profile: str, digest: str) -> ObservationSnapshot | None:
+    """Read the ready observation and its frames as an immutable snapshot."""
+    owner = uid(business_id)
+    row = (
+        await db.execute(
+            select(
+                Observation.id,
+                Observation.business_id,
+                Observation.asset_id,
+                Observation.content_sha256,
+                Observation.analyzer_profile,
+                Observation.status,
+                Observation.summary,
+                Observation.tags,
+                Observation.visible_text,
+            ).where(
+                Observation.business_id == owner,
+                Observation.asset_id == asset_id,
+                Observation.status == "ready",
+                Observation.analyzer_profile == profile,
+                Observation.content_sha256 == digest,
+            )
+        )
+    ).mappings().first()
+    if row is None:
+        return None
+    frames = (
+        await db.execute(
+            select(Frame.timestamp_ms, Frame.note, Frame.tags)
+            .where(Frame.observation_id == row["id"], Frame.business_id == owner)
+            .order_by(Frame.timestamp_ms, Frame.id)
+        )
+    ).mappings().all()
+    return ObservationSnapshot(
+        id=row["id"],
+        business_id=row["business_id"],
+        asset_id=row["asset_id"],
+        content_sha256=row["content_sha256"],
+        analyzer_profile=row["analyzer_profile"],
+        status=row["status"],
+        summary=row["summary"],
+        tags=_freeze_tags(row["tags"]),
+        visible_text=row["visible_text"],
+        frames=tuple(
+            FrameSnapshot(
+                timestamp_ms=item["timestamp_ms"],
+                note=item["note"],
+                tags=_freeze_tags(item["tags"]),
+            )
+            for item in frames
+        ),
+    )
 
-    The caller-provided asset object is not trusted. Both the cover asset and any
-    source asset are reloaded with a tenant-scoped populate_existing read. The
-    current locator digest is computed first; the observation query then matches
-    that digest exactly so an older ready row cannot hide a newer valid one.
+
+async def ready_observation_for_asset(db, business_id, asset, *, profile: str | None = None) -> ObservationSnapshot | None:
+    """Return a detached snapshot of the ready observation for this cover asset.
+
+    The caller-provided asset object is not trusted and is never refreshed.
+    Committed asset and observation state are read through column projections so
+    pending identity-map edits stay intact. The current locator digest is
+    computed first; the observation query matches that digest exactly.
 
     Queries run under ``no_autoflush`` and never commit, flush, claim, enqueue,
     or call a vision provider.
@@ -106,31 +224,31 @@ async def ready_observation_for_asset(db, business_id, asset, *, profile: str | 
     chosen = profile if isinstance(profile, str) and profile else active_profile()
 
     with db.no_autoflush:
-        fresh = await current_asset(db, asset_id, owner)
-        if fresh is None or getattr(fresh, "business_id", None) != owner or fresh.id != asset_id:
+        fresh = await _asset_snapshot(db, owner, asset_id)
+        if fresh is None or fresh.business_id != owner or fresh.id != asset_id:
             return None
         digest = _validated_storage_digest(owner, fresh)
         if digest is None:
             return None
 
-        direct = await _ready_exact(db, owner, fresh.id, chosen, digest)
+        direct = await _observation_snapshot(db, owner, fresh.id, chosen, digest)
         if observation_integrity_ok(direct, fresh, owner, profile=chosen, digest=digest):
             return direct
 
-        source_id = getattr(fresh, "source_asset_id", None)
+        source_id = fresh.source_asset_id
         if source_id is None or source_id == fresh.id:
             return None
 
-        source = await current_asset(db, source_id, owner)
-        if source is None or getattr(source, "business_id", None) != owner:
+        source = await _asset_snapshot(db, owner, source_id)
+        if source is None or source.business_id != owner:
             return None
-        if getattr(source, "source_asset_id", None) == fresh.id:
+        if source.source_asset_id == fresh.id:
             return None
         source_digest = _validated_storage_digest(owner, source)
         if source_digest is None or source_digest != digest:
             return None
 
-        inherited = await _ready_exact(db, owner, source.id, chosen, digest)
+        inherited = await _observation_snapshot(db, owner, source.id, chosen, digest)
         if inherited is None:
             return None
         if not observation_integrity_ok(inherited, source, owner, profile=chosen, digest=digest):
