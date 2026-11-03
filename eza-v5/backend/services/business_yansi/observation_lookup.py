@@ -242,7 +242,12 @@ async def ready_observation_for_asset(db, business_id, asset, *, profile: str | 
         source = await _asset_snapshot(db, owner, source_id)
         if source is None or source.business_id != owner:
             return None
-        if source.source_asset_id == fresh.id:
+        # Cover derivatives always point at an original upload. A source that is
+        # itself a derivative (or participates in A→B→C→A style cycles) is not a
+        # valid inheritance target under the Business media contract.
+        if source.source_asset_id is not None:
+            return None
+        if source.id == fresh.id:
             return None
         source_digest = _validated_storage_digest(owner, source)
         if source_digest is None or source_digest != digest:

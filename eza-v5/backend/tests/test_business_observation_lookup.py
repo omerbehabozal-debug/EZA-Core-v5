@@ -534,3 +534,139 @@ async def test_source_derivative_digest_mismatch_returns_none(sample, asset_dir)
     sample.db.add(derivative)
     await sample.db.commit()
     assert await lookup.ready_observation_for_asset(sample.db, sample.business.id, derivative) is None
+
+
+def _storage_image(sample, *, title: str, digest: str, source_asset_id=None):
+    return BusinessBrandAsset(
+        id=uuid.uuid4(),
+        business_id=sample.business.id,
+        asset_type="image",
+        title=title,
+        caption="",
+        locator_kind="storage",
+        locator=f"brand-assets/{sample.business.id}/{digest}.png",
+        public_allowed=False,
+        status="draft",
+        created_by=sample.editor.id,
+        source_asset_id=source_asset_id,
+    )
+
+
+async def test_self_cycle_source_is_rejected(sample, asset_dir):
+    digest = "a" * 64
+    asset = _storage_image(sample, title="Self", digest=digest)
+    sample.db.add(asset)
+    await sample.db.flush()
+    asset.source_asset_id = asset.id
+    await sample.db.commit()
+    # No direct ready row: inheritance must not accept A→A.
+    assert await lookup.ready_observation_for_asset(sample.db, sample.business.id, asset) is None
+
+
+async def test_two_node_cycle_is_rejected(sample, asset_dir):
+    digest = "b" * 64
+    first = _storage_image(sample, title="A", digest=digest)
+    second = _storage_image(sample, title="B", digest=digest)
+    sample.db.add_all([first, second])
+    await sample.db.flush()
+    first.source_asset_id = second.id
+    second.source_asset_id = first.id
+    # Observation sits on B, but B is not an original (source_asset_id set).
+    sample.db.add(_ready(sample, second, content_sha256=digest, asset_id=second.id))
+    await sample.db.commit()
+    assert await lookup.ready_observation_for_asset(sample.db, sample.business.id, first) is None
+
+
+async def test_three_node_cycle_is_rejected(sample, asset_dir):
+    digest = "c" * 64
+    a = _storage_image(sample, title="A", digest=digest)
+    b = _storage_image(sample, title="B", digest=digest)
+    c = _storage_image(sample, title="C", digest=digest)
+    sample.db.add_all([a, b, c])
+    await sample.db.flush()
+    a.source_asset_id = b.id
+    b.source_asset_id = c.id
+    c.source_asset_id = a.id
+    sample.db.add(_ready(sample, b, content_sha256=digest, asset_id=b.id, summary="dongu"))
+    await sample.db.commit()
+    assert await lookup.ready_observation_for_asset(sample.db, sample.business.id, a) is None
+
+
+async def test_longer_cycle_is_rejected(sample, asset_dir):
+    digest = "d" * 64
+    nodes = [_storage_image(sample, title=f"N{i}", digest=digest) for i in range(5)]
+    sample.db.add_all(nodes)
+    await sample.db.flush()
+    for index, node in enumerate(nodes):
+        node.source_asset_id = nodes[(index + 1) % len(nodes)].id
+    sample.db.add(_ready(sample, nodes[1], content_sha256=digest, asset_id=nodes[1].id))
+    await sample.db.commit()
+    assert await lookup.ready_observation_for_asset(sample.db, sample.business.id, nodes[0]) is None
+
+
+async def test_valid_original_source_inheritance_still_works(sample, asset_dir):
+    source_asset = await _image(sample, "Orijinal", b"valid-original-source")
+    digest = _digest(source_asset)
+    sample.db.add(_ready(sample, source_asset, summary="orijinal gozlem"))
+    await sample.db.commit()
+    derivative = _storage_image(
+        sample, title="TurevGecerli", digest=digest, source_asset_id=source_asset.id,
+    )
+    derivative.locator = source_asset.locator
+    sample.db.add(derivative)
+    await sample.db.commit()
+    found = await lookup.ready_observation_for_asset(sample.db, sample.business.id, derivative)
+    assert found is not None
+    assert found.asset_id == source_asset.id
+    assert found.summary == "orijinal gozlem"
+    assert source_asset.source_asset_id is None
+
+
+async def test_dangling_source_is_rejected(sample, asset_dir):
+    digest = "e" * 64
+    orphan = _storage_image(sample, title="Yetim", digest=digest, source_asset_id=uuid.uuid4())
+    sample.db.add(orphan)
+    await sample.db.commit()
+    # No direct ready row; dangling source must not invent inheritance.
+    assert await lookup.ready_observation_for_asset(sample.db, sample.business.id, orphan) is None
+
+
+async def test_cross_tenant_source_is_rejected(sample, asset_dir):
+    digest = "f" * 64
+    foreign = uuid.uuid4()
+    local = _storage_image(sample, title="Yerel", digest=digest)
+    sample.db.add(local)
+    await sample.db.flush()
+    # Source id points at a non-existent foreign-tenant row; snapshot load is tenant-scoped.
+    local.source_asset_id = foreign
+    await sample.db.commit()
+    assert await lookup.ready_observation_for_asset(sample.db, sample.business.id, local) is None
+
+
+async def test_cycle_rejection_preserves_pending_edits_and_emits_no_dml(sample, asset_dir, monkeypatch):
+    digest = "1" * 64
+    a = _storage_image(sample, title="A", digest=digest)
+    b = _storage_image(sample, title="B", digest=digest)
+    c = _storage_image(sample, title="C", digest=digest)
+    sample.db.add_all([a, b, c])
+    await sample.db.flush()
+    a.source_asset_id = b.id
+    b.source_asset_id = c.id
+    c.source_asset_id = a.id
+    sample.db.add(_ready(sample, b, content_sha256=digest, asset_id=b.id))
+    await sample.db.commit()
+    a.title = "Bekleyen A"
+    b.title = "Bekleyen B"
+    vision = AsyncMock()
+    monkeypatch.setattr("backend.services.business_yansi.image_observe.call_vision", vision, raising=False)
+    monkeypatch.setattr("backend.services.business_yansi.image_observe.analyze_image", vision, raising=False)
+    statements, stop = _listen_sql(sample)
+    try:
+        assert await lookup.ready_observation_for_asset(sample.db, sample.business.id, a) is None
+    finally:
+        stop()
+    assert a.title == "Bekleyen A" and b.title == "Bekleyen B"
+    assert a in sample.db.dirty and b in sample.db.dirty
+    dml = [sql for sql in statements if sql.lstrip().upper().startswith(("INSERT", "UPDATE", "DELETE"))]
+    assert dml == []
+    assert vision.await_count == 0 and vision.call_count == 0
