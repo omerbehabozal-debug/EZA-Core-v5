@@ -455,59 +455,113 @@ async def test_invalid_provenance_falls_back_in_ranking_helper(sample, asset_dir
     assert chosen == str(lexical.id)
 
 
-async def test_malformed_candidate_ids_are_skipped(sample, asset_dir):
-    asset = await _image(sample, "Saglam", b"id-ok")
-    sample.db.add(_ready(sample, asset, summary="Zeytinyagi hasadi", tags=["zeytinyagi", "hasadi"]))
-    await sample.db.commit()
-    bad_string = SimpleNamespace(id="not-a-uuid", title="Bad", asset_type="image", caption="")
-    bad_object = SimpleNamespace(id=object(), title="Obj", asset_type="image", caption="")
-    bad_none = SimpleNamespace(id=None, title="None", asset_type="image", caption="")
-    bad_empty = SimpleNamespace(id="", title="Empty", asset_type="image", caption="")
-
-    observations, provenances = await adapter.build_cover_ranking_inputs(
-        sample.db, sample.business.id, [bad_string, bad_object, bad_none, bad_empty, asset],
+def _cover_stub(asset_id, *, title="Atolye"):
+    return SimpleNamespace(
+        id=asset_id,
+        asset_type="image",
+        title=title,
+        caption="",
+        verified_duration=8_000,
+        verified_timescale=1000,
+        verified_size_bytes=200,
+        verified_has_audio=False,
     )
-    assert _key(asset) in provenances and _key(asset) in observations
-    assert "not-a-uuid" not in provenances
-    assert None not in provenances
-    assert "" not in provenances
-    # Malformed entries must not raise StatementError or wipe valid mappings.
-    assert provenances[_key(asset)].asset_id == asset.id
-    assert set(provenances.keys()) == {_key(asset)}
 
 
-async def test_empty_string_candidate_id_is_skipped(sample, asset_dir):
-    asset = await _image(sample, "EmptySkip", b"empty-id")
-    sample.db.add(_ready(sample, asset, summary="Zeytinyagi hasadi", tags=["zeytinyagi", "hasadi"]))
+@pytest.mark.parametrize(
+    "label,make_id",
+    [
+        ("uuid_object", lambda asset: asset.id),
+        ("canonical_str", lambda asset: str(asset.id)),
+    ],
+)
+async def test_accepted_canonical_ids_drive_real_ranker_bonus(sample, asset_dir, monkeypatch, label, make_id):
+    monkeypatch.setenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", "true")
+    asset = await _image(sample, "Atolye", f"accept-{label}".encode())
+    sample.db.add(_ready(
+        sample, asset,
+        summary="Zeytinyagi hasadi ozeti",
+        tags=["zeytinyagi", "hasadi"],
+    ))
     await sample.db.commit()
-    empty = SimpleNamespace(id="", title="Empty", asset_type="image", caption="")
+    stub = _cover_stub(make_id(asset))
+    pool_before = [stub.id]
     observations, provenances = await adapter.build_cover_ranking_inputs(
-        sample.db, sample.business.id, [empty, asset],
+        sample.db, sample.business.id, [stub],
     )
     assert set(provenances) == {_key(asset)}
     assert set(observations) == {_key(asset)}
-    assert "" not in provenances
+    assert provenances[_key(asset)].asset_id == asset.id
+    assert observations[_key(asset)].asset_id == asset.id
+    chosen = rank.select_cover_ranked(
+        "Zeytinyagi hasadi",
+        "Zeytinyagi hasadi ozeti",
+        [stub],
+        observations=observations,
+        provenances=provenances,
+    )
+    assert chosen == str(asset.id)
+    assert [stub.id] == pool_before
 
 
-async def test_valid_uuid_object_and_string_ids(sample, asset_dir):
-    asset = await _image(sample, "UuidForms", b"uuid-forms")
-    sample.db.add(_ready(sample, asset, summary="Zeytinyagi hasadi", tags=["zeytinyagi", "hasadi"]))
+@pytest.mark.parametrize(
+    "label,make_id",
+    [
+        ("uppercase", lambda asset: str(asset.id).upper()),
+        ("hyphenless", lambda asset: str(asset.id).replace("-", "")),
+        ("braces", lambda asset: "{" + str(asset.id) + "}"),
+        ("padded", lambda asset: "  " + str(asset.id) + "  "),
+        ("empty", lambda asset: ""),
+        ("malformed", lambda asset: "not-a-uuid"),
+        ("none", lambda asset: None),
+        ("object", lambda asset: object()),
+        ("int", lambda asset: 42),
+        ("true", lambda asset: True),
+    ],
+)
+async def test_noncanonical_candidate_ids_are_rejected_without_sql_bind(
+    sample, asset_dir, monkeypatch, label, make_id,
+):
+    monkeypatch.setenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", "true")
+    asset = await _image(sample, "Zeytinyagi hasadi", f"reject-{label}".encode())
     await sample.db.commit()
-    as_uuid = SimpleNamespace(id=asset.id)
-    as_string = SimpleNamespace(id=str(asset.id))
+    bad = _cover_stub(make_id(asset), title="Bad")
+    pool = [bad, asset]
+    pool_ids_before = [item.id for item in pool]
 
-    obs_u, prov_u = await adapter.build_cover_ranking_inputs(
-        sample.db, sample.business.id, [as_uuid],
+    statements, stop = _listen_sql(sample)
+    try:
+        observations, provenances = await adapter.build_cover_ranking_inputs(
+            sample.db, sample.business.id, [bad],
+        )
+    finally:
+        stop()
+
+    assert observations == {} and provenances == {}
+    # Rejected before bind: no SELECT against brand assets / observations for this call.
+    assert statements == []
+    assert [item.id for item in pool] == pool_ids_before
+
+    # Mixed pool: invalid id skipped; valid asset still maps and ranks (lexical here).
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, pool,
     )
-    obs_s, prov_s = await adapter.build_cover_ranking_inputs(
-        sample.db, sample.business.id, [as_string],
+    assert set(provenances) == {_key(asset)}
+    assert _key(asset) not in observations  # no ready observation seeded
+    chosen = rank.select_cover_ranked(
+        "Zeytinyagi hasadi",
+        "",
+        pool,
+        observations=observations,
+        provenances=provenances,
     )
-    assert set(prov_u) == {_key(asset)} and set(prov_s) == {_key(asset)}
-    assert set(obs_u) == {_key(asset)} and set(obs_s) == {_key(asset)}
-    assert prov_u[_key(asset)].content_sha256 == prov_s[_key(asset)].content_sha256 == _digest(asset)
+    assert chosen == str(asset.id)
+    assert [item.id for item in pool] == pool_ids_before
 
 
-async def test_mixed_invalid_pool_preserves_valid_ranking_bonus(sample, asset_dir, monkeypatch):
+async def test_malformed_and_noncanonical_ids_do_not_suppress_valid_bonus(
+    sample, asset_dir, monkeypatch,
+):
     monkeypatch.setenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", "true")
     weak = await _image(sample, "Zeytinyagi", b"mix-weak")
     strong = await _image(sample, "Atolye", b"mix-strong")
@@ -518,18 +572,24 @@ async def test_mixed_invalid_pool_preserves_valid_ranking_bonus(sample, asset_di
     ))
     await sample.db.commit()
     pool = [
-        SimpleNamespace(id="not-a-uuid", title="Bad", asset_type="image", caption=""),
-        SimpleNamespace(id=object(), title="Obj", asset_type="image", caption=""),
+        _cover_stub("not-a-uuid", title="Bad"),
+        _cover_stub(object(), title="Obj"),
+        _cover_stub(str(strong.id).upper(), title="Upper"),
+        _cover_stub(str(strong.id).replace("-", ""), title="Hyphenless"),
+        _cover_stub("{" + str(strong.id) + "}", title="Braces"),
+        _cover_stub("  " + str(strong.id) + "  ", title="Padded"),
         weak,
         strong,
-        SimpleNamespace(id=None, title="None", asset_type="image", caption=""),
+        _cover_stub(None, title="None"),
+        _cover_stub("", title="Empty"),
+        _cover_stub(True, title="Bool"),
     ]
+    pool_ids_before = [item.id for item in pool]
     observations, provenances = await adapter.build_cover_ranking_inputs(
         sample.db, sample.business.id, pool,
     )
-    assert _key(strong) in observations and _key(strong) in provenances
-    # Ranker pool still includes invalid stubs; they contribute no obs bonus and
-    # typically zero lexical score — must not suppress the valid assisted winner.
+    assert set(provenances) == {_key(weak), _key(strong)}
+    assert _key(strong) in observations
     chosen = rank.select_cover_ranked(
         "Zeytinyagi hasadi",
         "Zeytinyagi hasadi ozeti",
@@ -538,36 +598,16 @@ async def test_mixed_invalid_pool_preserves_valid_ranking_bonus(sample, asset_di
         provenances=provenances,
     )
     assert chosen == str(strong.id)
+    assert [item.id for item in pool] == pool_ids_before
 
 
-async def test_string_id_stub_resolves_via_ranker_key_compatibility(sample, asset_dir, monkeypatch):
-    monkeypatch.setenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", "true")
-    asset = await _image(sample, "Atolye", b"str-key")
-    sample.db.add(_ready(
-        sample, asset,
-        summary="Zeytinyagi hasadi ozeti",
-        tags=["zeytinyagi", "hasadi"],
-    ))
+async def test_adapter_does_not_swallow_genuine_database_errors(sample, asset_dir, monkeypatch):
+    asset = await _image(sample, "DbErr", b"db-err")
     await sample.db.commit()
-    string_stub = SimpleNamespace(
-        id=str(asset.id),
-        asset_type="image",
-        title="Atolye",
-        caption="",
-        verified_duration=8_000,
-        verified_timescale=1000,
-        verified_size_bytes=200,
-        verified_has_audio=False,
-    )
-    observations, provenances = await adapter.build_cover_ranking_inputs(
-        sample.db, sample.business.id, [string_stub],
-    )
-    assert set(provenances) == {_key(asset)}
-    chosen = rank.select_cover_ranked(
-        "Zeytinyagi hasadi",
-        "Zeytinyagi hasadi ozeti",
-        [string_stub],
-        observations=observations,
-        provenances=provenances,
-    )
-    assert chosen == str(asset.id)
+
+    async def boom(*args, **kwargs):
+        raise RuntimeError("simulated_db_failure")
+
+    monkeypatch.setattr(adapter, "load_asset_snapshot", boom)
+    with pytest.raises(RuntimeError, match="simulated_db_failure"):
+        await adapter.build_cover_ranking_inputs(sample.db, sample.business.id, [asset])

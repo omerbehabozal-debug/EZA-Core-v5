@@ -29,22 +29,27 @@ def _cover_media_kind(asset_type: object) -> bool:
 
 
 def _as_asset_uuid(value: object) -> uuid.UUID | None:
-    """Normalize a BrandAsset primary key for DB binds.
+    """Accept only UUID objects or canonical ``str(UUID)`` text for DB binds.
 
-    Accepts ``uuid.UUID`` or a UUID-shaped string. Rejects ``None``, empty
-    strings, arbitrary objects, and other types — never ``str(object())``.
+    A string is accepted only when it equals ``str(uuid.UUID(value))`` exactly —
+    compared against the original string, not a stripped or case-folded copy.
+    Uppercase, hyphenless, brace-wrapped, padded, empty, malformed, ``None``,
+    ints/bools, and arbitrary objects are rejected. Never ``str(object())``.
     """
     if isinstance(value, uuid.UUID):
         return value
-    if isinstance(value, str):
-        text = value.strip()
-        if not text:
-            return None
-        try:
-            return uuid.UUID(text)
-        except ValueError:
-            return None
-    return None
+    if isinstance(value, bool) or not isinstance(value, str):
+        # bool is a subclass of int; reject both ints and non-strings explicitly.
+        return None
+    if not value:
+        return None
+    try:
+        parsed = uuid.UUID(value)
+    except ValueError:
+        return None
+    if value != str(parsed):
+        return None
+    return parsed
 
 
 def _candidate_map_key(candidate_id: uuid.UUID) -> str:
