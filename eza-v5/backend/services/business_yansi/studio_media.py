@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 import uuid
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 
 from sqlalchemy import select
 from sqlalchemy.exc import OperationalError, ProgrammingError
@@ -333,26 +334,54 @@ async def sealed_content_uses_asset(db, business_id, asset_id):
     return False
 
 
+@dataclass(frozen=True, slots=True)
+class BusinessLockSnapshot:
+    """Authoritative Business columns captured while the row lock is held.
+
+    Independent of identity-map attribute state — dirty ORM fields are not overwritten.
+    """
+
+    id: object
+    status: str
+    verified: bool
+    official: bool
+
+
 @asynccontextmanager
 async def business_media_lock(db, business_id):
     """Hold the brand row until the content change or the seal commits.
 
     Every writer takes this lock first, then its own draft, asset, or publication row.
     That order stops an asset update from landing after a seal that it did not see.
-    Lock acquisition itself disables autoflush so unrelated pending ORM rows stay unflushed.
+
+    Lock acquisition uses a projected ``SELECT … FOR UPDATE`` under ``no_autoflush``.
+    It does not ``populate_existing`` / refresh the Business ORM instance, so pending
+    dirty attributes on an already-loaded profile survive. Authorization must still
+    read status/verification from this snapshot or ``require_locked_actor``.
     """
     from backend.models.business_yansi import BusinessProfile
 
     with db.no_autoflush:
-        row = await db.scalar(
-            select(BusinessProfile)
+        locked = await db.execute(
+            select(
+                BusinessProfile.id,
+                BusinessProfile.status,
+                BusinessProfile.verified,
+                BusinessProfile.official,
+            )
             .where(BusinessProfile.id == uid(business_id))
             .with_for_update()
-            .execution_options(populate_existing=True)
         )
+        row = locked.one_or_none()
         if row is None:
             fail("business_not_found", 404)
-    yield row
+        snapshot = BusinessLockSnapshot(
+            id=row.id,
+            status=str(row.status),
+            verified=bool(row.verified),
+            official=bool(row.official),
+        )
+    yield snapshot
 
 
 async def assert_live_plan(db, business_id, steps, plan):

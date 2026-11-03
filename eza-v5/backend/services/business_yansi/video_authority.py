@@ -19,6 +19,8 @@ deadlock with this order.
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
+from typing import Iterable
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,10 +36,23 @@ def _locked(model, *criteria):
 
 
 async def lock_brand(db: AsyncSession, business_id) -> BusinessProfile:
-    row = await db.scalar(_locked(BusinessProfile, BusinessProfile.id == uid(business_id)))
-    if row is None:
-        fail("business_not_found", 404)
-    return row
+    """FOR UPDATE the brand row without wiping dirty ORM attributes.
+
+    Uses a projected id lock, then ``db.get`` without ``populate_existing``.
+    Callers that mutate the returned instance still write through the identity map.
+    """
+    business_key = uid(business_id)
+    with db.no_autoflush:
+        locked = await db.execute(
+            select(BusinessProfile.id).where(BusinessProfile.id == business_key).with_for_update()
+        )
+        locked_id = locked.scalar_one_or_none()
+        if locked_id is None:
+            fail("business_not_found", 404)
+        row = await db.get(BusinessProfile, locked_id)
+        if row is None:
+            fail("business_not_found", 404)
+        return row
 
 
 def _forget_cached_member(db: AsyncSession, business_id, user_id) -> None:
@@ -47,40 +62,129 @@ def _forget_cached_member(db: AsyncSession, business_id, user_id) -> None:
         db.sync_session.expunge(stale)
 
 
-async def require_locked_access(db: AsyncSession, business_id, user_id, minimum: str = "editor") -> None:
-    """Organization, then user, then membership. The brand row is already locked.
+@dataclass(frozen=True, slots=True)
+class AuthoritySnapshot:
+    """Immutable authorization decision taken under Business-first locks.
 
-    The returned rows are the authorization decision. A missing membership is
-    removed from the identity map so a later db.get cannot grant the old role.
+    Built from column projections, not from mutable identity-map attribute state.
+    """
+
+    business_id: uuid.UUID
+    business_status: str
+    verified: bool
+    official: bool
+    org_status: str
+    user_id: uuid.UUID
+    user_active: bool
+    role: str
+
+
+def sorted_authority_user_ids(*user_ids: object) -> list[uuid.UUID]:
+    """Deterministic User lock order: unique ids sorted by canonical string form."""
+    return sorted({uid(value) for value in user_ids}, key=str)
+
+
+async def require_locked_actor(
+    db: AsyncSession,
+    business_id,
+    actor_id,
+    minimum: str = "editor",
+    *,
+    require_verified: bool = False,
+    extra_user_ids: Iterable[object] = (),
+) -> AuthoritySnapshot:
+    """Revalidate actor authority after the caller holds the Business lock.
+
+    Lock order (never reversed):
+
+    1. BusinessProfile (FOR UPDATE — caller should already hold; re-taken safely)
+    2. Organization
+    3. User rows in ``sorted_authority_user_ids(actor, *extra)``
+    4. BusinessMember rows in the same user order
+
+    Decisions use column snapshots under ``no_autoflush``. Identity-map objects are
+    not refreshed with ``populate_existing``, so dirty caller-owned ORM attributes
+    on Business/Org/User/Member instances stay untouched.
     """
     if minimum not in ROLES:
         fail("business_access_denied", 403)
     business_key = uid(business_id)
-    actor = uid(user_id)
-    # Fresh locked reads must not autoflush unrelated pending ORM rows.
+    actor_key = uid(actor_id)
+    user_keys = sorted_authority_user_ids(actor_key, *extra_user_ids)
+
     with db.no_autoflush:
-        organization = await db.scalar(_locked(Organization, Organization.id == business_key))
-        user = await db.scalar(_locked(User, User.id == actor))
-        membership = await db.scalar(
-            _locked(
-                BusinessMember,
-                BusinessMember.business_id == business_key,
-                BusinessMember.user_id == actor,
+        brand_locked = await db.execute(
+            select(
+                BusinessProfile.id,
+                BusinessProfile.status,
+                BusinessProfile.verified,
+                BusinessProfile.official,
             )
-        )
-        if membership is None:
-            _forget_cached_member(db, business_key, actor)
-        brand = await db.scalar(
-            select(BusinessProfile)
             .where(BusinessProfile.id == business_key)
-            .execution_options(populate_existing=True)
+            .with_for_update()
         )
-    if user is None or not user.is_active:
+        brand = brand_locked.one_or_none()
+
+        org_locked = await db.execute(
+            select(Organization.id, Organization.status)
+            .where(Organization.id == business_key)
+            .with_for_update()
+        )
+        organization = org_locked.one_or_none()
+
+        users: dict[uuid.UUID, object] = {}
+        for user_key in user_keys:
+            user_locked = await db.execute(
+                select(User.id, User.is_active).where(User.id == user_key).with_for_update()
+            )
+            users[user_key] = user_locked.one_or_none()
+
+        members: dict[uuid.UUID, object] = {}
+        for user_key in user_keys:
+            member_locked = await db.execute(
+                select(
+                    BusinessMember.business_id,
+                    BusinessMember.user_id,
+                    BusinessMember.role,
+                )
+                .where(
+                    BusinessMember.business_id == business_key,
+                    BusinessMember.user_id == user_key,
+                )
+                .with_for_update()
+            )
+            member = member_locked.one_or_none()
+            members[user_key] = member
+            if member is None:
+                _forget_cached_member(db, business_key, user_key)
+
+    actor_user = users.get(actor_key)
+    actor_member = members.get(actor_key)
+
+    if actor_user is None or not bool(actor_user.is_active):
         fail("business_access_denied", 403)
     if brand is None or organization is None or organization.status != "active" or brand.status != "active":
         fail("business_not_found", 404)
-    if membership is None or ROLES.get(membership.role, 0) < ROLES[minimum]:
+    if actor_member is None or ROLES.get(actor_member.role, 0) < ROLES[minimum]:
         fail("business_access_denied", 403)
+    if require_verified and not bool(brand.verified):
+        fail("business_verification_required", 409)
+
+    return AuthoritySnapshot(
+        business_id=brand.id,
+        business_status=str(brand.status),
+        verified=bool(brand.verified),
+        official=bool(brand.official),
+        org_status=str(organization.status),
+        user_id=actor_user.id,
+        user_active=bool(actor_user.is_active),
+        role=str(actor_member.role),
+    )
+
+
+async def require_locked_access(db: AsyncSession, business_id, user_id, minimum: str = "editor") -> None:
+    """Draft/ingest compatibility shim: same checks as ``require_locked_actor``."""
+    await require_locked_actor(db, business_id, user_id, minimum)
 
 
 async def lock_editor_rows(db: AsyncSession, business_id, user_id) -> None:
