@@ -96,27 +96,134 @@ def _encode_claim(token) -> bool:
     return isinstance(token, str) and token.startswith(_ENCODE_PREFIX)
 
 
+def _moment(now=None):
+    moment = now or datetime.now(timezone.utc)
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment
+
+
+def _live(job_id, business_id, token, moment):
+    return (
+        Job.id == job_id,
+        Job.business_id == business_id,
+        Job.status == "running",
+        Job.claim_token == token,
+        Job.deadline_at.is_not(None),
+        Job.deadline_at > moment,
+    )
+
+
+async def _expire_job(db, job_id) -> None:
+    found = await db.get(Job, job_id)
+    if found is not None:
+        db.expire(found)
+
+
+async def _reload_job(db, job_id):
+    row = await db.get(Job, job_id)
+    if row is not None:
+        await db.refresh(row)
+    return row
+
+
+async def fail_owned(db, job_id, business_id, token, code: str, *, retryable: bool, now=None) -> bool:
+    """Fail or requeue only while this token still owns the running claim."""
+    moment = _moment(now)
+    current = await db.scalar(select(Job).where(*_live(job_id, business_id, token, moment)))
+    if current is None:
+        return False
+    attempts, maximum = current.attempts, current.max_attempts
+    encode = _encode_claim(token)
+    await _expire_job(db, job_id)
+    if retryable and attempts < maximum:
+        values = {
+            "status": "awaiting_encode" if encode else "queued",
+            "error_code": None,
+            "claim_token": None,
+            "deadline_at": None,
+        }
+    else:
+        values = {
+            "status": "failed",
+            "error_code": code,
+            "claim_token": None,
+            "deadline_at": None,
+        }
+    result = await db.execute(
+        update(Job)
+        .where(*_live(job_id, business_id, token, moment), Job.attempts == attempts)
+        .values(**values)
+        .execution_options(synchronize_session=False)
+    )
+    return result.rowcount == 1
+
+
+async def complete_owned(db, job_id, business_id, token, *, values, now=None) -> bool:
+    """Apply a success transition only while this token still owns the claim."""
+    moment = _moment(now)
+    await _expire_job(db, job_id)
+    payload = {
+        "claim_token": None,
+        "deadline_at": None,
+        "error_code": None,
+        **values,
+    }
+    result = await db.execute(
+        update(Job)
+        .where(*_live(job_id, business_id, token, moment))
+        .values(**payload)
+        .execution_options(synchronize_session=False)
+    )
+    return result.rowcount == 1
+
+
 async def recover_stale(db, *, now=None) -> int:
     """Return an expired claim to the phase that owned it.
 
     A classification claim goes back to queued. An encode claim goes back to
     awaiting_encode, so a crash during ffmpeg does not look like a new upload.
+    The update matches the token and expired deadline that were read.
     """
-    moment = now or datetime.now(timezone.utc)
-    expired = list((await db.scalars(select(Job).where(Job.status == "running", Job.deadline_at.is_not(None), Job.deadline_at < moment))).all())
+    moment = _moment(now)
+    expired = list((await db.scalars(
+        select(Job).where(Job.status == "running", Job.deadline_at.is_not(None), Job.deadline_at < moment)
+    )).all())
     restored = 0
     for job in expired:
-        encode = _encode_claim(job.claim_token)
-        if job.attempts < job.max_attempts:
-            job.status = "awaiting_encode" if encode else "queued"
-            job.claim_token = None
-            job.deadline_at = None
-            restored += 1
+        job_id, business_id, token = job.id, job.business_id, job.claim_token
+        attempts, maximum = job.attempts, job.max_attempts
+        encode = _encode_claim(token)
+        await _expire_job(db, job_id)
+        if attempts < maximum:
+            values = {
+                "status": "awaiting_encode" if encode else "queued",
+                "claim_token": None,
+                "deadline_at": None,
+                "error_code": None,
+            }
         else:
-            job.status = "failed"
-            job.error_code = "cover_job_stale"
-            job.claim_token = None
-    await db.flush()
+            values = {
+                "status": "failed",
+                "claim_token": None,
+                "deadline_at": None,
+                "error_code": "cover_job_stale",
+            }
+        result = await db.execute(
+            update(Job)
+            .where(
+                Job.id == job_id,
+                Job.business_id == business_id,
+                Job.status == "running",
+                Job.claim_token == token,
+                Job.deadline_at.is_not(None),
+                Job.deadline_at < moment,
+            )
+            .values(**values)
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount == 1 and attempts < maximum:
+            restored += 1
     return restored
 
 
@@ -151,59 +258,46 @@ async def settle(db, job):
     """Finish a claim this worker still owns. A stale token does nothing."""
     if job is None or job.status != "running" or not job.claim_token:
         return None
-    current = await db.scalar(select(Job).where(Job.id == job.id, Job.claim_token == job.claim_token, Job.status == "running"))
+    token = job.claim_token
+    job_id = job.id
+    business_id = getattr(job, "business_id", None)
+    current = await db.scalar(
+        select(Job).where(Job.id == job_id, Job.claim_token == token, Job.status == "running")
+    )
     if current is None:
         return None
+    business_id = current.business_id
     asset = await db.scalar(select(Asset).where(Asset.id == current.source_asset_id, Asset.business_id == current.business_id))
     if asset is None:
-        current.status = "failed"
-        current.error_code = "cover_source_missing"
-        current.claim_token = None
-        await db.flush()
-        return current
+        await fail_owned(db, job_id, business_id, token, "cover_source_missing", retryable=False)
+        return await _reload_job(db, job_id)
     if reuse_original(asset):
-        current.status = "ready"
-        current.result_asset_id = asset.id
-        current.encoder_profile = REUSE_PROFILE
-        current.error_code = None
-        current.claim_token = None
-        current.deadline_at = None
-        await apply_ready_cover(db, current)
-    else:
-        current.status = "awaiting_encode"
-        current.result_asset_id = None
-        current.encoder_profile = DERIVATIVE_PROFILE
-        current.error_code = None
-        current.claim_token = None
-        current.deadline_at = None
-        current.attempts = 0
-    await db.flush()
-    return current
-
-
-def _owned(job, current) -> bool:
-    return current is not None and current.status == "running" and current.claim_token == job.claim_token
-
-
-def _stop(job, code: str, *, retryable: bool) -> None:
-    job.claim_token = None
-    job.deadline_at = None
-    if retryable and job.attempts < job.max_attempts:
-        job.status = "awaiting_encode"
-        job.error_code = None
-        return
-    job.status = "failed"
-    job.error_code = code
-
-
-async def _mark_ready(db, job, result) -> None:
-    job.status = "ready"
-    job.result_asset_id = result.id
-    job.encoder_profile = DERIVATIVE_PROFILE if result.source_asset_id is not None else REUSE_PROFILE
-    job.error_code = None
-    job.claim_token = None
-    job.deadline_at = None
-    await apply_ready_cover(db, job)
+        wrote = await complete_owned(
+            db, job_id, business_id, token,
+            values={"status": "ready", "result_asset_id": asset.id, "encoder_profile": REUSE_PROFILE},
+        )
+        if wrote:
+            ready = await db.get(Job, job_id)
+            if ready is not None:
+                await db.refresh(ready)
+                await apply_ready_cover(db, ready)
+            return ready
+        return None
+    wrote = await complete_owned(
+        db, job_id, business_id, token,
+        values={
+            "status": "awaiting_encode",
+            "result_asset_id": None,
+            "encoder_profile": DERIVATIVE_PROFILE,
+            "attempts": 0,
+        },
+    )
+    if not wrote:
+        return None
+    ready = await db.get(Job, job_id)
+    if ready is not None:
+        await db.refresh(ready)
+    return ready
 
 
 async def encode_claimed(db, job, store):
@@ -221,33 +315,53 @@ async def encode_claimed(db, job, store):
 
     if job is None or job.status != "running" or not _encode_claim(job.claim_token):
         return None
-    current = await db.scalar(select(Job).where(Job.id == job.id, Job.claim_token == job.claim_token, Job.status == "running"))
+    current = await db.scalar(
+        select(Job).where(Job.id == job.id, Job.claim_token == job.claim_token, Job.status == "running")
+    )
     if current is None:
         return None
+    if current.deadline_at is not None and _moment(current.deadline_at) <= _moment():
+        return None
+    token = current.claim_token
+    job_id = current.id
+    business_id = current.business_id
     source = await db.scalar(select(Asset).where(Asset.id == current.source_asset_id, Asset.business_id == current.business_id))
     if source is None or source.status == "archived":
-        _stop(current, "cover_source_missing", retryable=False)
-        await db.flush()
-        return current
+        await fail_owned(db, job_id, business_id, token, "cover_source_missing", retryable=False)
+        return await _reload_job(db, job_id)
     if store is None:
-        _stop(current, "video_storage_unconfigured", retryable=True)
-        await db.flush()
-        return current
+        await fail_owned(db, job_id, business_id, token, "video_storage_unconfigured", retryable=True)
+        return await _reload_job(db, job_id)
     try:
-        async with business_media_lock(db, current.business_id):
-            await lock_editor_rows(db, current.business_id, current.created_by)
-            owned = await db.scalar(select(Job).where(Job.id == current.id, Job.claim_token == current.claim_token, Job.status == "running"))
-            if not _owned(current, owned):
+        async with business_media_lock(db, business_id):
+            await lock_editor_rows(db, business_id, current.created_by)
+            owned = await db.scalar(select(Job).where(*_live(job_id, business_id, token, _moment())))
+            if owned is None:
                 return None
             existing = await _reusable_derivative(db, source, owned)
             if existing is not None:
-                await mirror_source_links(db, source, existing)
-                await _mark_ready(db, owned, existing)
-                return owned
+                wrote = await complete_owned(
+                    db, job_id, business_id, token,
+                    values={
+                        "status": "ready",
+                        "result_asset_id": existing.id,
+                        "encoder_profile": DERIVATIVE_PROFILE if existing.source_asset_id is not None else REUSE_PROFILE,
+                    },
+                )
+                if wrote:
+                    await mirror_source_links(db, source, existing)
+                    ready = await db.get(Job, job_id)
+                    if ready is not None:
+                        await db.refresh(ready)
+                        await apply_ready_cover(db, ready)
+                    return ready
+                return None
     except HTTPException:
-        _stop(current, "cover_authority_lost", retryable=False)
-        await db.flush()
-        return current
+        await fail_owned(db, job_id, business_id, token, "cover_authority_lost", retryable=False)
+        ready = await db.get(Job, job_id)
+        if ready is not None:
+            await db.refresh(ready)
+        return ready
     frozen_source = SimpleNamespace(
         id=source.id, business_id=source.business_id, locator=source.locator,
         locator_kind=source.locator_kind, verified_size_bytes=source.verified_size_bytes,
@@ -255,51 +369,69 @@ async def encode_claimed(db, job, store):
         public_allowed=source.public_allowed, status=source.status,
     )
     frozen_job = SimpleNamespace(
-        id=current.id, claim_token=current.claim_token, strategy=current.strategy,
+        id=job_id, claim_token=token, strategy=current.strategy,
         start_ticks=current.start_ticks, end_ticks=current.end_ticks,
-        business_id=current.business_id, created_by=current.created_by,
+        business_id=business_id, created_by=current.created_by,
     )
     await db.commit()
     try:
         data, info = await render_cover(store, frozen_source, frozen_job)
         final = await publish_cover_object(store, frozen_source, data, info)
     except CoverEncodeError as exc:
-        current = await db.scalar(select(Job).where(Job.id == frozen_job.id, Job.claim_token == frozen_job.claim_token, Job.status == "running"))
-        if current is not None:
-            _stop(current, exc.code, retryable=exc.retryable)
-            await db.flush()
-        return current
+        await fail_owned(db, job_id, business_id, token, exc.code, retryable=exc.retryable)
+        return await _reload_job(db, job_id)
     try:
-        async with business_media_lock(db, frozen_job.business_id):
-            await lock_editor_rows(db, frozen_job.business_id, frozen_job.created_by)
+        async with business_media_lock(db, business_id):
+            await lock_editor_rows(db, business_id, frozen_job.created_by)
             owned = await db.scalar(
-                select(Job).where(
-                    Job.id == frozen_job.id, Job.claim_token == frozen_job.claim_token, Job.status == "running",
-                ).with_for_update()
+                select(Job).where(*_live(job_id, business_id, token, _moment())).with_for_update()
             )
-            fresh = await db.scalar(select(Asset).where(Asset.id == frozen_source.id, Asset.business_id == frozen_job.business_id))
-            if not _owned(frozen_job, owned) or fresh is None or fresh.status == "archived":
+            fresh = await db.scalar(
+                select(Asset)
+                .where(Asset.id == frozen_source.id, Asset.business_id == business_id)
+                .execution_options(populate_existing=True)
+            )
+            if fresh is not None:
+                await db.refresh(fresh)
+            if owned is None:
                 return None
+            if fresh is None or fresh.status == "archived":
+                await fail_owned(db, job_id, business_id, token, "cover_source_missing", retryable=False)
+                return await _reload_job(db, job_id)
             if fresh.locator != frozen_source.locator or fresh.verified_size_bytes != frozen_source.verified_size_bytes:
-                _stop(owned, "cover_source_missing", retryable=False)
-                await db.flush()
-                return owned
+                await fail_owned(db, job_id, business_id, token, "cover_source_missing", retryable=False)
+                return await _reload_job(db, job_id)
             existing = await _reusable_derivative(db, fresh, owned)
             if existing is None:
                 existing = await attach_published_cover(db, fresh, frozen_job.created_by, final, len(data), info)
-                await mirror_source_links(db, fresh, existing)
-            else:
-                await mirror_source_links(db, fresh, existing)
-            await _mark_ready(db, owned, existing)
-            return owned
+            await mirror_source_links(db, fresh, existing)
+            wrote = await complete_owned(
+                db, job_id, business_id, token,
+                values={
+                    "status": "ready",
+                    "result_asset_id": existing.id,
+                    "encoder_profile": DERIVATIVE_PROFILE if existing.source_asset_id is not None else REUSE_PROFILE,
+                },
+            )
+            if not wrote:
+                return None
+            ready = await db.get(Job, job_id)
+            if ready is not None:
+                await db.refresh(ready)
+                await apply_ready_cover(db, ready)
+            return ready
     except HTTPException:
-        _stop(current, "cover_authority_lost", retryable=False)
-        await db.flush()
-        return current
+        await fail_owned(db, job_id, business_id, token, "cover_authority_lost", retryable=False)
+        ready = await db.get(Job, job_id)
+        if ready is not None:
+            await db.refresh(ready)
+        return ready
     except CoverEncodeError as exc:
-        _stop(current, exc.code, retryable=exc.retryable)
-        await db.flush()
-        return current
+        await fail_owned(db, job_id, business_id, token, exc.code, retryable=exc.retryable)
+        ready = await db.get(Job, job_id)
+        if ready is not None:
+            await db.refresh(ready)
+        return ready
 
 
 async def process_one(db) -> Job | None:
@@ -491,12 +623,21 @@ async def retry_cover(db, business_id, user_id, asset_id):
         fail("cover_job_not_found", 404)
     if job.status != "failed":
         fail("cover_retry_rejected", 409)
-    job.attempts = 0
-    job.error_code = None
-    job.claim_token = None
-    job.deadline_at = None
-    job.result_asset_id = None
-    job.status = "awaiting_encode" if job.encoder_profile == DERIVATIVE_PROFILE or job.strategy == CHOSEN_STRATEGY else "queued"
+    nxt = "awaiting_encode" if job.encoder_profile == DERIVATIVE_PROFILE or job.strategy == CHOSEN_STRATEGY else "queued"
+    job_id = job.id
+    owner = asset.business_id
+    await _expire_job(db, job_id)
+    result = await db.execute(
+        update(Job)
+        .where(Job.id == job_id, Job.business_id == owner, Job.status == "failed")
+        .values(
+            attempts=0, error_code=None, claim_token=None, deadline_at=None,
+            result_asset_id=None, status=nxt,
+        )
+        .execution_options(synchronize_session=False)
+    )
+    if result.rowcount != 1:
+        fail("cover_retry_rejected", 409)
     await db.commit()
     await db.refresh(job)
     return job

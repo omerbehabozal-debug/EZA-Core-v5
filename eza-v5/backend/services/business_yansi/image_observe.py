@@ -14,10 +14,7 @@ import httpx
 from fastapi import HTTPException
 from PIL import Image, UnidentifiedImageError
 from PIL.Image import DecompressionBombError
-from sqlalchemy import select
 
-from backend.models.business_brand_assets import BusinessBrandAsset as Asset
-from backend.models.business_media_observations import BusinessMediaObservation as Observation
 from backend.services.business_yansi.media_observations import timeout_seconds, vision_model
 
 logger = logging.getLogger(__name__)
@@ -208,23 +205,27 @@ async def _fail(db, held, code: str, *, retryable: bool):
 
     logger.info("image_observation_failed code=%s", code)
     await fail_owned(db, held, code, retryable=retryable)
+    if db.in_transaction():
+        await db.commit()
 
 
 async def analyze_image_claim(db, held, *, completer=None, reader=None):
     """Describe the claimed image. A wrong token, a video, or a URL changes nothing useful.
 
-    held is (observation id, claim token, business id). Bytes are hashed before
-    the provider call and again before the result is stored. The database
-    transaction is committed before that file read and the provider call.
+    held is (observation id, claim token, business id). Preflight and finalization
+    use short transactions. File reads and the provider call run with no open
+    database transaction. Finalization reloads the asset from the database.
     """
     from backend.services.business_yansi.brand_asset_library import read_stored_image
     from backend.services.business_yansi.media_observations import (
+        asset_matches,
         complete_owned,
+        current_asset,
         digest_bytes,
         finish_authorized,
         note_changed_source,
         owned_observation,
-        provenance_ok,
+        transaction_idle,
     )
 
     job_id, token, business_id = held
@@ -233,9 +234,7 @@ async def analyze_image_claim(db, held, *, completer=None, reader=None):
     job = await owned_observation(db, held)
     if job is None:
         return None
-    asset = await db.scalar(
-        select(Asset).where(Asset.id == job.asset_id, Asset.business_id == job.business_id)
-    )
+    asset = await current_asset(db, job.asset_id, job.business_id)
     if asset is None:
         await _fail(db, held, "observation_source_missing", retryable=False)
         return None
@@ -248,38 +247,30 @@ async def analyze_image_claim(db, held, *, completer=None, reader=None):
     asset_id = job.asset_id
     await db.commit()
     read = reader or read_stored_image
-
-    def load():
-        return read(business_id, locator)
-
-    try:
-        data, _mime = load()
-        actual = digest_bytes(data)
-    except HTTPException as exc:
-        detail = exc.detail if isinstance(exc.detail, dict) else {}
-        code = "observation_source_missing" if detail.get("code") == "asset_file_unavailable" else "observation_image_rejected"
-        await _fail(db, held, code, retryable=False)
-        return None
-    asset = await db.scalar(select(Asset).where(Asset.id == asset_id, Asset.business_id == business_id))
-    if not provenance_ok(expected, asset, actual):
-        await finish_authorized(
-            db, held, business_id, created_by,
-            lambda: note_changed_source(db, held, asset, created_by, actual),
-        )
-        return None
-    try:
-        prepared, mime = resize_for_vision(data)
-    except ObservationFailure as exc:
-        await _fail(db, held, exc.code, retryable=exc.retryable)
-        return None
     call = completer or default_completer
     model = vision_model() or "unconfigured"
     try:
+        data, _mime = read(business_id, locator)
+        actual = digest_bytes(data)
+        if actual != expected:
+            raise ObservationFailure("observation_source_stale", retryable=False)
+        prepared, mime = resize_for_vision(data)
+        if not transaction_idle(db):
+            raise ObservationFailure("observation_analysis_failed", retryable=True)
         payload = await call(vision_request(prepared, mime, model))
+        if not transaction_idle(db):
+            raise ObservationFailure("observation_analysis_failed", retryable=True)
         parsed = parse_visual_observation(_content(payload))
-        again, _mime = load()
+        again, _mime = read(business_id, locator)
         actual = digest_bytes(again)
     except ObservationFailure as exc:
+        if exc.code == "observation_source_stale":
+            async def stale():
+                fresh = await current_asset(db, asset_id, business_id)
+                return await note_changed_source(db, held, fresh, created_by, actual)
+
+            await finish_authorized(db, held, business_id, created_by, stale)
+            return None
         await _fail(db, held, exc.code, retryable=exc.retryable)
         return None
     except HTTPException as exc:
@@ -290,18 +281,11 @@ async def analyze_image_claim(db, held, *, completer=None, reader=None):
     except Exception:
         await _fail(db, held, "observation_analysis_failed", retryable=True)
         return None
-    asset = await db.scalar(select(Asset).where(Asset.id == asset_id, Asset.business_id == business_id))
-    if not provenance_ok(expected, asset, actual):
-        await finish_authorized(
-            db, held, business_id, created_by,
-            lambda: note_changed_source(db, held, asset, created_by, actual),
-        )
-        return None
     provider_model, prompt_tokens, completion_tokens = _usage(payload)
 
     async def write():
-        fresh = await db.scalar(select(Asset).where(Asset.id == asset_id, Asset.business_id == business_id))
-        if not provenance_ok(expected, fresh, actual):
+        fresh = await current_asset(db, asset_id, business_id)
+        if not asset_matches(fresh, business_id, asset_id, expected, actual):
             return await note_changed_source(db, held, fresh, created_by, actual)
         return await complete_owned(
             db, held,

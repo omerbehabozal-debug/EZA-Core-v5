@@ -391,6 +391,7 @@ async def test_disabled_mode_and_video_rows_make_no_vision_call(sample, asset_di
         content_sha256=image.locator.rsplit("/", 1)[-1].split(".", 1)[0],
         analyzer_profile=observe.PROFILE, idempotency_key="b" * 64,
         status="queued", attempts=0, max_attempts=3, origin="upload", created_by=sample.editor.id,
+        created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
     ))
     video = BusinessBrandAsset(
         id=uuid.uuid4(), business_id=sample.business.id, asset_type="video", title="Film",
@@ -405,6 +406,7 @@ async def test_disabled_mode_and_video_rows_make_no_vision_call(sample, asset_di
         id=uuid.uuid4(), business_id=sample.business.id, asset_id=video.id,
         content_sha256="c" * 64, analyzer_profile=observe.PROFILE, idempotency_key="d" * 64,
         status="queued", attempts=0, max_attempts=3, origin="upload", created_by=sample.editor.id,
+        created_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
     )
     sample.db.add(video_job)
     await sample.db.commit()
@@ -423,10 +425,16 @@ async def test_disabled_mode_and_video_rows_make_no_vision_call(sample, asset_di
     opened = await _image(sample, "Acik", (6, 6, 6))
     stop = asyncio.Event()
     await serve(_sessions(sample.db, stop, 2), stop=stop, completer=completer)
+    ready = await sample.db.scalar(
+        select(Observation).where(Observation.idempotency_key == "b" * 64).execution_options(populate_existing=True)
+    )
+    waiting = await sample.db.scalar(
+        select(Observation).where(Observation.asset_id == opened.id).execution_options(populate_existing=True)
+    )
+    await sample.db.refresh(ready)
+    await sample.db.refresh(waiting)
     await sample.db.refresh(video_job)
-    ready = await sample.db.scalar(select(Observation).where(Observation.idempotency_key == "b" * 64))
-    waiting = await sample.db.scalar(select(Observation).where(Observation.asset_id == opened.id))
-    assert len(calls) == 1 and ready.status == "ready"
+    assert len(calls) == 1 and ready.status == "ready", (ready.status, ready.error_code, ready.attempts, ready.claim_token)
     assert waiting.status == "queued" and waiting.attempts == 0
     assert video_job.status == "queued" and video_job.attempts == 0
 
@@ -703,3 +711,49 @@ def struct_png(width: int, height: int) -> bytes:
 
     header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
     return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", header)
+
+
+async def test_provider_time_locator_swap_rejects_stale_identity(sample, asset_dir, monkeypatch):
+    monkeypatch.setenv("BILIGN_BUSINESS_MEDIA_OBSERVATIONS_ENABLED", "false")
+    other = await _image(sample, "Baska", (22, 22, 22))
+    monkeypatch.setenv("BILIGN_BUSINESS_MEDIA_OBSERVATIONS_ENABLED", "true")
+    monkeypatch.setenv("BILIGN_BUSINESS_VISION_CONCURRENCY", "1")
+    image = await _image(sample, "Kaynak", (11, 11, 11))
+    job = await sample.db.scalar(select(Observation).where(Observation.asset_id == image.id))
+    original = job.content_sha256
+    other_sha = other.locator.rsplit("/", 1)[-1].split(".", 1)[0]
+    await sample.db.commit()
+    idle = {"provider": None}
+
+    async def completer(payload):
+        idle["provider"] = observe.transaction_idle(sample.db)
+        image.locator = other.locator
+        await sample.db.commit()
+        return _ok(summary="Eski locator yazisi")
+
+    stop = asyncio.Event()
+    await serve(_sessions(sample.db, stop, 2), stop=stop, completer=completer)
+    await sample.db.refresh(job)
+    await sample.db.refresh(image)
+    queued = await sample.db.scalar(select(Observation).where(Observation.content_sha256 == other_sha))
+    assert idle["provider"] is True
+    assert job.status == "failed" and job.error_code == "observation_source_stale" and job.summary is None
+    assert job.content_sha256 == original
+    assert image.locator == other.locator
+    assert queued is not None and queued.id != job.id and queued.status == "queued"
+
+
+async def test_provider_runs_without_an_open_transaction(sample, asset_dir, monkeypatch):
+    monkeypatch.setenv("BILIGN_BUSINESS_MEDIA_OBSERVATIONS_ENABLED", "true")
+    monkeypatch.setenv("BILIGN_BUSINESS_VISION_CONCURRENCY", "1")
+    await _image(sample, "Acik", (4, 4, 4))
+    await sample.db.commit()
+    seen = []
+
+    async def completer(payload):
+        seen.append(observe.transaction_idle(sample.db))
+        return _ok()
+
+    stop = asyncio.Event()
+    await serve(_sessions(sample.db, stop, 2), stop=stop, completer=completer)
+    assert seen == [True]

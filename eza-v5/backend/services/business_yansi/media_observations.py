@@ -187,6 +187,32 @@ def provenance_ok(content_sha256: str, asset, actual: str) -> bool:
     return actual == content_sha256 and located == content_sha256
 
 
+def asset_matches(asset, business_id, asset_id, content_sha256: str, actual: str) -> bool:
+    """Fresh asset row, same brand, same file identity, and matching bytes."""
+    if asset is None or getattr(asset, "id", None) != asset_id:
+        return False
+    if getattr(asset, "business_id", None) != business_id:
+        return False
+    return provenance_ok(content_sha256, asset, actual)
+
+
+def transaction_idle(db) -> bool:
+    """True when the session is not inside an open transaction."""
+    return not db.in_transaction()
+
+
+async def current_asset(db, asset_id, business_id):
+    """Force a database round-trip. The identity map is not trusted here."""
+    row = await db.scalar(
+        select(Asset)
+        .where(Asset.id == asset_id, Asset.business_id == business_id)
+        .execution_options(populate_existing=True)
+    )
+    if row is not None:
+        await db.refresh(row)
+    return row
+
+
 async def _expire_job(db, job_id) -> None:
     found = await db.get(Observation, job_id)
     if found is not None:
@@ -270,14 +296,25 @@ async def complete_owned(db, held, *, summary, tags, visible_text, provider_mode
 
 
 async def note_changed_source(db, held, asset, created_by, actual: str) -> bool:
-    """Fail the old hash and queue a separate observation for the new bytes."""
+    """Fail the old hash and queue a separate observation for the new identity.
+
+    Either the stored bytes changed under the old locator, or the asset row now
+    points at a different digest. The old claim never stores the new description.
+    """
     job_id, _token, _business_id = held
     current = await db.get(Observation, job_id)
     previous = None if current is None else current.content_sha256
     wrote = await fail_owned(db, held, "observation_source_stale", retryable=False)
-    if not wrote or asset is None or not isinstance(actual, str) or len(actual) != 64 or actual == previous:
+    if not wrote or asset is None:
         return wrote
-    await ensure_observation(db, asset, created_by, content_sha256=actual)
+    located = content_sha_from_locator(getattr(asset, "locator", None))
+    candidates = []
+    if isinstance(actual, str) and len(actual) == 64 and actual != previous:
+        candidates.append(actual)
+    if isinstance(located, str) and located != previous and located not in candidates:
+        candidates.append(located)
+    for digest in candidates:
+        await ensure_observation(db, asset, created_by, content_sha256=digest)
     return True
 
 

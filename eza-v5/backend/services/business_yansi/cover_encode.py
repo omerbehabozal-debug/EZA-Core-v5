@@ -19,7 +19,7 @@ from backend.services.business_yansi.brand_asset_library import _apply_fields
 from backend.services.business_yansi.brand_assets import normalize_asset
 from backend.services.business_yansi.service import uid
 from backend.services.business_yansi.video_ingest import COVER_MAX_BYTES, COVER_MAX_SECONDS
-from backend.services.business_yansi.video_mp4 import Mp4Source, _reap_cancelled, _tool_path, inspect_mp4
+from backend.services.business_yansi.video_mp4 import Mp4Source, _kill_and_reap, _reap_cancelled, _tool_path, inspect_mp4
 from backend.services.business_yansi.video_storage import (
     MemoryVideoStore,
     VideoObjectImmutable,
@@ -107,9 +107,7 @@ async def encode_window(source_path: str, dest_path: str, *, start: float, durat
     try:
         code = await asyncio.wait_for(process.wait(), ENCODE_TIMEOUT_SECONDS)
     except TimeoutError:
-        if process.returncode is None:
-            process.kill()
-        await process.wait()
+        await _kill_and_reap(process)
         raise CoverEncodeError("cover_encode_timeout", retryable=True)
     except asyncio.CancelledError:
         await _reap_cancelled(process)

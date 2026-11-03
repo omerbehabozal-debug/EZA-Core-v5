@@ -1,6 +1,7 @@
 """Cover jobs are durable, silent reuse is measured, and sealed plans stay put."""
 import asyncio
 import tempfile
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -653,3 +654,69 @@ async def test_cover_encoding_commits_before_ffmpeg(sample, asset_dir, monkeypat
     order.clear()
     await encode_claimed(sample.db, claimed, MemoryVideoStore())
     assert order[:2] == ["commit", "render"]
+
+
+async def test_stale_cover_worker_cannot_fail_a_newer_claim(tmp_path):
+    from backend.services.business_yansi import cover_jobs as covers
+
+    engine = create_async_engine(f"sqlite+aiosqlite:///{(tmp_path / 'cover-fence.db').as_posix()}")
+    async with engine.begin() as connection:
+        await connection.run_sync(lambda sync: Base.metadata.create_all(sync, tables=[BusinessVideoCoverJob.__table__]))
+    maker = async_sessionmaker(engine, expire_on_commit=False)
+    job_id = uuid.uuid4()
+    business_id = uuid.uuid4()
+    old_token = "e" + "a" * 32
+    new_token = "e" + "b" * 32
+    async with maker() as db:
+        db.add(BusinessVideoCoverJob(
+            id=job_id, business_id=business_id, source_asset_id=uuid.uuid4(),
+            idempotency_key="f" * 64, strategy="first_span", start_ticks=0, end_ticks=1000,
+            encoder_profile="silent-derivative-v1", status="running", attempts=1, max_attempts=3,
+            claim_token=old_token, deadline_at=datetime.now(timezone.utc) + timedelta(seconds=60),
+            created_by=uuid.uuid4(),
+        ))
+        await db.commit()
+    async with maker() as writer:
+        row = await writer.get(BusinessVideoCoverJob, job_id)
+        row.claim_token = new_token
+        row.deadline_at = datetime.now(timezone.utc) + timedelta(seconds=60)
+        await writer.commit()
+    async with maker() as stale:
+        wrote = await covers.fail_owned(
+            stale, job_id, business_id, old_token, "cover_authority_lost", retryable=False,
+        )
+        await stale.commit()
+        assert wrote is False
+    async with maker() as db:
+        row = await db.get(BusinessVideoCoverJob, job_id)
+        assert row.status == "running" and row.claim_token == new_token and row.error_code is None
+    await engine.dispose()
+
+
+async def test_authority_change_during_encode_cannot_clear_a_newer_claim(sample, asset_dir, monkeypatch):
+    from backend.services.business_yansi.cover_jobs import claim_encode, encode_claimed, fail_owned
+
+    knowledge = await source(sample, content="Atolye filmi kapak secimi icin yeterince aciktir.")
+    original = await _confirm(sample, knowledge, await _keep(sample, _mp4(seconds=12, with_audio=True), title="Sesli film"))
+    classified = await process_one(sample.db)
+    await sample.db.commit()
+    claimed = await claim_encode(sample.db)
+    await sample.db.commit()
+    old_token = claimed.claim_token
+    new_token = "e" + "c" * 32
+
+    async def render(_store, _source, _job):
+        claimed.claim_token = new_token
+        claimed.deadline_at = datetime.now(timezone.utc) + timedelta(seconds=180)
+        await sample.db.commit()
+        from backend.services.business_yansi.cover_encode import CoverEncodeError
+        raise CoverEncodeError("cover_encode_failed", retryable=True)
+
+    monkeypatch.setattr("backend.services.business_yansi.cover_encode.render_cover", render)
+    await encode_claimed(sample.db, claimed, MemoryVideoStore())
+    await sample.db.commit()
+    row = await latest_for_asset(sample.db, sample.business.id, original.id)
+    assert row.status == "running" and row.claim_token == new_token
+    assert await fail_owned(sample.db, row.id, row.business_id, old_token, "cover_authority_lost", retryable=False) is False
+    await sample.db.refresh(row)
+    assert row.status == "running" and row.claim_token == new_token and row.error_code is None

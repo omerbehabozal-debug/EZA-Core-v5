@@ -289,6 +289,7 @@ async def test_omitted_cover_field_keeps_the_explicit_choice_and_null_returns_to
         body["coverAssetId"] = None
         body["summary"] = "Zeytinyagi hasadi ozeti"
         body["title"] = "Zeytinyagi hasadi"
+        body["steps"] = _phrase_steps(knowledge, "Zeytinyagi hasadi")
         automatic = await client.patch(f"/api/business-yansi/{sample.business.id}/drafts/{explicit.id}", json=body)
         assert automatic.status_code == 200, automatic.text
         switched = automatic.json()["media_plan"]

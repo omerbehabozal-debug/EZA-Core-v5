@@ -308,7 +308,8 @@ async def test_same_video_in_another_brand_is_a_separate_call(sample, asset_dir,
         id=uuid.uuid4(), business_id=other.id, asset_type="video", title="Kisa film",
         locator_kind="storage", locator=f"brand-videos/{other.id}/{digest}.mp4",
         public_allowed=True, status="published", created_by=sample.outsider.id, revision=1,
-        verified_duration=3_000, verified_timescale=1000, verified_size_bytes=32, verified_has_audio=True,
+        verified_duration=3_000, verified_timescale=1000,
+        verified_size_bytes=len(_FILES[digest]), verified_has_audio=True,
     )
     sample.db.add(foreign)
     await sample.db.flush()
