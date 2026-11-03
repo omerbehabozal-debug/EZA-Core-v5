@@ -252,9 +252,9 @@ async def bind_media_plan(db, business_id, title, summary, steps, media_choices=
         chosen = accept_cover_choice(cover_asset_id, pool)
         mode = "explicit"
     else:
-        # Phase 7G-4c.2: optional observation-assisted ranking on the existing
+        # Phase 7G-4c.2/3A: optional observation-assisted ranking on the existing
         # eligible pool only. Flag default-off preserves exact select_cover.
-        # Persistence-time revalidation / media lock remains Phase 7G-4c.3.
+        # Callers (create/revise) hold business_media_lock for one rebuild+select+persist pass.
         from backend.services.business_yansi.observation_rank import (
             ranking_enabled,
             select_cover_ranked,

@@ -288,15 +288,19 @@ async def update_asset(db, business_id, user_id, asset_id, data, *, image_bytes=
 
 async def archive_asset(db, business_id, user_id, asset_id, revision):
     await access(db, business_id, user_id, "editor")
-    row = await _asset_row(db, business_id, asset_id, True)
-    if row.revision != revision:
-        fail("revision_conflict", 409)
-    row.status = "archived"
-    row.public_allowed = False
-    row.revision += 1
-    await db.commit()
-    await db.refresh(row)
-    return row
+    from backend.services.business_yansi.studio_media import business_media_lock
+
+    # Business first, then this asset — same order as update_asset / draft selection.
+    async with business_media_lock(db, business_id):
+        row = await _asset_row(db, business_id, asset_id, True)
+        if row.revision != revision:
+            fail("revision_conflict", 409)
+        row.status = "archived"
+        row.public_allowed = False
+        row.revision += 1
+        await db.commit()
+        await db.refresh(row)
+        return row
 
 
 async def set_links(db, business_id, user_id, asset_id, version_ids, revision):
@@ -305,45 +309,49 @@ async def set_links(db, business_id, user_id, asset_id, version_ids, revision):
     A new knowledge version is not added here unless its id is in version_ids.
     """
     await access(db, business_id, user_id, "editor")
-    asset = await _asset_row(db, business_id, asset_id, True)
-    if asset.revision != revision:
-        fail("revision_conflict", 409)
-    if asset.status == "archived":
-        fail("archived_asset", 409)
-    wanted = []
-    seen_items = set()
-    for version_id in version_ids:
-        knowledge = await db.scalar(select(Knowledge).where(Knowledge.id == uid(version_id), Knowledge.business_id == asset.business_id))
-        if not knowledge or knowledge.status != "published":
-            fail("published_knowledge_required", 422)
-        if knowledge.item_id in seen_items:
-            fail("duplicate_knowledge_item", 422)
-        seen_items.add(knowledge.item_id)
-        wanted.append(knowledge)
-    existing = list((await db.scalars(select(Link).where(Link.asset_id == asset.id, Link.business_id == asset.business_id).with_for_update())).all())
-    by_item = {row.item_id: row for row in existing}
-    for knowledge in wanted:
-        link = by_item.get(knowledge.item_id)
-        if link is None:
-            db.add(Link(
-                business_id=asset.business_id,
-                asset_id=asset.id,
-                item_id=knowledge.item_id,
-                confirmed_version_id=knowledge.id,
-                status="active",
-            ))
-        else:
-            link.confirmed_version_id = knowledge.id
-            link.status = "active"
-            link.item_id = knowledge.item_id
-    wanted_items = {row.item_id for row in wanted}
-    for link in existing:
-        if link.item_id not in wanted_items:
-            link.status = "retired"
-    asset.revision += 1
-    await db.commit()
-    await db.refresh(asset)
-    return asset
+    from backend.services.business_yansi.studio_media import business_media_lock
+
+    # Business first, then asset + links — serializes with cover selection eligibility.
+    async with business_media_lock(db, business_id):
+        asset = await _asset_row(db, business_id, asset_id, True)
+        if asset.revision != revision:
+            fail("revision_conflict", 409)
+        if asset.status == "archived":
+            fail("archived_asset", 409)
+        wanted = []
+        seen_items = set()
+        for version_id in version_ids:
+            knowledge = await db.scalar(select(Knowledge).where(Knowledge.id == uid(version_id), Knowledge.business_id == asset.business_id))
+            if not knowledge or knowledge.status != "published":
+                fail("published_knowledge_required", 422)
+            if knowledge.item_id in seen_items:
+                fail("duplicate_knowledge_item", 422)
+            seen_items.add(knowledge.item_id)
+            wanted.append(knowledge)
+        existing = list((await db.scalars(select(Link).where(Link.asset_id == asset.id, Link.business_id == asset.business_id).with_for_update())).all())
+        by_item = {row.item_id: row for row in existing}
+        for knowledge in wanted:
+            link = by_item.get(knowledge.item_id)
+            if link is None:
+                db.add(Link(
+                    business_id=asset.business_id,
+                    asset_id=asset.id,
+                    item_id=knowledge.item_id,
+                    confirmed_version_id=knowledge.id,
+                    status="active",
+                ))
+            else:
+                link.confirmed_version_id = knowledge.id
+                link.status = "active"
+                link.item_id = knowledge.item_id
+        wanted_items = {row.item_id for row in wanted}
+        for link in existing:
+            if link.item_id not in wanted_items:
+                link.status = "retired"
+        asset.revision += 1
+        await db.commit()
+        await db.refresh(asset)
+        return asset
 
 
 async def stored_preview(db, business_id, user_id, asset_id):

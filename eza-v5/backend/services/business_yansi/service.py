@@ -207,14 +207,16 @@ async def create_draft(db,business_id,user_id,title,summary,steps,*,commit=True,
         if not step['sources'] or any(v not in allowed for v in step['sources']): fail('published_sources_required',422)
         # Phase 1 accepts only source-exact answers; no unsupported brand claims.
         if not any(step['answer'] in allowed[v].content for v in step['sources']): fail('answer_not_supported_by_source',422)
-    from backend.services.business_yansi.studio_media import bind_media_plan
-    plan=await bind_media_plan(db,business_id,title,summary,steps,media_choices,cover_asset_id)
-    snapshot=sorted({v for step in steps for v in step['sources']})
-    row=Draft(business_id=uid(business_id),created_by=uid(user_id),title=title,summary=summary,steps=steps,knowledge_snapshot=snapshot,media_plan=plan,source_hash=source_hash(steps),status='draft',revision=1)
-    db.add(row)
-    if commit: await db.commit();await db.refresh(row)
-    else: await db.flush()
-    return row
+    # Phase 7G-4c.3A: one Business-locked pass — rebuild pool, select cover, persist draft.
+    from backend.services.business_yansi.studio_media import bind_media_plan, business_media_lock
+    async with business_media_lock(db, business_id):
+        plan=await bind_media_plan(db,business_id,title,summary,steps,media_choices,cover_asset_id)
+        snapshot=sorted({v for step in steps for v in step['sources']})
+        row=Draft(business_id=uid(business_id),created_by=uid(user_id),title=title,summary=summary,steps=steps,knowledge_snapshot=snapshot,media_plan=plan,source_hash=source_hash(steps),status='draft',revision=1)
+        db.add(row)
+        if commit: await db.commit();await db.refresh(row)
+        else: await db.flush()
+        return row
 
 async def draft_row(db,business_id,draft_id,lock=False):
     query=select(Draft).where(Draft.id==uid(draft_id),Draft.business_id==uid(business_id))
@@ -251,22 +253,24 @@ async def transition_draft(db,business_id,user_id,draft_id,target,revision):
 
 async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,steps,cover_asset_id=None,*,cover_specified=True):
     await access(db,business_id,user_id,'editor')
-    row=await draft_row(db,business_id,draft_id,True)
-    if row.revision!=revision or row.status!='draft' or row.conversation_id:
-        fail('editable_draft_required',409)
     public_content(title,summary,*(s['question'] for s in steps),*(s['answer'] for s in steps))
-    allowed={str(v.id):v for v in await published_knowledge(db,business_id)}
     if len(steps)!=8: fail('eight_steps_required',422)
     steps=_qa_steps(steps)
-    for step in steps:
-        if not step['sources'] or any(v not in allowed for v in step['sources']): fail('published_sources_required',422)
-        if not any(step['answer'] in allowed[v].content for v in step['sources']): fail('answer_not_supported_by_source',422)
-    from backend.services.business_yansi.studio_media import bind_media_plan
-    if not cover_specified and isinstance(row.media_plan, dict):
-        if row.media_plan.get("coverMode") == "explicit" and row.media_plan.get("coverAssetId"):
-            cover_asset_id = row.media_plan.get("coverAssetId")
-    row.title=title;row.summary=summary;row.steps=steps
-    row.media_plan=await bind_media_plan(db,business_id,title,summary,steps,cover_asset_id=cover_asset_id)
-    row.knowledge_snapshot=sorted({v for step in steps for v in step['sources']})
-    row.source_hash=source_hash(steps);row.revision+=1
-    await db.commit();await db.refresh(row);return row
+    # Phase 7G-4c.3A: Business lock before Draft FOR UPDATE; one selection pass under that hold.
+    from backend.services.business_yansi.studio_media import bind_media_plan, business_media_lock
+    async with business_media_lock(db, business_id):
+        row=await draft_row(db,business_id,draft_id,True)
+        if row.revision!=revision or row.status!='draft' or row.conversation_id:
+            fail('editable_draft_required',409)
+        allowed={str(v.id):v for v in await published_knowledge(db,business_id)}
+        for step in steps:
+            if not step['sources'] or any(v not in allowed for v in step['sources']): fail('published_sources_required',422)
+            if not any(step['answer'] in allowed[v].content for v in step['sources']): fail('answer_not_supported_by_source',422)
+        if not cover_specified and isinstance(row.media_plan, dict):
+            if row.media_plan.get("coverMode") == "explicit" and row.media_plan.get("coverAssetId"):
+                cover_asset_id = row.media_plan.get("coverAssetId")
+        row.title=title;row.summary=summary;row.steps=steps
+        row.media_plan=await bind_media_plan(db,business_id,title,summary,steps,cover_asset_id=cover_asset_id)
+        row.knowledge_snapshot=sorted({v for step in steps for v in step['sources']})
+        row.source_hash=source_hash(steps);row.revision+=1
+        await db.commit();await db.refresh(row);return row
