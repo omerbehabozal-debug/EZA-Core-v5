@@ -720,3 +720,24 @@ async def test_authority_change_during_encode_cannot_clear_a_newer_claim(sample,
     assert await fail_owned(sample.db, row.id, row.business_id, old_token, "cover_authority_lost", retryable=False) is False
     await sample.db.refresh(row)
     assert row.status == "running" and row.claim_token == new_token and row.error_code is None
+
+
+async def test_retarget_rejects_a_running_claim_without_clearing_it(sample, asset_dir):
+    from fastapi import HTTPException
+
+    from backend.services.business_yansi.cover_jobs import claim_encode, retarget_cover
+
+    knowledge = await source(sample, content="Atolye filmi kapak secimi icin yeterince aciktir.")
+    original = await _confirm(sample, knowledge, await _keep(sample, _mp4(seconds=40, with_audio=True), title="Sesli film"))
+    await process_one(sample.db)
+    await sample.db.commit()
+    claimed = await claim_encode(sample.db)
+    await sample.db.commit()
+    token = claimed.claim_token
+    start_before, end_before = claimed.start_ticks, claimed.end_ticks
+    with pytest.raises(HTTPException) as busy:
+        await retarget_cover(sample.db, sample.business.id, sample.editor.id, original.id, 5, 15)
+    assert busy.value.status_code == 409 and busy.value.detail["code"] == "cover_job_busy"
+    await sample.db.refresh(claimed)
+    assert claimed.status == "running" and claimed.claim_token == token
+    assert claimed.start_ticks == start_before and claimed.end_ticks == end_before

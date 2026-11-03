@@ -563,7 +563,12 @@ def _seconds(value) -> float:
 
 
 async def retarget_cover(db, business_id, user_id, asset_id, start_seconds, end_seconds):
-    """Queue a brand-chosen window. The original file is not rewritten."""
+    """Queue a brand-chosen window. The original file is not rewritten.
+
+    Segment changes use a conditional UPDATE so a worker that already claimed
+    the row cannot lose its token, deadline, or selected window to a stale
+    ORM object from an earlier read.
+    """
     from backend.services.business_yansi.brand_asset_library import _asset_row
     from backend.services.business_yansi.service import access, fail
     from backend.services.business_yansi.video_ingest import COVER_MAX_SECONDS
@@ -587,28 +592,53 @@ async def retarget_cover(db, business_id, user_id, asset_id, start_seconds, end_
     job = await latest_for_asset(db, asset.business_id, asset.id)
     if job is None:
         fail("cover_job_not_found", 404)
-    if job.status == "running":
-        fail("cover_job_busy", 409)
-    job.start_ticks = start_ticks
-    job.end_ticks = end_ticks
-    job.attempts = 0
-    job.error_code = None
-    job.claim_token = None
-    job.deadline_at = None
-    if start_ticks == 0 and end_ticks == duration and reuse_original(asset):
-        job.strategy = STRATEGY
-        job.status = "ready"
-        job.result_asset_id = asset.id
-        job.encoder_profile = REUSE_PROFILE
-        await apply_ready_cover(db, job)
+    reuse = start_ticks == 0 and end_ticks == duration and reuse_original(asset)
+    if reuse:
+        values = {
+            "start_ticks": start_ticks,
+            "end_ticks": end_ticks,
+            "attempts": 0,
+            "error_code": None,
+            "claim_token": None,
+            "deadline_at": None,
+            "strategy": STRATEGY,
+            "status": "ready",
+            "result_asset_id": asset.id,
+            "encoder_profile": REUSE_PROFILE,
+        }
     else:
-        job.strategy = CHOSEN_STRATEGY
-        job.status = "awaiting_encode"
-        job.result_asset_id = None
-        job.encoder_profile = DERIVATIVE_PROFILE
+        values = {
+            "start_ticks": start_ticks,
+            "end_ticks": end_ticks,
+            "attempts": 0,
+            "error_code": None,
+            "claim_token": None,
+            "deadline_at": None,
+            "strategy": CHOSEN_STRATEGY,
+            "status": "awaiting_encode",
+            "result_asset_id": None,
+            "encoder_profile": DERIVATIVE_PROFILE,
+        }
+    job_id = job.id
+    owner = asset.business_id
+    await _expire_job(db, job_id)
+    result = await db.execute(
+        update(Job)
+        .where(
+            Job.id == job_id,
+            Job.business_id == owner,
+            Job.status.in_(("queued", "awaiting_encode", "ready", "failed")),
+        )
+        .values(**values)
+        .execution_options(synchronize_session=False)
+    )
+    if result.rowcount != 1:
+        fail("cover_job_busy", 409)
+    refreshed = await _reload_job(db, job_id)
+    if reuse and refreshed is not None:
+        await apply_ready_cover(db, refreshed)
     await db.commit()
-    await db.refresh(job)
-    return job
+    return await _reload_job(db, job_id)
 
 
 async def retry_cover(db, business_id, user_id, asset_id):
