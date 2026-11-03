@@ -1,0 +1,448 @@
+"""Phase 7G-4c.1: trusted read-only cover ranking adapter.
+
+Uses the shared in-memory SQLite ``sample`` fixture (same stack as 7G-4a lookup
+tests). These are real DB reads against committed rows — not mocked lookup
+results — unless a test explicitly stubs a provider. Live cover selection is
+not wired. Feature flags stay off.
+"""
+from __future__ import annotations
+
+import uuid
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
+
+import pytest
+from sqlalchemy import event
+
+from backend.models.business_brand_assets import BusinessBrandAsset
+from backend.models.business_media_observations import BusinessMediaObservation as Observation
+from backend.services.business_yansi import brand_asset_library as library
+from backend.services.business_yansi import cover_ranking_adapter as adapter
+from backend.services.business_yansi import media_observations as observe
+from backend.services.business_yansi import observation_rank as rank
+from backend.services.business_yansi.media_observations import content_sha_from_locator
+from backend.tests.test_business_video_cover_policy import _confirm, asset_dir, sample
+from backend.tests.test_business_yansi import source
+
+_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
+_BACKEND = Path(__file__).resolve().parents[1]
+
+
+def _digest(asset) -> str:
+    found = content_sha_from_locator(asset.locator)
+    assert found is not None
+    return found
+
+
+async def _image(sample, title: str, payload: bytes):
+    knowledge = await source(sample, content="Atolye kayit metni kapak secimi icin yeterince aciktir.")
+    row = await library.create_asset(
+        sample.db, sample.business.id, sample.editor.id,
+        {"asset_type": "image", "title": title, "caption": "", "public_allowed": True},
+        image_bytes=_PNG + payload,
+    )
+    return await _confirm(sample, knowledge, row)
+
+
+def _ready(sample, asset, *, status="ready", profile=None, content_sha256=None, business_id=None, asset_id=None, summary=None, tags=None):
+    digest = content_sha256 or _digest(asset)
+    return Observation(
+        id=uuid.uuid4(),
+        business_id=business_id or sample.business.id,
+        asset_id=asset_id or asset.id,
+        content_sha256=digest,
+        analyzer_profile=profile or observe.PROFILE,
+        idempotency_key=uuid.uuid4().hex + uuid.uuid4().hex[:32],
+        status=status,
+        attempts=1 if status == "ready" else 0,
+        max_attempts=3,
+        origin="upload",
+        created_by=sample.editor.id,
+        summary=summary or "Zeytinyagi hasadi ozeti",
+        tags=tags if tags is not None else ["zeytinyagi", "hasadi"],
+        visible_text=None,
+        provider_model="configured-vision",
+        input_tokens=10,
+        output_tokens=4,
+    )
+
+
+def _storage_image(sample, *, title: str, digest: str, source_asset_id=None, business_id=None):
+    owner = business_id or sample.business.id
+    return BusinessBrandAsset(
+        id=uuid.uuid4(),
+        business_id=owner,
+        asset_type="image",
+        title=title,
+        caption="",
+        locator_kind="storage",
+        locator=f"brand-assets/{owner}/{digest}.png",
+        public_allowed=False,
+        status="draft",
+        created_by=sample.editor.id,
+        source_asset_id=source_asset_id,
+    )
+
+
+def _listen_sql(sample):
+    statements: list[str] = []
+    engine = sample.db.bind.sync_engine
+
+    def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(engine, "before_cursor_execute", before_cursor_execute)
+    return statements, lambda: event.remove(engine, "before_cursor_execute", before_cursor_execute)
+
+
+@pytest.fixture(autouse=True)
+def _flags_off(monkeypatch):
+    monkeypatch.delenv("BILIGN_BUSINESS_MEDIA_OBSERVATIONS_ENABLED", raising=False)
+    monkeypatch.delenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", raising=False)
+    monkeypatch.delenv("BILIGN_BUSINESS_OBSERVATION_PROFILE", raising=False)
+
+
+def test_adapter_module_is_read_only_surface():
+    text = (_BACKEND / "services/business_yansi/cover_ranking_adapter.py").read_text(encoding="utf-8").lower()
+    for banned in (
+        "openai", "httpx", "urlopen", "aiohttp", "call_vision", "ensure_observation",
+        "analyze_image", "analyze_video", "populate_existing", "refresh(",
+        "db.add", "db.commit", "db.flush", "db.delete",
+    ):
+        assert banned not in text
+    assert "bind_media_plan" not in text
+    assert "ensure_observation" not in text
+    assert observe.enabled() is False
+    assert rank.ranking_enabled() is False
+
+
+async def test_valid_direct_observation(sample, asset_dir):
+    asset = await _image(sample, "Atolye", b"direct-ok")
+    sample.db.add(_ready(sample, asset))
+    await sample.db.commit()
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [asset],
+    )
+    assert asset.id in observations and asset.id in provenances
+    facts = provenances[asset.id]
+    assert facts.asset_id == asset.id
+    assert facts.business_id == sample.business.id
+    assert facts.content_sha256 == _digest(asset)
+    assert facts.source_source_asset_id is rank._UNSET
+    assert observations[asset.id].asset_id == asset.id
+    assert observations[asset.id].status == "ready"
+
+
+async def test_valid_original_to_derivative_inheritance(sample, asset_dir):
+    source_asset = await _image(sample, "Orijinal", b"inherit-ok")
+    digest = _digest(source_asset)
+    sample.db.add(_ready(sample, source_asset, summary="orijinal gozlem"))
+    await sample.db.commit()
+    derivative = _storage_image(
+        sample, title="Turev", digest=digest, source_asset_id=source_asset.id,
+    )
+    derivative.locator = source_asset.locator
+    sample.db.add(derivative)
+    await sample.db.commit()
+
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [derivative],
+    )
+    assert derivative.id in observations and derivative.id in provenances
+    facts = provenances[derivative.id]
+    assert facts.asset_id == derivative.id
+    assert facts.source_asset_id == source_asset.id
+    assert facts.source_content_sha256 == digest
+    assert facts.source_source_asset_id is None
+    assert facts.source_source_asset_id is not rank._UNSET
+    assert observations[derivative.id].asset_id == source_asset.id
+
+
+async def test_wrong_tenant_candidate_omitted(sample, asset_dir):
+    asset = await _image(sample, "Yerel", b"wrong-tenant")
+    sample.db.add(_ready(sample, asset))
+    await sample.db.commit()
+    foreign = uuid.uuid4()
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, foreign, [asset],
+    )
+    assert observations == {} and provenances == {}
+
+
+async def test_wrong_tenant_source_keeps_unset_parent(sample, asset_dir):
+    digest = "a" * 64
+    foreign_source_id = uuid.uuid4()
+    # Tenant-scoped source projection cannot see a cross-tenant / foreign id.
+    local = _storage_image(
+        sample, title="LocalDeriv", digest=digest, source_asset_id=foreign_source_id,
+    )
+    sample.db.add(local)
+    await sample.db.commit()
+
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [local],
+    )
+    assert local.id in provenances
+    assert provenances[local.id].source_asset_id == foreign_source_id
+    assert provenances[local.id].source_source_asset_id is rank._UNSET
+    assert provenances[local.id].source_content_sha256 is None
+    assert local.id not in observations
+
+
+async def test_missing_candidate_omitted(sample, asset_dir):
+    missing = SimpleNamespace(id=uuid.uuid4())
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [missing],
+    )
+    assert observations == {} and provenances == {}
+
+
+async def test_missing_source_keeps_unset_parent(sample, asset_dir):
+    digest = "b" * 64
+    orphan = _storage_image(sample, title="Yetim", digest=digest, source_asset_id=uuid.uuid4())
+    sample.db.add(orphan)
+    await sample.db.commit()
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [orphan],
+    )
+    assert orphan.id in provenances
+    assert provenances[orphan.id].source_source_asset_id is rank._UNSET
+    assert provenances[orphan.id].source_content_sha256 is None
+    assert orphan.id not in observations
+
+
+async def test_stale_candidate_digest_omits_observation(sample, asset_dir):
+    asset = await _image(sample, "Eski", b"stale-cand")
+    sample.db.add(_ready(sample, asset, content_sha256="f" * 64))
+    await sample.db.commit()
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [asset],
+    )
+    assert asset.id in provenances
+    assert provenances[asset.id].content_sha256 == _digest(asset)
+    assert asset.id not in observations
+
+
+async def test_stale_source_digest_blocks_inheritance(sample, asset_dir):
+    source_asset = await _image(sample, "Kaynak", b"stale-src")
+    sample.db.add(_ready(sample, source_asset))
+    await sample.db.commit()
+    other = "c" * 64
+    derivative = _storage_image(
+        sample, title="TurevEski", digest=other, source_asset_id=source_asset.id,
+    )
+    sample.db.add(derivative)
+    await sample.db.commit()
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [derivative],
+    )
+    assert derivative.id in provenances
+    facts = provenances[derivative.id]
+    # Source loaded with different digest than candidate → both digests recorded;
+    # ready_observation refuses inheritance; ranking would also reject mismatch.
+    assert facts.source_asset_id == source_asset.id
+    assert facts.source_content_sha256 == _digest(source_asset)
+    assert facts.content_sha256 == other
+    assert facts.source_source_asset_id is None
+    assert derivative.id not in observations
+
+
+async def test_invalid_locator_omits_candidate(sample, asset_dir):
+    asset = BusinessBrandAsset(
+        id=uuid.uuid4(),
+        business_id=sample.business.id,
+        asset_type="image",
+        title="Url",
+        caption="",
+        locator_kind="https",
+        locator="https://example.com/x.png",
+        public_allowed=False,
+        status="draft",
+        created_by=sample.editor.id,
+    )
+    sample.db.add(asset)
+    await sample.db.commit()
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [asset],
+    )
+    assert observations == {} and provenances == {}
+
+
+async def test_wrong_observation_profile_omits_observation(sample, asset_dir, monkeypatch):
+    asset = await _image(sample, "Profil", b"profile-miss")
+    sample.db.add(_ready(sample, asset, profile="visual-v1"))
+    await sample.db.commit()
+    monkeypatch.setenv("BILIGN_BUSINESS_OBSERVATION_PROFILE", "visual-v2")
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [asset],
+    )
+    assert asset.id in provenances
+    assert asset.id not in observations
+
+
+async def test_unknown_source_parent_relationship_is_unset(sample, asset_dir):
+    digest = "d" * 64
+    # Source exists but has an unusable locator → parent stays _UNSET.
+    source = BusinessBrandAsset(
+        id=uuid.uuid4(),
+        business_id=sample.business.id,
+        asset_type="image",
+        title="BadSrc",
+        caption="",
+        locator_kind="https",
+        locator="https://example.com/src.png",
+        public_allowed=False,
+        status="draft",
+        created_by=sample.editor.id,
+        source_asset_id=None,
+    )
+    derivative = _storage_image(
+        sample, title="DerivBadSrc", digest=digest, source_asset_id=source.id,
+    )
+    sample.db.add_all([source, derivative])
+    await sample.db.commit()
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [derivative],
+    )
+    assert derivative.id in provenances
+    assert provenances[derivative.id].source_asset_id == source.id
+    assert provenances[derivative.id].source_source_asset_id is rank._UNSET
+    assert provenances[derivative.id].source_content_sha256 is None
+    assert derivative.id not in observations
+
+
+async def test_source_is_derivative_sets_non_none_parent(sample, asset_dir):
+    digest = "e" * 64
+    original = _storage_image(sample, title="Root", digest=digest)
+    mid = _storage_image(sample, title="Mid", digest=digest, source_asset_id=None)
+    sample.db.add_all([original, mid])
+    await sample.db.flush()
+    mid.source_asset_id = original.id
+    mid.locator = original.locator
+    leaf = _storage_image(sample, title="Leaf", digest=digest, source_asset_id=mid.id)
+    leaf.locator = original.locator
+    sample.db.add(leaf)
+    sample.db.add(_ready(sample, original, content_sha256=digest, asset_id=original.id))
+    await sample.db.commit()
+
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [leaf],
+    )
+    assert leaf.id in provenances
+    facts = provenances[leaf.id]
+    assert facts.source_asset_id == mid.id
+    assert facts.source_source_asset_id == original.id
+    assert facts.source_source_asset_id is not None
+    assert leaf.id not in observations  # ready_observation rejects non-original source
+
+
+async def test_no_observation_still_emits_facts(sample, asset_dir):
+    asset = await _image(sample, "Bos", b"no-obs")
+    await sample.db.commit()
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [asset],
+    )
+    assert asset.id in provenances
+    assert asset.id not in observations
+
+
+async def test_candidate_facts_mapping_consistency(sample, asset_dir):
+    first = await _image(sample, "Bir", b"map-1")
+    second = await _image(sample, "Iki", b"map-2")
+    sample.db.add(_ready(sample, first, summary="bir ozet", tags=["zeytinyagi", "hasadi"]))
+    sample.db.add(_ready(sample, second, summary="iki ozet", tags=["lamba", "isigi"]))
+    await sample.db.commit()
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [first, second],
+    )
+    assert set(provenances) == {first.id, second.id}
+    assert set(observations) == {first.id, second.id}
+    assert provenances[first.id].asset_id == first.id
+    assert provenances[second.id].asset_id == second.id
+    assert observations[first.id].asset_id == first.id
+    assert observations[second.id].asset_id == second.id
+    # Stale stub id pointing at first must not receive second's facts.
+    assert provenances[first.id].content_sha256 == _digest(first)
+    assert provenances[second.id].content_sha256 == _digest(second)
+
+
+async def test_no_provider_queue_or_generation_calls(sample, asset_dir, monkeypatch):
+    asset = await _image(sample, "Saglam", b"no-provider")
+    sample.db.add(_ready(sample, asset))
+    await sample.db.commit()
+    vision = AsyncMock()
+    ensure = AsyncMock()
+    monkeypatch.setattr("backend.services.business_yansi.image_observe.call_vision", vision, raising=False)
+    monkeypatch.setattr("backend.services.business_yansi.image_observe.analyze_image", vision, raising=False)
+    monkeypatch.setattr("backend.services.business_yansi.media_observations.ensure_observation", ensure, raising=False)
+    await adapter.build_cover_ranking_inputs(sample.db, sample.business.id, [asset])
+    assert vision.await_count == 0 and vision.call_count == 0
+    assert ensure.await_count == 0 and ensure.call_count == 0
+
+
+async def test_no_sql_dml_or_caller_orm_mutation(sample, asset_dir):
+    asset = await _image(sample, "Dokunma", b"no-dml")
+    row = _ready(sample, asset, summary="kalici")
+    sample.db.add(row)
+    await sample.db.commit()
+    asset.title = "PendingTitle"
+    row.summary = "PendingSummary"
+    statements, stop = _listen_sql(sample)
+    try:
+        observations, provenances = await adapter.build_cover_ranking_inputs(
+            sample.db, sample.business.id, [asset],
+        )
+    finally:
+        stop()
+    assert asset.id in provenances and asset.id in observations
+    assert asset.title == "PendingTitle"
+    assert row.summary == "PendingSummary"
+    dml = [sql for sql in statements if sql.lstrip().split(None, 1)[0].upper() in {"INSERT", "UPDATE", "DELETE"}]
+    assert dml == []
+    await sample.db.refresh(row)
+    assert row.summary == "kalici"
+
+
+async def test_adapter_outputs_drive_pure_ranking_helper(sample, asset_dir, monkeypatch):
+    monkeypatch.setenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", "true")
+    weak = await _image(sample, "Zeytinyagi", b"rank-weak")
+    strong = await _image(sample, "Atolye", b"rank-strong")
+    sample.db.add(_ready(
+        sample, strong,
+        summary="Zeytinyagi hasadi ozeti kayit",
+        tags=["zeytinyagi", "hasadi", "ozeti"],
+    ))
+    await sample.db.commit()
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [weak, strong],
+    )
+    chosen = rank.select_cover_ranked(
+        "Zeytinyagi hasadi",
+        "Zeytinyagi hasadi ozeti",
+        [weak, strong],
+        observations=observations,
+        provenances=provenances,
+    )
+    assert chosen == str(strong.id)
+
+
+async def test_invalid_provenance_falls_back_in_ranking_helper(sample, asset_dir, monkeypatch):
+    monkeypatch.setenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", "true")
+    lexical = await _image(sample, "Zeytinyagi hasadi", b"lex-win")
+    weak = await _image(sample, "Atolye", b"lex-weak")
+    sample.db.add(_ready(sample, weak, summary="Zeytinyagi hasadi ozeti", tags=["zeytinyagi", "hasadi"]))
+    await sample.db.commit()
+    # Wrong-tenant adapter call → empty maps → lexical ranking wins.
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, uuid.uuid4(), [weak, lexical],
+    )
+    assert observations == {} and provenances == {}
+    chosen = rank.select_cover_ranked(
+        "Zeytinyagi hasadi",
+        "Zeytinyagi hasadi ozeti",
+        [weak, lexical],
+        observations=observations,
+        provenances=provenances,
+    )
+    assert chosen == str(lexical.id)

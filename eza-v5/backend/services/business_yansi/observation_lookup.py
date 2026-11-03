@@ -259,3 +259,10 @@ async def ready_observation_for_asset(db, business_id, asset, *, profile: str | 
         if not observation_integrity_ok(inherited, source, owner, profile=chosen, digest=digest):
             return None
         return inherited
+
+
+# Read-only exports for Phase 7G-4c.1 cover ranking adapter.
+# Callers must not mutate ORM state or treat these as globally fresh beyond the
+# current read transaction.
+load_asset_snapshot = _asset_snapshot
+validated_storage_digest = _validated_storage_digest
