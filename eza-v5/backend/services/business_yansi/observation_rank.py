@@ -54,6 +54,21 @@ def _assisted_fold(text: str) -> str:
 _GENERIC_TERMS = frozenset(_assisted_fold(term) for term in _RAW_GENERIC_TERMS)
 
 
+def _is_generic_assisted_token(token: str) -> bool:
+    """True when a folded token is a low-information generic label.
+
+    Assisted fold maps ASCII ``I`` → ``ı`` for Turkish correctness, which would
+    otherwise miss English generics like ``IMAGE`` → ``ımage``. Recover the
+    English ``i`` form only for generic membership — scoring tokens themselves
+    stay Turkish-folded so meaningful terms still match consistently.
+    """
+    if token in _GENERIC_TERMS:
+        return True
+    if "ı" in token and token.replace("ı", "i") in _GENERIC_TERMS:
+        return True
+    return False
+
+
 @dataclass(frozen=True)
 class RankingAssetFacts:
     """Verified media facts required before any observation bonus is awarded.
@@ -127,7 +142,7 @@ def _assisted_tokens(text: str) -> set[str]:
     return {
         token
         for token in _ASSISTED_WORD.findall(folded)
-        if token not in _GENERIC_TERMS
+        if not _is_generic_assisted_token(token)
     }
 
 

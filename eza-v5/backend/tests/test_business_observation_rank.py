@@ -507,6 +507,61 @@ def test_turkish_generic_only_observation_is_not_eligible(monkeypatch):
     ) is None
 
 
+@pytest.mark.parametrize(
+    "label",
+    [
+        "IMAGE FILE",
+        "VIDEO CLIP",
+        "PICTURE IMAGES",
+        "image file",
+        "video clip",
+        "picture images",
+        "Image File",
+        "Video Clip",
+        "Picture Images",
+        "RESİM İÇERİK",
+        unicodedata.normalize("NFD", "IMAGE FILE"),
+        unicodedata.normalize("NFD", "VIDEO CLIP"),
+        unicodedata.normalize("NFD", "PICTURE IMAGES"),
+        unicodedata.normalize("NFD", "RESİM İÇERİK"),
+        unicodedata.normalize("NFC", "RESİM İÇERİK"),
+    ],
+)
+def test_english_and_turkish_generic_only_labels_are_suppressed(monkeypatch, label):
+    """Uppercase English generics must not bypass the filter via I→ı folding."""
+    monkeypatch.setenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", "true")
+    asset = _Asset("00000000-0000-4000-8000-000000000093", "image", "Atolye")
+    observation = _snap(asset_id=asset.id, summary=label, tags=tuple(label.split()))
+    assert rank.observation_terms(observation) == set()
+    assert rank._assisted_tokens(label) == set()
+    assert rank.select_cover_ranked(
+        label, "", [asset], **_bundle(asset, observation),
+    ) is None
+
+
+def test_meaningful_english_and_turkish_terms_remain_matchable(monkeypatch):
+    monkeypatch.setenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", "true")
+    asset = _Asset("00000000-0000-4000-8000-000000000094", "image", "Atolye")
+    # Meaningful English terms are kept (not generic-filtered) and match under the
+    # same assisted fold on both sides (uppercase I → ı consistently).
+    english = _snap(asset_id=asset.id, summary="SILVER HARVEST", tags=["SILVER", "HARVEST"])
+    terms = rank.observation_terms(english) or set()
+    assert "sılver" in terms and "harvest" in terms
+    assert rank.select_cover_ranked(
+        "SILVER HARVEST notes", "", [asset], **_bundle(asset, english),
+    ) == str(asset.id)
+    lowercase = _snap(asset_id=asset.id, summary="silver harvest", tags=["silver", "harvest"])
+    assert rank.observation_terms(lowercase) == {"silver", "harvest"}
+    assert rank.select_cover_ranked(
+        "silver harvest notes", "", [asset], **_bundle(asset, lowercase),
+    ) == str(asset.id)
+    # Turkish meaningful terms remain matchable across dotted/dotless I.
+    turkish = _snap(asset_id=asset.id, summary="ZEYTİNYAĞI hasadı", tags=["özeti"])
+    assert rank.select_cover_ranked(
+        "Zeytinyağı hasadı özeti", "", [asset], **_bundle(asset, turkish),
+    ) == str(asset.id)
+
+
 def test_turkish_normalization_matches_dotted_i_and_punctuation(monkeypatch):
     monkeypatch.setenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", "true")
     asset = _Asset("00000000-0000-4000-8000-000000000091", "image", "Atolye")
