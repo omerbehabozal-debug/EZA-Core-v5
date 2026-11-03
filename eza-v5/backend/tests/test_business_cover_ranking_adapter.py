@@ -35,6 +35,11 @@ def _digest(asset) -> str:
     return found
 
 
+def _key(asset_or_id) -> str:
+    raw = getattr(asset_or_id, "id", asset_or_id)
+    return str(raw)
+
+
 async def _image(sample, title: str, payload: bytes):
     knowledge = await source(sample, content="Atolye kayit metni kapak secimi icin yeterince aciktir.")
     row = await library.create_asset(
@@ -124,14 +129,15 @@ async def test_valid_direct_observation(sample, asset_dir):
     observations, provenances = await adapter.build_cover_ranking_inputs(
         sample.db, sample.business.id, [asset],
     )
-    assert asset.id in observations and asset.id in provenances
-    facts = provenances[asset.id]
+    key = str(asset.id)
+    assert key in observations and key in provenances
+    facts = provenances[key]
     assert facts.asset_id == asset.id
     assert facts.business_id == sample.business.id
     assert facts.content_sha256 == _digest(asset)
     assert facts.source_source_asset_id is rank._UNSET
-    assert observations[asset.id].asset_id == asset.id
-    assert observations[asset.id].status == "ready"
+    assert observations[key].asset_id == asset.id
+    assert observations[key].status == "ready"
 
 
 async def test_valid_original_to_derivative_inheritance(sample, asset_dir):
@@ -149,14 +155,15 @@ async def test_valid_original_to_derivative_inheritance(sample, asset_dir):
     observations, provenances = await adapter.build_cover_ranking_inputs(
         sample.db, sample.business.id, [derivative],
     )
-    assert derivative.id in observations and derivative.id in provenances
-    facts = provenances[derivative.id]
+    key = str(derivative.id)
+    assert key in observations and key in provenances
+    facts = provenances[key]
     assert facts.asset_id == derivative.id
     assert facts.source_asset_id == source_asset.id
     assert facts.source_content_sha256 == digest
     assert facts.source_source_asset_id is None
     assert facts.source_source_asset_id is not rank._UNSET
-    assert observations[derivative.id].asset_id == source_asset.id
+    assert observations[key].asset_id == source_asset.id
 
 
 async def test_wrong_tenant_candidate_omitted(sample, asset_dir):
@@ -183,11 +190,11 @@ async def test_wrong_tenant_source_keeps_unset_parent(sample, asset_dir):
     observations, provenances = await adapter.build_cover_ranking_inputs(
         sample.db, sample.business.id, [local],
     )
-    assert local.id in provenances
-    assert provenances[local.id].source_asset_id == foreign_source_id
-    assert provenances[local.id].source_source_asset_id is rank._UNSET
-    assert provenances[local.id].source_content_sha256 is None
-    assert local.id not in observations
+    assert _key(local) in provenances
+    assert provenances[_key(local)].source_asset_id == foreign_source_id
+    assert provenances[_key(local)].source_source_asset_id is rank._UNSET
+    assert provenances[_key(local)].source_content_sha256 is None
+    assert _key(local) not in observations
 
 
 async def test_missing_candidate_omitted(sample, asset_dir):
@@ -206,10 +213,10 @@ async def test_missing_source_keeps_unset_parent(sample, asset_dir):
     observations, provenances = await adapter.build_cover_ranking_inputs(
         sample.db, sample.business.id, [orphan],
     )
-    assert orphan.id in provenances
-    assert provenances[orphan.id].source_source_asset_id is rank._UNSET
-    assert provenances[orphan.id].source_content_sha256 is None
-    assert orphan.id not in observations
+    assert _key(orphan) in provenances
+    assert provenances[_key(orphan)].source_source_asset_id is rank._UNSET
+    assert provenances[_key(orphan)].source_content_sha256 is None
+    assert _key(orphan) not in observations
 
 
 async def test_stale_candidate_digest_omits_observation(sample, asset_dir):
@@ -219,9 +226,9 @@ async def test_stale_candidate_digest_omits_observation(sample, asset_dir):
     observations, provenances = await adapter.build_cover_ranking_inputs(
         sample.db, sample.business.id, [asset],
     )
-    assert asset.id in provenances
-    assert provenances[asset.id].content_sha256 == _digest(asset)
-    assert asset.id not in observations
+    assert _key(asset) in provenances
+    assert provenances[_key(asset)].content_sha256 == _digest(asset)
+    assert _key(asset) not in observations
 
 
 async def test_stale_source_digest_blocks_inheritance(sample, asset_dir):
@@ -237,15 +244,15 @@ async def test_stale_source_digest_blocks_inheritance(sample, asset_dir):
     observations, provenances = await adapter.build_cover_ranking_inputs(
         sample.db, sample.business.id, [derivative],
     )
-    assert derivative.id in provenances
-    facts = provenances[derivative.id]
+    assert _key(derivative) in provenances
+    facts = provenances[_key(derivative)]
     # Source loaded with different digest than candidate → both digests recorded;
     # ready_observation refuses inheritance; ranking would also reject mismatch.
     assert facts.source_asset_id == source_asset.id
     assert facts.source_content_sha256 == _digest(source_asset)
     assert facts.content_sha256 == other
     assert facts.source_source_asset_id is None
-    assert derivative.id not in observations
+    assert _key(derivative) not in observations
 
 
 async def test_invalid_locator_omits_candidate(sample, asset_dir):
@@ -277,8 +284,8 @@ async def test_wrong_observation_profile_omits_observation(sample, asset_dir, mo
     observations, provenances = await adapter.build_cover_ranking_inputs(
         sample.db, sample.business.id, [asset],
     )
-    assert asset.id in provenances
-    assert asset.id not in observations
+    assert _key(asset) in provenances
+    assert _key(asset) not in observations
 
 
 async def test_unknown_source_parent_relationship_is_unset(sample, asset_dir):
@@ -305,11 +312,11 @@ async def test_unknown_source_parent_relationship_is_unset(sample, asset_dir):
     observations, provenances = await adapter.build_cover_ranking_inputs(
         sample.db, sample.business.id, [derivative],
     )
-    assert derivative.id in provenances
-    assert provenances[derivative.id].source_asset_id == source.id
-    assert provenances[derivative.id].source_source_asset_id is rank._UNSET
-    assert provenances[derivative.id].source_content_sha256 is None
-    assert derivative.id not in observations
+    assert _key(derivative) in provenances
+    assert provenances[_key(derivative)].source_asset_id == source.id
+    assert provenances[_key(derivative)].source_source_asset_id is rank._UNSET
+    assert provenances[_key(derivative)].source_content_sha256 is None
+    assert _key(derivative) not in observations
 
 
 async def test_source_is_derivative_sets_non_none_parent(sample, asset_dir):
@@ -329,12 +336,12 @@ async def test_source_is_derivative_sets_non_none_parent(sample, asset_dir):
     observations, provenances = await adapter.build_cover_ranking_inputs(
         sample.db, sample.business.id, [leaf],
     )
-    assert leaf.id in provenances
-    facts = provenances[leaf.id]
+    assert _key(leaf) in provenances
+    facts = provenances[_key(leaf)]
     assert facts.source_asset_id == mid.id
     assert facts.source_source_asset_id == original.id
     assert facts.source_source_asset_id is not None
-    assert leaf.id not in observations  # ready_observation rejects non-original source
+    assert _key(leaf) not in observations  # ready_observation rejects non-original source
 
 
 async def test_no_observation_still_emits_facts(sample, asset_dir):
@@ -343,8 +350,8 @@ async def test_no_observation_still_emits_facts(sample, asset_dir):
     observations, provenances = await adapter.build_cover_ranking_inputs(
         sample.db, sample.business.id, [asset],
     )
-    assert asset.id in provenances
-    assert asset.id not in observations
+    assert _key(asset) in provenances
+    assert _key(asset) not in observations
 
 
 async def test_candidate_facts_mapping_consistency(sample, asset_dir):
@@ -356,15 +363,15 @@ async def test_candidate_facts_mapping_consistency(sample, asset_dir):
     observations, provenances = await adapter.build_cover_ranking_inputs(
         sample.db, sample.business.id, [first, second],
     )
-    assert set(provenances) == {first.id, second.id}
-    assert set(observations) == {first.id, second.id}
-    assert provenances[first.id].asset_id == first.id
-    assert provenances[second.id].asset_id == second.id
-    assert observations[first.id].asset_id == first.id
-    assert observations[second.id].asset_id == second.id
-    # Stale stub id pointing at first must not receive second's facts.
-    assert provenances[first.id].content_sha256 == _digest(first)
-    assert provenances[second.id].content_sha256 == _digest(second)
+    # One canonical string key per candidate (ranker resolves via str(asset.id)).
+    assert set(provenances) == {_key(first), _key(second)}
+    assert set(observations) == {_key(first), _key(second)}
+    assert provenances[_key(first)].asset_id == first.id
+    assert provenances[_key(second)].asset_id == second.id
+    assert observations[_key(first)].asset_id == first.id
+    assert observations[_key(second)].asset_id == second.id
+    assert provenances[_key(first)].content_sha256 == _digest(first)
+    assert provenances[_key(second)].content_sha256 == _digest(second)
 
 
 async def test_no_provider_queue_or_generation_calls(sample, asset_dir, monkeypatch):
@@ -395,7 +402,7 @@ async def test_no_sql_dml_or_caller_orm_mutation(sample, asset_dir):
         )
     finally:
         stop()
-    assert asset.id in provenances and asset.id in observations
+    assert _key(asset) in provenances and _key(asset) in observations
     assert asset.title == "PendingTitle"
     assert row.summary == "PendingSummary"
     dml = [sql for sql in statements if sql.lstrip().split(None, 1)[0].upper() in {"INSERT", "UPDATE", "DELETE"}]
@@ -446,3 +453,121 @@ async def test_invalid_provenance_falls_back_in_ranking_helper(sample, asset_dir
         provenances=provenances,
     )
     assert chosen == str(lexical.id)
+
+
+async def test_malformed_candidate_ids_are_skipped(sample, asset_dir):
+    asset = await _image(sample, "Saglam", b"id-ok")
+    sample.db.add(_ready(sample, asset, summary="Zeytinyagi hasadi", tags=["zeytinyagi", "hasadi"]))
+    await sample.db.commit()
+    bad_string = SimpleNamespace(id="not-a-uuid", title="Bad", asset_type="image", caption="")
+    bad_object = SimpleNamespace(id=object(), title="Obj", asset_type="image", caption="")
+    bad_none = SimpleNamespace(id=None, title="None", asset_type="image", caption="")
+    bad_empty = SimpleNamespace(id="", title="Empty", asset_type="image", caption="")
+
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [bad_string, bad_object, bad_none, bad_empty, asset],
+    )
+    assert _key(asset) in provenances and _key(asset) in observations
+    assert "not-a-uuid" not in provenances
+    assert None not in provenances
+    assert "" not in provenances
+    # Malformed entries must not raise StatementError or wipe valid mappings.
+    assert provenances[_key(asset)].asset_id == asset.id
+    assert set(provenances.keys()) == {_key(asset)}
+
+
+async def test_empty_string_candidate_id_is_skipped(sample, asset_dir):
+    asset = await _image(sample, "EmptySkip", b"empty-id")
+    sample.db.add(_ready(sample, asset, summary="Zeytinyagi hasadi", tags=["zeytinyagi", "hasadi"]))
+    await sample.db.commit()
+    empty = SimpleNamespace(id="", title="Empty", asset_type="image", caption="")
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [empty, asset],
+    )
+    assert set(provenances) == {_key(asset)}
+    assert set(observations) == {_key(asset)}
+    assert "" not in provenances
+
+
+async def test_valid_uuid_object_and_string_ids(sample, asset_dir):
+    asset = await _image(sample, "UuidForms", b"uuid-forms")
+    sample.db.add(_ready(sample, asset, summary="Zeytinyagi hasadi", tags=["zeytinyagi", "hasadi"]))
+    await sample.db.commit()
+    as_uuid = SimpleNamespace(id=asset.id)
+    as_string = SimpleNamespace(id=str(asset.id))
+
+    obs_u, prov_u = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [as_uuid],
+    )
+    obs_s, prov_s = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [as_string],
+    )
+    assert set(prov_u) == {_key(asset)} and set(prov_s) == {_key(asset)}
+    assert set(obs_u) == {_key(asset)} and set(obs_s) == {_key(asset)}
+    assert prov_u[_key(asset)].content_sha256 == prov_s[_key(asset)].content_sha256 == _digest(asset)
+
+
+async def test_mixed_invalid_pool_preserves_valid_ranking_bonus(sample, asset_dir, monkeypatch):
+    monkeypatch.setenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", "true")
+    weak = await _image(sample, "Zeytinyagi", b"mix-weak")
+    strong = await _image(sample, "Atolye", b"mix-strong")
+    sample.db.add(_ready(
+        sample, strong,
+        summary="Zeytinyagi hasadi ozeti kayit",
+        tags=["zeytinyagi", "hasadi", "ozeti"],
+    ))
+    await sample.db.commit()
+    pool = [
+        SimpleNamespace(id="not-a-uuid", title="Bad", asset_type="image", caption=""),
+        SimpleNamespace(id=object(), title="Obj", asset_type="image", caption=""),
+        weak,
+        strong,
+        SimpleNamespace(id=None, title="None", asset_type="image", caption=""),
+    ]
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, pool,
+    )
+    assert _key(strong) in observations and _key(strong) in provenances
+    # Ranker pool still includes invalid stubs; they contribute no obs bonus and
+    # typically zero lexical score — must not suppress the valid assisted winner.
+    chosen = rank.select_cover_ranked(
+        "Zeytinyagi hasadi",
+        "Zeytinyagi hasadi ozeti",
+        pool,
+        observations=observations,
+        provenances=provenances,
+    )
+    assert chosen == str(strong.id)
+
+
+async def test_string_id_stub_resolves_via_ranker_key_compatibility(sample, asset_dir, monkeypatch):
+    monkeypatch.setenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", "true")
+    asset = await _image(sample, "Atolye", b"str-key")
+    sample.db.add(_ready(
+        sample, asset,
+        summary="Zeytinyagi hasadi ozeti",
+        tags=["zeytinyagi", "hasadi"],
+    ))
+    await sample.db.commit()
+    string_stub = SimpleNamespace(
+        id=str(asset.id),
+        asset_type="image",
+        title="Atolye",
+        caption="",
+        verified_duration=8_000,
+        verified_timescale=1000,
+        verified_size_bytes=200,
+        verified_has_audio=False,
+    )
+    observations, provenances = await adapter.build_cover_ranking_inputs(
+        sample.db, sample.business.id, [string_stub],
+    )
+    assert set(provenances) == {_key(asset)}
+    chosen = rank.select_cover_ranked(
+        "Zeytinyagi hasadi",
+        "Zeytinyagi hasadi ozeti",
+        [string_stub],
+        observations=observations,
+        provenances=provenances,
+    )
+    assert chosen == str(asset.id)

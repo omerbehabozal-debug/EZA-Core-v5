@@ -10,6 +10,8 @@ transaction only — not a claim of global freshness.
 """
 from __future__ import annotations
 
+import uuid
+from types import SimpleNamespace
 from typing import Any
 
 from backend.services.business_yansi.media_observations import active_profile
@@ -24,6 +26,35 @@ from backend.services.business_yansi.service import uid
 
 def _cover_media_kind(asset_type: object) -> bool:
     return asset_type in {"image", "video"}
+
+
+def _as_asset_uuid(value: object) -> uuid.UUID | None:
+    """Normalize a BrandAsset primary key for DB binds.
+
+    Accepts ``uuid.UUID`` or a UUID-shaped string. Rejects ``None``, empty
+    strings, arbitrary objects, and other types — never ``str(object())``.
+    """
+    if isinstance(value, uuid.UUID):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            return uuid.UUID(text)
+        except ValueError:
+            return None
+    return None
+
+
+def _candidate_map_key(candidate_id: uuid.UUID) -> str:
+    """Single canonical map key compatible with ``select_cover_ranked``.
+
+    The pure ranker resolves ``asset.id`` first, then ``str(asset.id)``. Storing
+    only the canonical string satisfies both UUID-object and UUID-string pool
+    stubs without dual-indexing one asset as two map entries.
+    """
+    return str(candidate_id)
 
 
 async def _facts_for_candidate(db, owner, candidate_id) -> RankingAssetFacts | None:
@@ -95,20 +126,22 @@ async def build_cover_ranking_inputs(
         for candidate in pool:
             if candidate is None:
                 continue
-            candidate_id = getattr(candidate, "id", None)
+            candidate_id = _as_asset_uuid(getattr(candidate, "id", None))
             if candidate_id is None:
                 continue
 
             facts = await _facts_for_candidate(db, owner, candidate_id)
             if facts is None:
                 continue
-            provenances[candidate_id] = facts
+            map_key = _candidate_map_key(candidate_id)
+            provenances[map_key] = facts
 
             # Lookup ignores untrusted ORM stubs and re-reads committed state.
+            # Always bind a canonical UUID — never the raw pool id.
             snapshot = await ready_observation_for_asset(
-                db, owner, candidate, profile=chosen,
+                db, owner, SimpleNamespace(id=candidate_id), profile=chosen,
             )
             if snapshot is not None:
-                observations[candidate_id] = snapshot
+                observations[map_key] = snapshot
 
     return observations, provenances
