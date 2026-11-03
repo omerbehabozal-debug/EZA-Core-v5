@@ -4,6 +4,7 @@ Not wired into create/revise. Generation and ranking flags stay off by default.
 """
 from __future__ import annotations
 
+import unicodedata
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
@@ -21,7 +22,7 @@ _BUSINESS = uuid.UUID("00000000-0000-4000-8000-0000000000bb")
 
 
 class _Asset:
-    def __init__(self, asset_id, asset_type, title, caption=""):
+    def __init__(self, asset_id, asset_type, title, caption="", business_id=None, *, with_business=False):
         self.id = asset_id
         self.asset_type = asset_type
         self.title = title
@@ -30,6 +31,9 @@ class _Asset:
         self.verified_timescale = 1000
         self.verified_size_bytes = 200
         self.verified_has_audio = False
+        # Mirror BrandAsset: only set business_id when the stub exposes tenant scope.
+        if with_business or business_id is not None:
+            self.business_id = business_id if business_id is not None else _BUSINESS
 
 
 def _facts(
@@ -356,7 +360,7 @@ def test_unset_source_parent_rejects_inheritance(monkeypatch):
         source_content_sha256=_DIGEST,
     )
     assert bare.source_source_asset_id is rank._UNSET
-    assert rank.observation_valid_for_candidate(observation, bare) is False
+    assert rank.observation_valid_for_candidate(observation, bare, candidate=derivative) is False
 
 
 def test_valid_identical_sha_inheritance_awards_bonus(monkeypatch):
@@ -524,3 +528,170 @@ def test_missing_provenance_awards_zero_bonus(monkeypatch):
         observations={asset.id: observation},
         provenances={},
     ) is None
+
+
+def test_wrong_candidate_facts_mapping_awards_zero_bonus(monkeypatch):
+    """Codex 1: mutually consistent obs/facts for another asset must not score here."""
+    monkeypatch.setenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", "true")
+    candidate = _Asset("00000000-0000-4000-8000-0000000000a1", "image", "Atolye")
+    other = uuid.UUID("00000000-0000-4000-8000-0000000000a2")
+    observation = _snap(asset_id=other, summary="zeytinyagi hasadi", tags=["zeytinyagi", "hasadi"])
+    # Provenance keyed under candidate, but facts.asset_id points at `other`.
+    foreign_facts = rank.RankingAssetFacts(
+        asset_id=other,
+        business_id=_BUSINESS,
+        content_sha256=_DIGEST,
+    )
+    assert rank.select_cover_ranked(
+        "Zeytinyagi hasadi", "Zeytinyagi hasadi ozeti", [candidate],
+        observations={candidate.id: observation},
+        provenances={candidate.id: foreign_facts},
+    ) is None
+    assert rank.observation_valid_for_candidate(
+        observation, foreign_facts, candidate=candidate,
+    ) is False
+
+
+def test_conflicting_candidate_business_awards_zero_bonus(monkeypatch):
+    """Codex 2: candidate.business_id must match facts.business_id when exposed."""
+    monkeypatch.setenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", "true")
+    other_biz = uuid.UUID("00000000-0000-4000-8000-0000000000b2")
+    asset = _Asset(
+        "00000000-0000-4000-8000-0000000000b1", "image", "Atolye",
+        business_id=other_biz, with_business=True,
+    )
+    observation = _snap(asset_id=asset.id, summary="zeytinyagi hasadi", tags=["zeytinyagi", "hasadi"])
+    facts = _facts(asset)  # facts.business_id == _BUSINESS
+    assert asset.business_id != facts.business_id
+    assert rank.select_cover_ranked(
+        "Zeytinyagi hasadi", "Zeytinyagi hasadi ozeti", [asset],
+        observations={asset.id: observation},
+        provenances={asset.id: facts},
+    ) is None
+
+
+def test_missing_asset_identity_awards_zero_bonus(monkeypatch):
+    """Codex 3: missing observation/facts asset identity → bonus 0."""
+    monkeypatch.setenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", "true")
+    asset = _Asset("00000000-0000-4000-8000-0000000000c1", "image", "Atolye")
+    observation = _snap(asset_id=asset.id, summary="zeytinyagi hasadi", tags=["zeytinyagi", "hasadi"])
+    bad_facts = rank.RankingAssetFacts(
+        asset_id=None,
+        business_id=_BUSINESS,
+        content_sha256=_DIGEST,
+    )
+    assert rank.observation_valid_for_candidate(observation, bad_facts, candidate=asset) is False
+    blank_obs = lookup.ObservationSnapshot(
+        id=uuid.uuid4(),
+        business_id=_BUSINESS,
+        asset_id=None,
+        content_sha256=_DIGEST,
+        analyzer_profile="visual-v1",
+        status="ready",
+        summary="zeytinyagi hasadi",
+        tags=("zeytinyagi", "hasadi"),
+        visible_text=None,
+        frames=(),
+    )
+    assert rank.observation_valid_for_candidate(blank_obs, _facts(asset), candidate=asset) is False
+    object_id_asset = SimpleNamespace(
+        id=object(), asset_type="image", title="Atolye", caption="",
+        verified_duration=8000, verified_timescale=1000, verified_size_bytes=200, verified_has_audio=False,
+    )
+    assert rank.observation_valid_for_candidate(
+        observation, _facts(asset), candidate=object_id_asset,
+    ) is False
+
+
+def test_missing_business_identity_awards_zero_bonus(monkeypatch):
+    """Codex 4: missing observation/facts Business identity → bonus 0."""
+    monkeypatch.setenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", "true")
+    asset = _Asset("00000000-0000-4000-8000-0000000000d1", "image", "Atolye", with_business=True)
+    observation = _snap(asset_id=asset.id, summary="zeytinyagi hasadi", tags=["zeytinyagi", "hasadi"])
+    bad_facts = rank.RankingAssetFacts(
+        asset_id=asset.id,
+        business_id=None,
+        content_sha256=_DIGEST,
+    )
+    assert rank.observation_valid_for_candidate(observation, bad_facts, candidate=asset) is False
+    blank_biz = lookup.ObservationSnapshot(
+        id=uuid.uuid4(),
+        business_id=None,
+        asset_id=asset.id,
+        content_sha256=_DIGEST,
+        analyzer_profile="visual-v1",
+        status="ready",
+        summary="zeytinyagi hasadi",
+        tags=("zeytinyagi", "hasadi"),
+        visible_text=None,
+        frames=(),
+    )
+    assert rank.observation_valid_for_candidate(blank_biz, _facts(asset), candidate=asset) is False
+    empty_candidate = _Asset(
+        "00000000-0000-4000-8000-0000000000d2", "image", "Atolye",
+        business_id="", with_business=True,
+    )
+    assert rank.observation_valid_for_candidate(
+        _snap(asset_id=empty_candidate.id, summary="zeytinyagi hasadi", tags=["zeytinyagi", "hasadi"]),
+        _facts(empty_candidate),
+        candidate=empty_candidate,
+    ) is False
+
+
+def test_non_hex_digest_awards_zero_bonus(monkeypatch):
+    """Codex 5: non-hexadecimal 64-character digest is rejected."""
+    monkeypatch.setenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", "true")
+    asset = _Asset("00000000-0000-4000-8000-0000000000e1", "image", "Atolye")
+    bad = "g" * 64
+    assert rank._valid_sha256(bad) is False
+    assert rank._valid_sha256("a" * 63) is False
+    assert rank._valid_sha256("a" * 65) is False
+    assert rank._valid_sha256("") is False
+    assert rank._valid_sha256(None) is False
+    assert rank._valid_sha256(123) is False
+    assert rank._valid_sha256(_DIGEST) is True
+    assert rank._valid_sha256("A" * 64) is True
+    observation = _snap(
+        asset_id=asset.id, content_sha256=bad,
+        summary="zeytinyagi hasadi", tags=["zeytinyagi", "hasadi"],
+    )
+    facts = _facts(asset, digest=bad)
+    assert rank.select_cover_ranked(
+        "Zeytinyagi hasadi", "Zeytinyagi hasadi ozeti", [asset],
+        observations={asset.id: observation},
+        provenances={asset.id: facts},
+    ) is None
+    # Observation digest non-hex while facts digest is valid.
+    mixed = _snap(
+        asset_id=asset.id, content_sha256=bad,
+        summary="zeytinyagi hasadi", tags=["zeytinyagi", "hasadi"],
+    )
+    assert rank.observation_valid_for_candidate(mixed, _facts(asset), candidate=asset) is False
+
+
+def test_nfd_generic_only_observation_is_not_eligible(monkeypatch):
+    """Codex 6: NFD and NFC generic-only Turkish text → zero meaningful matches."""
+    monkeypatch.setenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", "true")
+    asset = _Asset("00000000-0000-4000-8000-0000000000f1", "image", "Atolye")
+    nfc = "RESİM İÇERİK"
+    nfd = unicodedata.normalize("NFD", nfc)
+    assert nfc != nfd
+    for label in (nfc, nfd):
+        observation = _snap(asset_id=asset.id, summary=label, tags=[unicodedata.normalize("NFD", "GÖRSEL"), "MEDYA"])
+        terms = rank.observation_terms(observation)
+        assert terms == set(), label
+        assert rank.select_cover_ranked(
+            label, "", [asset], **_bundle(asset, observation),
+        ) is None
+    # Mixed NFC context + NFD observation still suppresses generics / matches fold.
+    mixed_obs = _snap(
+        asset_id=asset.id,
+        summary=nfd,
+        tags=["zeytinyagi", unicodedata.normalize("NFD", "hasadı")],
+    )
+    terms = rank.observation_terms(mixed_obs)
+    assert "zeytinyagi" in terms
+    assert any("hasad" in token for token in terms)
+    assert rank.select_cover_ranked(
+        unicodedata.normalize("NFC", "Zeytinyagi hasadı"), "", [asset], **_bundle(asset, mixed_obs),
+    ) == str(asset.id)
