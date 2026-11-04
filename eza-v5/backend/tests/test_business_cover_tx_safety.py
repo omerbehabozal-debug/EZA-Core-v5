@@ -91,8 +91,8 @@ def test_module_source_uses_single_protected_pass_and_business_before_draft():
     revise = service_text.split("async def revise_draft", 1)[1].split("async def ", 1)[0]
     assert create.index("async with business_media_lock") < create.index("await bind_media_plan")
     assert create.index("async with business_media_lock") < create.index("Draft(")
-    assert revise.index("async with business_media_lock") < revise.index("draft_row")
-    assert revise.index("draft_row") < revise.index("await bind_media_plan")
+    assert revise.index("async with business_media_lock") < revise.index("draft_decision")
+    assert revise.index("draft_decision") < revise.index("await bind_media_plan")
     archive = library_text.split("async def archive_asset", 1)[1].split("async def ", 1)[0]
     links = library_text.split("async def set_links", 1)[1].split("async def ", 1)[0]
     assert archive.index("business_media_lock") < archive.index("_asset_decision")
@@ -139,7 +139,7 @@ async def test_revise_draft_business_lock_before_draft_for_update(sample, asset_
     )
     order: list[str] = []
     real_lock = media.business_media_lock
-    real_draft_row = svc.draft_row
+    real_draft_decision = svc.draft_decision
 
     @asynccontextmanager
     async def lock_spy(db, business_id):
@@ -147,15 +147,15 @@ async def test_revise_draft_business_lock_before_draft_for_update(sample, asset_
         async with real_lock(db, business_id) as row:
             yield row
 
-    async def draft_spy(db, business_id, draft_id, lock=False):
+    async def decision_spy(db, business_id, draft_id, *, lock=False):
         if lock:
             order.append("draft_for_update")
-        return await real_draft_row(db, business_id, draft_id, lock)
+        return await real_draft_decision(db, business_id, draft_id, lock=lock)
 
     import backend.services.business_yansi.studio_media as studio_mod
 
     monkeypatch.setattr(studio_mod, "business_media_lock", lock_spy)
-    monkeypatch.setattr(svc, "draft_row", draft_spy)
+    monkeypatch.setattr(svc, "draft_decision", decision_spy)
 
     before = draft.revision
     revised = await svc.revise_draft(

@@ -309,11 +309,13 @@ def test_editorial_export_lock_ordering_is_business_first():
     text = (_BACKEND / "services/business_yansi/publication.py").read_text(encoding="utf-8")
     export = text.split("async def export_editorial_conversation", 1)[1].split("async def publish_draft", 1)[0]
     assert export.index("business_media_lock") < export.index("require_locked_actor")
-    assert export.index("require_locked_actor") < export.index("draft_row")
+    assert export.index("require_locked_actor") < export.index("draft_decision")
     publish = text.split("async def publish_draft", 1)[1]
     assert publish.index("business_media_lock") < publish.index("require_locked_actor")
-    assert publish.index("require_locked_actor") < publish.index("draft_row")
+    assert publish.index("require_locked_actor") < publish.index("draft_decision")
     assert "require_verified=True" in publish
+    assert "set_committed_value" not in export
+    assert "populate_existing" not in publish
 
 
 # --- Knowledge writers ---

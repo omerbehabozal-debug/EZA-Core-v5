@@ -2,8 +2,16 @@
 import os
 import uuid
 from sqlalchemy import select
-from .service import access, uid, fail, draft_row, published_knowledge
-from backend.models.business_yansi import BusinessPublication, BusinessProfile
+from .service import (
+    access,
+    uid,
+    fail,
+    draft_decision,
+    park_dirty_draft_content,
+    restore_dirty_draft_content,
+    published_knowledge,
+)
+from backend.models.business_yansi import BusinessPublication, BusinessProfile, BusinessYansiDraft as Draft
 from backend.models.mirror_network import MirrorNetworkNode
 from backend.models.standalone_conversations import StandaloneConversation, StandaloneConversationMessage
 
@@ -29,105 +37,138 @@ async def export_editorial_conversation(db,business_id,user_id,draft_id):
     from backend.services.business_yansi.studio_media import business_media_lock
     from backend.services.business_yansi.video_authority import require_locked_actor
 
-    # Business → actor reauth → Draft. Never Draft-first.
+    # Business → actor reauth → Draft decision snapshot. Never Draft-first.
+    # Policy A: decisions from locked DB projection; dirty ORM Draft attrs stay untouched.
     async with business_media_lock(db, business_id):
         await require_locked_actor(db, business_id, user_id, "editor")
-        draft = await draft_row(db, business_id, draft_id, True)
-        if draft.created_by != uid(user_id):
-            fail("editorial_conversation_owner_required")
-        if draft.status != "approved":
-            fail("draft_approval_required", 409)
-        if draft.conversation_id:
-            conversation = await db.get(StandaloneConversation, draft.conversation_id)
-            return conversation.client_conversation_id
-        # An editorial conversation contains only approved public-source Q/A, never
-        # customer conversation text. Existing Ayna/preparation/seal APIs own generation.
-        conversation = StandaloneConversation(
-            id=uuid.uuid4(),
-            user_id=uid(user_id),
-            client_conversation_id=str(uuid.uuid4()),
-            title=draft.title,
-            preview=draft.summary,
-            conversation_type="direct",
-            message_count=16,
-            tree_metadata={},
-        )
-        db.add(conversation)
-        await db.flush()
-        for index, step in enumerate(draft.steps):
-            for offset, (role, key) in enumerate((("user", "question"), ("assistant", "answer"))):
-                db.add(
-                    StandaloneConversationMessage(
-                        conversation_id=conversation.id,
-                        client_message_id=str(uuid.uuid4()),
-                        role=role,
-                        content=step[key],
-                        sequence=index * 2 + offset + 1,
-                    )
+        parked = {}
+        draft = None
+        try:
+            # Keep the whole decision/read path under no_autoflush so pending Draft
+            # titles cannot flush before we return or park for a write.
+            with db.no_autoflush:
+                snap = await draft_decision(db, business_id, draft_id, lock=True)
+                if snap.created_by != uid(user_id):
+                    fail("editorial_conversation_owner_required")
+                if snap.status != "approved":
+                    fail("draft_approval_required", 409)
+                if snap.conversation_id:
+                    conversation = await db.get(StandaloneConversation, snap.conversation_id)
+                    return conversation.client_conversation_id
+                draft = await db.get(Draft, snap.id)
+                if draft is None:
+                    fail("draft_not_found", 404)
+                # Park before any flush so pending Draft content cannot ride along.
+                # finally restores even if flush/commit fails (no hidden rollback).
+                parked = park_dirty_draft_content(draft, snap)
+                # An editorial conversation contains only approved public-source Q/A, never
+                # customer conversation text. Existing Ayna/preparation/seal APIs own generation.
+                # Use authoritative snap title/summary/steps — never pending dirty ORM values.
+                conversation = StandaloneConversation(
+                    id=uuid.uuid4(),
+                    user_id=uid(user_id),
+                    client_conversation_id=str(uuid.uuid4()),
+                    title=snap.title,
+                    preview=snap.summary,
+                    conversation_type="direct",
+                    message_count=16,
+                    tree_metadata={},
                 )
-        draft.conversation_id = conversation.id
-        await db.commit()
-        return conversation.client_conversation_id
+                db.add(conversation)
+                await db.flush()
+                for index, step in enumerate(snap.steps):
+                    for offset, (role, key) in enumerate((("user", "question"), ("assistant", "answer"))):
+                        db.add(
+                            StandaloneConversationMessage(
+                                conversation_id=conversation.id,
+                                client_message_id=str(uuid.uuid4()),
+                                role=role,
+                                content=step[key],
+                                sequence=index * 2 + offset + 1,
+                            )
+                        )
+                draft.conversation_id = conversation.id
+            await db.commit()
+            return conversation.client_conversation_id
+        finally:
+            if parked and draft is not None:
+                restore_dirty_draft_content(draft, parked)
 
 async def publish_draft(db,business_id,user_id,draft_id,slug,revision):
     await access(db, business_id, user_id, "owner")
     from backend.services.business_yansi.studio_media import business_media_lock
     from backend.services.business_yansi.video_authority import require_locked_actor
 
-    # Business → owner+verified reauth → Draft. Verification from DB snapshot, not ORM cache.
+    # Business → owner+verified reauth → Draft decision. Verification from DB snapshot, not ORM cache.
+    # Policy A: authoritative checks use the locked projection; dirty Draft content is preserved
+    # and is never silently published into the BusinessPublication or Draft lifecycle write.
     async with business_media_lock(db, business_id):
         await require_locked_actor(
             db, business_id, user_id, "owner", require_verified=True,
         )
-        draft = await draft_row(db, business_id, draft_id, True)
-        if draft.revision != revision or draft.status != "approved" or not draft.approved_by or not draft.conversation_id:
-            fail("approved_editorial_source_required", 409)
-        if len(await published_knowledge(db, business_id, draft.knowledge_snapshot)) != len(draft.knowledge_snapshot):
-            fail("source_snapshot_unavailable", 409)
-        node = await db.scalar(select(MirrorNetworkNode).where(MirrorNetworkNode.slug == slug).with_for_update())
-        conversation = await db.get(StandaloneConversation, draft.conversation_id)
-        if (
-            not node
-            or node.user_id != draft.created_by
-            or str(node.conversation_id) not in {str(conversation.id), conversation.client_conversation_id}
-            or node.visibility != "private"
-            or node.safety_status != "open"
-        ):
-            fail("private_owned_yansi_required", 409)
-        from backend.services.mirror_network.frozen_journey_artifact import (
-            get_frozen_journey_artifact,
-            to_public_frozen_journey_artifact,
-        )
-        # DB read only — no external provider call under the Business lock.
-        internal = await get_frozen_journey_artifact(db, slug=slug, journey_version=node.journey_version)
-        frozen = to_public_frozen_journey_artifact(internal) if internal else None
-        expected = [(s["question"], s["answer"]) for s in draft.steps]
-        if (
-            not frozen
-            or len(frozen["steps"]) != 8
-            or [(s["publicQuestion"], s["publicAnswer"]) for s in frozen["steps"]] != expected
-        ):
-            fail("sealed_draft_mismatch", 409)
-        if draft.media_plan is not None:
-            from backend.services.business_yansi.studio_media import assert_live_plan, media_seal
-            if draft.media_plan.get("seal") != media_seal(draft.media_plan):
-                fail("sealed_media_mismatch", 409)
-            await assert_live_plan(db, business_id, draft.steps, draft.media_plan)
-        if await db.get(BusinessPublication, (slug, node.journey_version)):
-            fail("publication_already_bound", 409)
-        db.add(
-            BusinessPublication(
-                slug=slug,
-                journey_version=node.journey_version,
-                business_id=uid(business_id),
-                draft_id=draft.id,
-                knowledge_snapshot=draft.knowledge_snapshot,
-                media_plan=draft.media_plan,
-                published_by=uid(user_id),
-            )
-        )
-        node.visibility = "public"
-        draft.status = "published"
-        draft.revision += 1
-        await db.commit()
-        return node
+        parked = {}
+        draft = None
+        try:
+            with db.no_autoflush:
+                snap = await draft_decision(db, business_id, draft_id, lock=True)
+                if snap.revision != revision or snap.status != "approved" or not snap.approved_by or not snap.conversation_id:
+                    fail("approved_editorial_source_required", 409)
+                if len(await published_knowledge(db, business_id, snap.knowledge_snapshot)) != len(snap.knowledge_snapshot):
+                    fail("source_snapshot_unavailable", 409)
+                node = await db.scalar(select(MirrorNetworkNode).where(MirrorNetworkNode.slug == slug).with_for_update())
+                conversation = await db.get(StandaloneConversation, snap.conversation_id)
+                if (
+                    not node
+                    or node.user_id != snap.created_by
+                    or str(node.conversation_id) not in {str(conversation.id), conversation.client_conversation_id}
+                    or node.visibility != "private"
+                    or node.safety_status != "open"
+                ):
+                    fail("private_owned_yansi_required", 409)
+                from backend.services.mirror_network.frozen_journey_artifact import (
+                    get_frozen_journey_artifact,
+                    to_public_frozen_journey_artifact,
+                )
+                # DB read only — no external provider call under the Business lock.
+                internal = await get_frozen_journey_artifact(db, slug=slug, journey_version=node.journey_version)
+                frozen = to_public_frozen_journey_artifact(internal) if internal else None
+                expected = [(s["question"], s["answer"]) for s in snap.steps]
+                if (
+                    not frozen
+                    or len(frozen["steps"]) != 8
+                    or [(s["publicQuestion"], s["publicAnswer"]) for s in frozen["steps"]] != expected
+                ):
+                    fail("sealed_draft_mismatch", 409)
+                if snap.media_plan is not None:
+                    from backend.services.business_yansi.studio_media import assert_live_plan, media_seal
+                    if snap.media_plan.get("seal") != media_seal(snap.media_plan):
+                        fail("sealed_media_mismatch", 409)
+                    await assert_live_plan(db, business_id, snap.steps, snap.media_plan)
+                if await db.get(BusinessPublication, (slug, node.journey_version)):
+                    fail("publication_already_bound", 409)
+                draft = await db.get(Draft, snap.id)
+                if draft is None:
+                    fail("draft_not_found", 404)
+                db.add(
+                    BusinessPublication(
+                        slug=slug,
+                        journey_version=node.journey_version,
+                        business_id=uid(business_id),
+                        draft_id=snap.id,
+                        knowledge_snapshot=snap.knowledge_snapshot,
+                        media_plan=snap.media_plan,
+                        published_by=uid(user_id),
+                    )
+                )
+                node.visibility = "public"
+                parked = park_dirty_draft_content(draft, snap)
+                draft.status = "published"
+                draft.revision = snap.revision + 1
+            await db.commit()
+            return node
+        finally:
+            # Restore after success (Policy A pending again) or after flush/commit failure
+            # so set_committed_value park cannot permanently clear caller history.
+            # No hidden rollback — caller owns failed-transaction recovery.
+            if parked and draft is not None:
+                restore_dirty_draft_content(draft, parked)

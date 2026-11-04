@@ -3,6 +3,7 @@ import hashlib
 import json
 import re
 import uuid
+from dataclasses import dataclass
 from fastapi import HTTPException
 from sqlalchemy import select, func
 from backend.models.production import User, Organization
@@ -41,10 +42,13 @@ async def can_provision(db, user) -> bool:
 
     return await caps.has_capability(db, user.id, caps.BILIGN_PLATFORM_ADMIN)
 async def access(db, business_id, user_id, minimum='viewer'):
-    business = await db.get(BusinessProfile, uid(business_id))
-    membership = await db.get(BusinessMember, (uid(business_id), uid(user_id)))
-    # Corporate membership/admin role never confers Business membership.
-    organization = await db.get(Organization, uid(business_id))
+    # no_autoflush: auth precheck must not persist unrelated pending ORM rows
+    # (e.g. dirty Draft/Knowledge titles) before the writer takes its locks.
+    with db.no_autoflush:
+        business = await db.get(BusinessProfile, uid(business_id))
+        membership = await db.get(BusinessMember, (uid(business_id), uid(user_id)))
+        # Corporate membership/admin role never confers Business membership.
+        organization = await db.get(Organization, uid(business_id))
     if not business or not organization or organization.status != 'active' or business.status != 'active': fail('business_not_found', 404)
     if not membership or ROLES.get(membership.role, 0) < ROLES[minimum]: fail('business_access_denied')
     return business
@@ -104,10 +108,11 @@ async def create_knowledge(db, business_id, user_id, data):
         public_content(title, category, content, source)
     from backend.services.business_yansi.video_authority import require_locked_actor
     # Lock tenant row to serialize new versions including the first version.
-    await db.scalar(select(BusinessProfile).where(BusinessProfile.id==uid(business_id)).with_for_update())
+    await _lock_business_row(db, business_id)
     await require_locked_actor(db, business_id, user_id, "editor")
-    previous=await db.scalar(select(func.max(Knowledge.version)).where(Knowledge.business_id==uid(business_id),Knowledge.item_id==item_id))
-    others=(await db.scalars(select(Knowledge).where(Knowledge.business_id==uid(business_id),Knowledge.item_id==item_id,Knowledge.status=='published').with_for_update())).all()
+    with db.no_autoflush:
+        previous=await db.scalar(select(func.max(Knowledge.version)).where(Knowledge.business_id==uid(business_id),Knowledge.item_id==item_id))
+        others=(await db.scalars(select(Knowledge).where(Knowledge.business_id==uid(business_id),Knowledge.item_id==item_id,Knowledge.status=='published').with_for_update())).all()
     for other in others:
         other.status='archived'
         other.revision+=1
@@ -136,22 +141,52 @@ async def transition_knowledge(db,business_id,user_id,version_id,target,revision
     minimum = 'owner' if target in {'approved','published','archived'} else 'editor'
     await access(db,business_id,user_id,minimum)
     from backend.services.business_yansi.video_authority import require_locked_actor
-    await db.scalar(select(BusinessProfile).where(BusinessProfile.id==uid(business_id)).with_for_update())
+    await _lock_business_row(db, business_id)
     await require_locked_actor(db, business_id, user_id, minimum)
-    row=await db.scalar(select(Knowledge).where(Knowledge.id==uid(version_id),Knowledge.business_id==uid(business_id)).with_for_update())
-    if not row: fail('knowledge_not_found',404)
-    if row.revision!=revision: fail('revision_conflict',409)
-    if target not in TRANSITIONS.get(row.status,set()): fail('invalid_transition',409)
-    others=[]
-    if target=='published':
-        if not row.public_allowed or not row.approved_by: fail('public_approval_required',422)
-        from backend.services.mirror.journey_step_sanitization import _flags_for_text
-        public_content(row.title,row.category,row.content,row.source)
-        others=(await db.scalars(select(Knowledge).where(Knowledge.business_id==row.business_id,Knowledge.item_id==row.item_id,Knowledge.status=='published').with_for_update())).all()
-        for other in others: other.status='archived';other.revision+=1
-    row.status=target;row.revision+=1
-    row.approved_by=uid(user_id) if target=='approved' else None if target=='draft' else row.approved_by
-    await db.commit();await db.refresh(row)
+    parked = {}
+    row = None
+    others = []
+    try:
+        with db.no_autoflush:
+            snap = await _knowledge_writer_snapshot(db, business_id, version_id, lock=True)
+            if snap.revision != revision:
+                fail("revision_conflict", 409)
+            if target not in TRANSITIONS.get(snap.status, set()):
+                fail("invalid_transition", 409)
+            row = await db.get(Knowledge, snap.id)
+            if row is None:
+                fail("knowledge_not_found", 404)
+            if target == "published":
+                if not snap.public_allowed or not snap.approved_by:
+                    fail("public_approval_required", 422)
+                from backend.services.mirror.journey_step_sanitization import _flags_for_text  # noqa: F401
+                public_content(snap.title, snap.category, snap.content, snap.source)
+                others = (
+                    await db.scalars(
+                        select(Knowledge)
+                        .where(
+                            Knowledge.business_id == snap.business_id,
+                            Knowledge.item_id == snap.item_id,
+                            Knowledge.status == "published",
+                        )
+                        .with_for_update()
+                    )
+                ).all()
+                for other in others:
+                    other.status = "archived"
+                    other.revision += 1
+            # Park dirty content so commit only writes intentional lifecycle fields from snap.
+            parked = park_dirty_knowledge_content(row, snap)
+            row.status = target
+            row.revision = snap.revision + 1
+            row.approved_by = (
+                uid(user_id) if target == "approved" else None if target == "draft" else snap.approved_by
+            )
+        await db.commit()
+    finally:
+        if parked and row is not None:
+            restore_dirty_knowledge_content(row, parked)
+    await db.refresh(row)
     await _sync_knowledge_index(db, [*others, row])
     await db.refresh(row)
     return row
@@ -160,24 +195,32 @@ async def delete_knowledge(db, business_id, user_id, version_id, revision):
     """Soft-delete one knowledge version by id (archive). Other titles/items untouched."""
     await access(db, business_id, user_id, 'editor')
     from backend.services.business_yansi.video_authority import require_locked_actor
-    await db.scalar(select(BusinessProfile).where(BusinessProfile.id == uid(business_id)).with_for_update())
+    await _lock_business_row(db, business_id)
     await require_locked_actor(db, business_id, user_id, "editor")
-    row = await db.scalar(
-        select(Knowledge)
-        .where(Knowledge.id == uid(version_id), Knowledge.business_id == uid(business_id))
-        .with_for_update()
-    )
-    if not row:
-        fail('knowledge_not_found', 404)
-    if row.revision != revision:
-        fail('revision_conflict', 409)
-    if row.status == 'archived':
-        await _sync_knowledge_index(db, [row])
-        await db.refresh(row)
-        return row
-    row.status = 'archived'
-    row.revision += 1
-    await db.commit()
+    parked = {}
+    row = None
+    already_archived = False
+    try:
+        with db.no_autoflush:
+            snap = await _knowledge_writer_snapshot(db, business_id, version_id, lock=True)
+            if snap.revision != revision:
+                fail("revision_conflict", 409)
+            row = await db.get(Knowledge, snap.id)
+            if row is None:
+                fail("knowledge_not_found", 404)
+            already_archived = snap.status == "archived"
+            if not already_archived:
+                parked = park_dirty_knowledge_content(row, snap)
+                row.status = "archived"
+                row.revision = snap.revision + 1
+        if already_archived:
+            await _sync_knowledge_index(db, [row])
+            await db.refresh(row)
+            return row
+        await db.commit()
+    finally:
+        if parked and row is not None:
+            restore_dirty_knowledge_content(row, parked)
     await db.refresh(row)
     await _sync_knowledge_index(db, [row])
     await db.refresh(row)
@@ -208,10 +251,144 @@ def _qa_steps(steps):
         clean.append({'question':step['question'],'answer':step['answer'],'sources':list(step['sources'])})
     return clean
 
-_DRAFT_LOCK_ATTRS = (
-    'revision', 'status', 'conversation_id', 'media_plan', 'steps',
-    'knowledge_snapshot', 'approved_by', 'title', 'summary', 'source_hash',
+@dataclass(frozen=True, slots=True)
+class DraftDecisionSnapshot:
+    """Authoritative Draft columns for writer decisions.
+
+    Built from a projected SELECT under ``no_autoflush``. Never written back onto
+    identity-map instances via ``populate_existing`` / ``set_committed_value``.
+    Pending dirty ORM attributes and SQLAlchemy history stay on the instance.
+    Policy A: decisions use this snapshot; caller-owned dirty Draft state is preserved.
+    """
+
+    id: object
+    business_id: object
+    revision: int
+    status: str
+    conversation_id: object
+    media_plan: object
+    steps: object
+    knowledge_snapshot: object
+    approved_by: object
+    created_by: object
+    title: str
+    summary: object
+    source_hash: str
+
+
+@dataclass(frozen=True, slots=True)
+class KnowledgeWriterSnapshot:
+    """Authoritative Knowledge columns for transition/delete decisions."""
+
+    id: object
+    business_id: object
+    item_id: object
+    revision: int
+    status: str
+    public_allowed: bool
+    approved_by: object
+    title: str
+    category: object
+    content: str
+    source: str
+
+
+# Content columns that a status/revision writer must not flush from pending local edits.
+_DRAFT_CONTENT_ATTRS = (
+    "title",
+    "summary",
+    "steps",
+    "knowledge_snapshot",
+    "media_plan",
+    "source_hash",
+    "approved_by",
+    "conversation_id",
+    "created_by",
 )
+
+_KNOWLEDGE_CONTENT_ATTRS = (
+    "title",
+    "category",
+    "content",
+    "source",
+    "public_allowed",
+    "approved_by",
+    "item_id",
+)
+
+
+def park_dirty_draft_content(draft, snap: DraftDecisionSnapshot) -> dict:
+    """Align dirty content attrs with the locked DB snapshot before a status write.
+
+    Policy A: decisions already used ``snap``. Pending caller values are parked so
+    ``commit`` cannot publish them, then restored onto the identity-map instance.
+    Uses ``set_committed_value`` only for this write-path park — never as a lock-read
+    writeback into the identity map for decisions.
+    """
+    from sqlalchemy.orm.attributes import get_history, set_committed_value
+
+    values = {
+        "title": snap.title,
+        "summary": snap.summary,
+        "steps": snap.steps,
+        "knowledge_snapshot": snap.knowledge_snapshot,
+        "media_plan": snap.media_plan,
+        "source_hash": snap.source_hash,
+        "approved_by": snap.approved_by,
+        "conversation_id": snap.conversation_id,
+        "created_by": snap.created_by,
+    }
+    parked = {}
+    for name in _DRAFT_CONTENT_ATTRS:
+        if get_history(draft, name).has_changes():
+            parked[name] = getattr(draft, name)
+            set_committed_value(draft, name, values[name])
+    return parked
+
+
+def restore_dirty_draft_content(draft, parked: dict) -> None:
+    """Re-apply parked caller-owned Draft content after commit."""
+    for name, value in parked.items():
+        setattr(draft, name, value)
+
+
+def park_dirty_knowledge_content(row, snap: KnowledgeWriterSnapshot) -> dict:
+    """Park dirty Knowledge content so a status/revision commit cannot publish it."""
+    from sqlalchemy.orm.attributes import get_history, set_committed_value
+
+    values = {
+        "title": snap.title,
+        "category": snap.category,
+        "content": snap.content,
+        "source": snap.source,
+        "public_allowed": snap.public_allowed,
+        "approved_by": snap.approved_by,
+        "item_id": snap.item_id,
+    }
+    parked = {}
+    for name in _KNOWLEDGE_CONTENT_ATTRS:
+        if get_history(row, name).has_changes():
+            parked[name] = getattr(row, name)
+            set_committed_value(row, name, values[name])
+    return parked
+
+
+def restore_dirty_knowledge_content(row, parked: dict) -> None:
+    for name, value in parked.items():
+        setattr(row, name, value)
+
+
+async def _lock_business_row(db, business_id) -> None:
+    """Acquire the Business FOR UPDATE lock without autoflush or ORM refresh."""
+    with db.no_autoflush:
+        locked = await db.execute(
+            select(BusinessProfile.id)
+            .where(BusinessProfile.id == uid(business_id))
+            .with_for_update()
+        )
+        if locked.scalar_one_or_none() is None:
+            fail("business_not_found", 404)
+
 
 def _assert_supported_steps(steps, allowed):
     for step in steps:
@@ -239,30 +416,94 @@ async def create_draft(db,business_id,user_id,title,summary,steps,*,commit=True,
         else: await db.flush()
         return row
 
+async def draft_decision(db, business_id, draft_id, *, lock: bool = False) -> DraftDecisionSnapshot:
+    """Read Draft decision columns from the database without mutating the identity map."""
+    criteria = (Draft.id == uid(draft_id), Draft.business_id == uid(business_id))
+    query = select(
+        Draft.id,
+        Draft.business_id,
+        Draft.revision,
+        Draft.status,
+        Draft.conversation_id,
+        Draft.media_plan,
+        Draft.steps,
+        Draft.knowledge_snapshot,
+        Draft.approved_by,
+        Draft.created_by,
+        Draft.title,
+        Draft.summary,
+        Draft.source_hash,
+    ).where(*criteria)
+    if lock:
+        query = query.with_for_update()
+    with db.no_autoflush:
+        current = await db.execute(query)
+        locked = current.one_or_none()
+    if locked is None:
+        fail("draft_not_found", 404)
+    return DraftDecisionSnapshot(
+        id=locked.id,
+        business_id=locked.business_id,
+        revision=int(locked.revision),
+        status=str(locked.status),
+        conversation_id=locked.conversation_id,
+        media_plan=locked.media_plan,
+        steps=locked.steps,
+        knowledge_snapshot=locked.knowledge_snapshot,
+        approved_by=locked.approved_by,
+        created_by=locked.created_by,
+        title=str(locked.title),
+        summary=locked.summary,
+        source_hash=str(locked.source_hash),
+    )
+
 async def draft_row(db,business_id,draft_id,lock=False):
-    criteria=(Draft.id==uid(draft_id),Draft.business_id==uid(business_id))
+    """Return the Draft ORM instance. Locked path uses a decision snapshot, not refresh."""
     if not lock:
-        row=await db.scalar(select(Draft).where(*criteria))
+        row=await db.scalar(select(Draft).where(Draft.id==uid(draft_id),Draft.business_id==uid(business_id)))
         if not row: fail('draft_not_found',404)
         return row
-    # Lock via column projection, then copy decision attrs with set_committed_value.
-    # Avoids refresh()/populate_existing wiping unrelated pending ORM state.
-    from sqlalchemy.orm.attributes import set_committed_value
+    snap = await draft_decision(db, business_id, draft_id, lock=True)
+    row = await db.get(Draft, snap.id)
+    if row is None:
+        fail("draft_not_found", 404)
+    return row
+
+async def _knowledge_writer_snapshot(db, business_id, version_id, *, lock: bool = True) -> KnowledgeWriterSnapshot:
+    """Authoritative Knowledge row for transition/delete. Does not trust the identity map."""
+    query = select(
+        Knowledge.id,
+        Knowledge.business_id,
+        Knowledge.item_id,
+        Knowledge.revision,
+        Knowledge.status,
+        Knowledge.public_allowed,
+        Knowledge.approved_by,
+        Knowledge.title,
+        Knowledge.category,
+        Knowledge.content,
+        Knowledge.source,
+    ).where(Knowledge.id == uid(version_id), Knowledge.business_id == uid(business_id))
+    if lock:
+        query = query.with_for_update()
     with db.no_autoflush:
-        current=await db.execute(
-            select(
-                Draft.id, Draft.revision, Draft.status, Draft.conversation_id,
-                Draft.media_plan, Draft.steps, Draft.knowledge_snapshot,
-                Draft.approved_by, Draft.title, Draft.summary, Draft.source_hash,
-            ).where(*criteria).with_for_update()
-        )
-        locked=current.one_or_none()
-        if locked is None: fail('draft_not_found',404)
-        row=await db.get(Draft, locked.id)
-        if row is None: fail('draft_not_found',404)
-        for name in _DRAFT_LOCK_ATTRS:
-            set_committed_value(row, name, locked._mapping[name])
-        return row
+        current = await db.execute(query)
+        locked = current.one_or_none()
+    if locked is None:
+        fail("knowledge_not_found", 404)
+    return KnowledgeWriterSnapshot(
+        id=locked.id,
+        business_id=locked.business_id,
+        item_id=locked.item_id,
+        revision=int(locked.revision),
+        status=str(locked.status),
+        public_allowed=bool(locked.public_allowed),
+        approved_by=locked.approved_by,
+        title=str(locked.title),
+        category=locked.category,
+        content=str(locked.content),
+        source=str(locked.source),
+    )
 
 async def transition_draft(db,business_id,user_id,draft_id,target,revision):
     role='owner' if target=='approved' else 'editor'
@@ -271,28 +512,46 @@ async def transition_draft(db,business_id,user_id,draft_id,target,revision):
     from backend.services.business_yansi.video_authority import require_locked_access
     async with business_media_lock(db,business_id):
         await require_locked_access(db,business_id,user_id,role)
-        row=await draft_row(db,business_id,draft_id,True)
-        if row.revision!=revision: fail('revision_conflict',409)
-        if target not in TRANSITIONS.get(row.status,set()) or target=='published': fail('invalid_transition',409)
-        if target in {'review','approved'} and row.media_plan is not None:
+        snap = await draft_decision(db, business_id, draft_id, lock=True)
+        if snap.revision != revision:
+            fail("revision_conflict", 409)
+        if target not in TRANSITIONS.get(snap.status, set()) or target == "published":
+            fail("invalid_transition", 409)
+        row = await db.get(Draft, snap.id)
+        if row is None:
+            fail("draft_not_found", 404)
+        if target in {"review", "approved"} and snap.media_plan is not None:
             from backend.services.business_yansi.studio_media import assert_live_plan
-            await assert_live_plan(db,business_id,row.steps,row.media_plan)
-        if target=='approved':
-            if len(await published_knowledge(db,business_id,row.knowledge_snapshot,fresh=True))!=len(row.knowledge_snapshot): fail('source_snapshot_unavailable',409)
-            if row.media_plan is not None:
+            await assert_live_plan(db, business_id, snap.steps, snap.media_plan)
+        if target == "approved":
+            if len(await published_knowledge(db, business_id, snap.knowledge_snapshot, fresh=True)) != len(snap.knowledge_snapshot):
+                fail("source_snapshot_unavailable", 409)
+            if snap.media_plan is not None:
                 from backend.services.business_yansi.studio_media import media_seal
-                plan={'coverAssetId':row.media_plan.get('coverAssetId'),'blocks':row.media_plan.get('blocks') or [],'seal':None}
-                plan['seal']=media_seal(plan)
-                row.media_plan=plan
-            row.approved_by=uid(user_id)
-        elif target=='draft':
-            row.approved_by=None
-            if isinstance(row.media_plan,dict):
-                plan={'coverAssetId':row.media_plan.get('coverAssetId'),'blocks':row.media_plan.get('blocks') or [],'seal':None}
-                if row.media_plan.get('coverMode')=='automatic' and not row.media_plan.get('seal'):
-                    plan['coverMode']='automatic'
-                row.media_plan=plan
-        row.status=target;row.revision+=1;await db.commit();await db.refresh(row);return row
+                plan = {
+                    "coverAssetId": snap.media_plan.get("coverAssetId"),
+                    "blocks": snap.media_plan.get("blocks") or [],
+                    "seal": None,
+                }
+                plan["seal"] = media_seal(plan)
+                row.media_plan = plan
+            row.approved_by = uid(user_id)
+        elif target == "draft":
+            row.approved_by = None
+            if isinstance(snap.media_plan, dict):
+                plan = {
+                    "coverAssetId": snap.media_plan.get("coverAssetId"),
+                    "blocks": snap.media_plan.get("blocks") or [],
+                    "seal": None,
+                }
+                if snap.media_plan.get("coverMode") == "automatic" and not snap.media_plan.get("seal"):
+                    plan["coverMode"] = "automatic"
+                row.media_plan = plan
+        row.status = target
+        row.revision = snap.revision + 1
+        await db.commit()
+        await db.refresh(row)
+        return row
 
 async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,steps,cover_asset_id=None,*,cover_specified=True):
     await access(db,business_id,user_id,'editor')
@@ -304,16 +563,20 @@ async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,st
     from backend.services.business_yansi.video_authority import require_locked_access
     async with business_media_lock(db, business_id):
         await require_locked_access(db, business_id, user_id, 'editor')
-        row=await draft_row(db,business_id,draft_id,True)
-        if row.revision!=revision or row.status!='draft' or row.conversation_id:
-            fail('editable_draft_required',409)
+        snap = await draft_decision(db, business_id, draft_id, lock=True)
+        if snap.revision != revision or snap.status != "draft" or snap.conversation_id:
+            fail("editable_draft_required", 409)
+        row = await db.get(Draft, snap.id)
+        if row is None:
+            fail("draft_not_found", 404)
         allowed={str(v.id):v for v in await published_knowledge(db,business_id,fresh=True)}
         _assert_supported_steps(steps, allowed)
-        if not cover_specified and isinstance(row.media_plan, dict):
-            if row.media_plan.get("coverMode") == "explicit" and row.media_plan.get("coverAssetId"):
-                cover_asset_id = row.media_plan.get("coverAssetId")
+        if not cover_specified and isinstance(snap.media_plan, dict):
+            if snap.media_plan.get("coverMode") == "explicit" and snap.media_plan.get("coverAssetId"):
+                cover_asset_id = snap.media_plan.get("coverAssetId")
         row.title=title;row.summary=summary;row.steps=steps
         row.media_plan=await bind_media_plan(db,business_id,title,summary,steps,cover_asset_id=cover_asset_id)
         row.knowledge_snapshot=sorted({v for step in steps for v in step['sources']})
-        row.source_hash=source_hash(steps);row.revision+=1
+        row.source_hash=source_hash(steps)
+        row.revision = snap.revision + 1
         await db.commit();await db.refresh(row);return row
