@@ -427,11 +427,13 @@ def restore_dirty_draft_content(draft, parked: dict) -> None:
 
 
 def _restore_parked_draft_best_effort(draft, parked: dict, *, primary=None) -> None:
-    """Restore parked Draft content without masking ``primary`` when both fail.
+    """Restore parked Draft content without masking an operation-local ``primary``.
 
-    Secondary restore failures are attached as ``__restore_error__`` (not ``__cause__``)
-    so the primary cancellation/exception remains the raised type and causality is not
-    inverted. No Draft body content is logged.
+    ``primary`` must be captured by the caller via ``except BaseException`` — never from
+    ambient ``sys.exc_info()``, which can belong to an unrelated outer except block.
+    When ``primary`` is None (operation succeeded), restore failures propagate.
+    Secondary restore failures attach as ``__restore_error__`` (not ``__cause__``).
+    No Draft body content is logged.
     """
     if not parked or draft is None:
         return
@@ -655,14 +657,17 @@ async def transition_draft(db,business_id,user_id,draft_id,target,revision):
                     row.media_plan = plan
             row.status = target
             row.revision = snap.revision + 1
-        # Cancellation-safe restore: BaseException (incl. CancelledError) must still restore
-        # after a successful commit. Do not hide primary errors with secondary restore failures.
-        import sys
+        # Operation-local primary: never use ambient sys.exc_info() (caller outer except).
+        # CancelledError/BaseException still restore; secondary restore must not mask primary.
+        primary = None
         try:
             await db.commit()
             await db.refresh(row)
+        except BaseException as exc:
+            primary = exc
+            raise
         finally:
-            _restore_parked_draft_best_effort(row, parked, primary=sys.exc_info()[1])
+            _restore_parked_draft_best_effort(row, parked, primary=primary)
         return row
 
 async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,steps,cover_asset_id=None,*,cover_specified=True):

@@ -1,6 +1,5 @@
 """Business approval attaches to a real sealed Yansı; never fabricate a seal."""
 import os
-import sys
 import uuid
 from sqlalchemy import select
 from .service import (
@@ -45,6 +44,7 @@ async def export_editorial_conversation(db,business_id,user_id,draft_id):
         await require_locked_actor(db, business_id, user_id, "editor")
         parked = {}
         draft = None
+        primary = None
         try:
             # Keep the whole decision/read path under no_autoflush so pending Draft
             # titles cannot flush before we return or park for a write.
@@ -93,9 +93,12 @@ async def export_editorial_conversation(db,business_id,user_id,draft_id):
                 draft.conversation_id = conversation.id
             await db.commit()
             return conversation.client_conversation_id
+        except BaseException as exc:
+            primary = exc
+            raise
         finally:
-            # Cancellation-safe: restore even on CancelledError; do not mask primary.
-            _restore_parked_draft_best_effort(draft, parked, primary=sys.exc_info()[1])
+            # Operation-local primary only — never ambient sys.exc_info() from caller except.
+            _restore_parked_draft_best_effort(draft, parked, primary=primary)
 
 async def publish_draft(db,business_id,user_id,draft_id,slug,revision):
     await access(db, business_id, user_id, "owner")
@@ -111,6 +114,7 @@ async def publish_draft(db,business_id,user_id,draft_id,slug,revision):
         )
         parked = {}
         draft = None
+        primary = None
         try:
             with db.no_autoflush:
                 snap = await draft_decision(db, business_id, draft_id, lock=True)
@@ -170,6 +174,9 @@ async def publish_draft(db,business_id,user_id,draft_id,slug,revision):
                 draft.revision = snap.revision + 1
             await db.commit()
             return node
+        except BaseException as exc:
+            primary = exc
+            raise
         finally:
-            # Cancellation-safe restore; secondary failure attaches as __restore_error__.
-            _restore_parked_draft_best_effort(draft, parked, primary=sys.exc_info()[1])
+            # Operation-local primary only — never ambient sys.exc_info() from caller except.
+            _restore_parked_draft_best_effort(draft, parked, primary=primary)
