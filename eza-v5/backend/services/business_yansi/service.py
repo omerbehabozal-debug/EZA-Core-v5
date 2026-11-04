@@ -102,8 +102,10 @@ async def create_knowledge(db, business_id, user_id, data):
     title=data['title']; category=data.get('category',''); content=data['content']; source=data['source']
     if public_allowed:
         public_content(title, category, content, source)
+    from backend.services.business_yansi.video_authority import require_locked_actor
     # Lock tenant row to serialize new versions including the first version.
     await db.scalar(select(BusinessProfile).where(BusinessProfile.id==uid(business_id)).with_for_update())
+    await require_locked_actor(db, business_id, user_id, "editor")
     previous=await db.scalar(select(func.max(Knowledge.version)).where(Knowledge.business_id==uid(business_id),Knowledge.item_id==item_id))
     others=(await db.scalars(select(Knowledge).where(Knowledge.business_id==uid(business_id),Knowledge.item_id==item_id,Knowledge.status=='published').with_for_update())).all()
     for other in others:
@@ -131,8 +133,11 @@ async def create_knowledge(db, business_id, user_id, data):
     return row
 
 async def transition_knowledge(db,business_id,user_id,version_id,target,revision):
-    await access(db,business_id,user_id,'owner' if target in {'approved','published','archived'} else 'editor')
+    minimum = 'owner' if target in {'approved','published','archived'} else 'editor'
+    await access(db,business_id,user_id,minimum)
+    from backend.services.business_yansi.video_authority import require_locked_actor
     await db.scalar(select(BusinessProfile).where(BusinessProfile.id==uid(business_id)).with_for_update())
+    await require_locked_actor(db, business_id, user_id, minimum)
     row=await db.scalar(select(Knowledge).where(Knowledge.id==uid(version_id),Knowledge.business_id==uid(business_id)).with_for_update())
     if not row: fail('knowledge_not_found',404)
     if row.revision!=revision: fail('revision_conflict',409)
@@ -154,7 +159,9 @@ async def transition_knowledge(db,business_id,user_id,version_id,target,revision
 async def delete_knowledge(db, business_id, user_id, version_id, revision):
     """Soft-delete one knowledge version by id (archive). Other titles/items untouched."""
     await access(db, business_id, user_id, 'editor')
+    from backend.services.business_yansi.video_authority import require_locked_actor
     await db.scalar(select(BusinessProfile).where(BusinessProfile.id == uid(business_id)).with_for_update())
+    await require_locked_actor(db, business_id, user_id, "editor")
     row = await db.scalar(
         select(Knowledge)
         .where(Knowledge.id == uid(version_id), Knowledge.business_id == uid(business_id))
