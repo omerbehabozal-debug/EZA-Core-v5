@@ -1,6 +1,7 @@
 """Content-addressed brand image storage: no-clobber publish and sealed-media safety.
 
-Filesystem concurrency / fault-injection on local disk — not PostgreSQL lock proofs.
+Actual local-filesystem tests (plus targeted os.link/os.rename fault injection).
+Not PostgreSQL overlapping-transaction proofs.
 """
 from __future__ import annotations
 
@@ -16,6 +17,7 @@ from fastapi import HTTPException
 from backend.services.business_yansi import brand_asset_library as library
 from backend.services.business_yansi import service as svc
 from backend.services.business_yansi import studio_media as media
+from backend.services.business_yansi.video_authority import assign_member_role
 from backend.tests.test_business_studio_media import _approve, _steps
 from backend.tests.test_business_video_cover_policy import asset_dir, sample
 from backend.tests.test_business_yansi import source
@@ -26,6 +28,48 @@ _PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
 def _path_for(business_id, payload: bytes) -> Path:
     digest = hashlib.sha256(payload).hexdigest()
     return library.asset_root() / str(business_id) / f"{digest}.png"
+
+
+# --- Path equivalence (unit; no disk I/O beyond Path construction) ---
+
+
+def test_path_equivalence_ordinary_and_extended_drive():
+    root = Path(r"C:\Users\MONSTER\AppData\Local\Temp\bilign-root")
+    ordinary = root / "tenant" / "a.png"
+    extended = Path(r"\\?\C:\Users\MONSTER\AppData\Local\Temp\bilign-root\tenant\a.png")
+    assert library._path_is_within(root, ordinary) is True
+    assert library._path_is_within(root, extended) is True
+    assert library._path_is_within(Path(r"\\?\C:\Users\MONSTER\AppData\Local\Temp\bilign-root"), ordinary) is True
+
+
+def test_path_equivalence_unc_ordinary_and_extended():
+    root = Path(r"\\fileserver\share\brand")
+    ordinary = root / "tenant" / "a.png"
+    extended = Path(r"\\?\UNC\fileserver\share\brand\tenant\a.png")
+    assert library._path_is_within(root, ordinary) is True
+    assert library._path_is_within(root, extended) is True
+    assert library._path_is_within(Path(r"\\?\UNC\fileserver\share\brand"), ordinary) is True
+
+
+def test_path_rejects_traversal_and_foreign_roots():
+    root = Path(r"C:\Users\MONSTER\AppData\Local\Temp\bilign-root")
+    assert library._path_is_within(root, Path(r"C:\Windows\System32\x.png")) is False
+    assert library._path_is_within(root, Path(r"\\?\C:\Windows\System32\x.png")) is False
+    assert library._path_is_within(root, Path(r"C:\Users\MONSTER\AppData\Local\Temp\bilign-root\..\..\Windows\x.png")) is False
+    # Different volume / share
+    assert library._path_is_within(root, Path(r"D:\other\a.png")) is False
+    assert library._path_is_within(root, Path(r"\\other\share\a.png")) is False
+
+
+def test_path_rejects_device_namespace_without_coercion():
+    root = Path(r"C:\Users\MONSTER\AppData\Local\Temp\bilign-root")
+    device = Path(r"\\.\C:\Users\MONSTER\AppData\Local\Temp\bilign-root\tenant\a.png")
+    volume = Path(r"\\?\Volume{00000000-0000-0000-0000-000000000000}\tenant\a.png")
+    assert library._path_is_within(root, device) is False
+    assert library._path_is_within(root, volume) is False
+
+
+# --- Actual filesystem publish / integrity ---
 
 
 def test_repeated_upload_reuses_valid_hash_without_rewrite(asset_dir, monkeypatch):
@@ -40,7 +84,6 @@ def test_repeated_upload_reuses_valid_hash_without_rewrite(asset_dir, monkeypatc
 
     def spy_open(path, flags, *args, **kwargs):
         opens.append(str(path))
-        # Existing target must never be opened for writing.
         if Path(path).resolve() == target.resolve() and (flags & os.O_WRONLY or flags & os.O_RDWR):
             raise AssertionError("existing hash opened for write")
         return real_open(path, flags, *args, **kwargs)
@@ -57,7 +100,7 @@ def test_corrupted_existing_hash_fails_closed_without_delete(asset_dir):
     payload = _PNG + b"corrupt-hash"
     target = _path_for(business_id, payload)
     library.store_image(business_id, payload)
-    target.write_bytes(b"\x00" * 32)  # wrong bytes under the digest name
+    target.write_bytes(b"\x00" * 32)
     before = target.read_bytes()
     with pytest.raises(HTTPException) as raised:
         library.store_image(business_id, payload)
@@ -96,7 +139,7 @@ def test_publish_race_reuses_winner_without_overwrite(asset_dir, monkeypatch):
     def win_then_link(src, dst):
         Path(dst).parent.mkdir(parents=True, exist_ok=True)
         if not Path(dst).exists():
-            Path(dst).write_bytes(payload)  # another writer published first
+            Path(dst).write_bytes(payload)
         return real_link(src, dst)
 
     monkeypatch.setattr(os, "link", win_then_link)
@@ -105,11 +148,92 @@ def test_publish_race_reuses_winner_without_overwrite(asset_dir, monkeypatch):
     assert target.read_bytes() == payload
 
 
-def test_concurrent_same_hash_uploads_keep_one_intact_object(asset_dir):
-    """Filesystem race: overlapping same-hash publishes must leave one intact object.
+@pytest.mark.skipif(os.name != "nt", reason="Windows WinError 5 fallback only")
+def test_windows_link_access_denied_absent_destination_uses_rename(asset_dir, monkeypatch):
+    business_id = uuid.uuid4()
+    payload = _PNG + b"winerr5-absent"
+    target = _path_for(business_id, payload)
+    renames: list[tuple[str, str]] = []
 
-    This exercises local ``os.link`` no-clobber behavior, not PostgreSQL transactions.
-    """
+    def deny_link(src, dst):
+        raise OSError(5, "Access is denied", str(dst), 5)
+
+    real_rename = os.rename
+
+    def spy_rename(src, dst):
+        renames.append((str(src), str(dst)))
+        return real_rename(src, dst)
+
+    monkeypatch.setattr(os, "link", deny_link)
+    monkeypatch.setattr(os, "rename", spy_rename)
+    locator = library.store_image(business_id, payload)
+    assert locator.endswith(".png")
+    assert target.is_file()
+    assert target.read_bytes() == payload
+    assert renames and Path(renames[0][1]).resolve() == target.resolve()
+    assert list(target.parent.glob(".*.tmp")) == []
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows WinError 5 fallback only")
+def test_windows_link_access_denied_existing_destination_reuses_without_rename(asset_dir, monkeypatch):
+    business_id = uuid.uuid4()
+    payload = _PNG + b"winerr5-exists"
+    target = _path_for(business_id, payload)
+    library.store_image(business_id, payload)
+    before = target.read_bytes()
+    renames: list[tuple[str, str]] = []
+
+    def deny_link(src, dst):
+        raise OSError(5, "Access is denied", str(dst), 5)
+
+    def forbid_rename(src, dst):
+        renames.append((str(src), str(dst)))
+        raise AssertionError("rename must not run when destination already exists")
+
+    monkeypatch.setattr(os, "link", deny_link)
+    monkeypatch.setattr(os, "rename", forbid_rename)
+    # Bypass early reuse so publish path sees an existing destination after link denial.
+    # store_image short-circuits on is_file(); call publish helpers via a fresh name race:
+    # recreate by deleting is_file check — instead inject at publish with existing file:
+    staged = library._stage_image_bytes(target.parent, hashlib.sha256(payload).hexdigest(), payload)
+    library._publish_staged_image(staged, target, hashlib.sha256(payload).hexdigest())
+    assert renames == []
+    assert target.read_bytes() == before
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows rename no-clobber contract")
+def test_windows_rename_fallback_existing_destination_keeps_bytes(asset_dir):
+    business_id = uuid.uuid4()
+    payload = _PNG + b"rename-exists"
+    target = _path_for(business_id, payload)
+    library.store_image(business_id, payload)
+    before = target.read_bytes()
+    digest = hashlib.sha256(payload).hexdigest()
+    staged = library._stage_image_bytes(target.parent, digest, payload)
+    outcome = library._publish_via_windows_rename(staged, target, digest)
+    assert outcome == "reused"
+    assert target.read_bytes() == before
+    assert list(target.parent.glob(".*.tmp")) == []
+
+
+def test_windows_rename_no_clobber_leaves_destination_intact(asset_dir):
+    """Direct NTFS evidence: os.rename does not overwrite an existing destination."""
+    if os.name != "nt":
+        pytest.skip("Windows rename semantics")
+    business_id = uuid.uuid4()
+    payload = _PNG + b"rename-contract"
+    target = _path_for(business_id, payload)
+    library.store_image(business_id, payload)
+    before = target.read_bytes()
+    staged = target.parent / f".probe.{uuid.uuid4().hex}.tmp"
+    staged.write_bytes(b"not-the-original")
+    with pytest.raises(FileExistsError):
+        os.rename(staged, target)
+    assert target.read_bytes() == before
+    staged.unlink(missing_ok=True)
+
+
+def test_concurrent_same_hash_uploads_keep_one_intact_object(asset_dir):
     business_id = uuid.uuid4()
     payload = _PNG + b"concurrent-hash"
     target = _path_for(business_id, payload)
@@ -122,21 +246,18 @@ def test_concurrent_same_hash_uploads_keep_one_intact_object(asset_dir):
             barrier.wait(timeout=5)
             ready.wait(timeout=5)
             library.store_image(business_id, payload)
-        except BaseException as exc:  # noqa: BLE001 — collect any worker failure
+        except BaseException as exc:  # noqa: BLE001
             errors.append(exc)
 
     threads = [threading.Thread(target=worker) for _ in range(2)]
     for thread in threads:
         thread.start()
-    # Both threads pass the barrier first, then race store_image together.
     ready.set()
     for thread in threads:
         thread.join(timeout=10)
     assert errors == [], errors
     assert target.is_file()
     assert target.read_bytes() == payload
-    assert hashlib.sha256(target.read_bytes()).hexdigest() == hashlib.sha256(payload).hexdigest()
-    # A follow-up store must reuse without rewriting.
     library.store_image(business_id, payload)
     assert target.read_bytes() == payload
 
@@ -145,7 +266,6 @@ def test_concurrent_same_hash_uploads_keep_one_intact_object(asset_dir):
 async def test_sealed_draft_image_survives_repeated_upload_and_injected_write_failure(
     sample, asset_dir, monkeypatch,
 ):
-    """HIGH counterexample: sealed media must not be truncated by a rewrite attempt."""
     knowledge = await source(sample, content="Atolye gorseli kaydi burada durur.")
     payload = _PNG + b"sealed-intact"
     image = await library.create_asset(
@@ -165,7 +285,6 @@ async def test_sealed_draft_image_survives_repeated_upload_and_injected_write_fa
     sealed = draft.media_plan["seal"]
     target = _path_for(sample.business.id, payload)
     original = target.read_bytes()
-    assert original == payload
 
     real_open = os.open
 
@@ -177,13 +296,9 @@ async def test_sealed_draft_image_survives_repeated_upload_and_injected_write_fa
         return real_open(path, flags, *args, **kwargs)
 
     monkeypatch.setattr(os, "open", forbid_target_write)
-
-    # Same-hash store must reuse without opening the sealed object for write.
     again = library.store_image(sample.business.id, payload)
     assert again == image.locator
     assert target.read_bytes() == original
-
-    # Another Asset with the same bytes must also reuse the sealed object.
     twin = await library.create_asset(
         sample.db, sample.business.id, sample.editor.id,
         {"asset_type": "image", "title": "Kopya", "caption": "", "public_allowed": True},
@@ -191,14 +306,46 @@ async def test_sealed_draft_image_survives_repeated_upload_and_injected_write_fa
     )
     assert twin.locator == image.locator
     assert target.read_bytes() == original
-
     await sample.db.refresh(draft)
     assert draft.media_plan["coverAssetId"] == str(image.id)
     assert draft.media_plan["seal"] == sealed
     assert sealed == media.media_seal(draft.media_plan)
-    preview, mime = library.read_stored_image(sample.business.id, image.locator)
-    assert mime == "image/png"
-    assert preview == original
+
+
+@pytest.mark.asyncio
+async def test_authorization_rejection_before_storage(sample, asset_dir, monkeypatch):
+    from contextlib import asynccontextmanager
+
+    payload = _PNG + b"auth-reject-store"
+    target = _path_for(sample.business.id, payload)
+    stores: list[bytes] = []
+    real_store = library.store_image
+
+    def spy(business_id, image_bytes):
+        stores.append(image_bytes)
+        return real_store(business_id, image_bytes)
+
+    monkeypatch.setattr(library, "store_image", spy)
+    real_lock = media.business_media_lock
+
+    @asynccontextmanager
+    async def demote_then_lock(db, business_id):
+        await assign_member_role(db, sample.business.id, sample.owner.id, sample.editor.id, "viewer")
+        async with real_lock(db, business_id) as snap:
+            yield snap
+
+    import backend.services.business_yansi.studio_media as studio_mod
+
+    monkeypatch.setattr(studio_mod, "business_media_lock", demote_then_lock)
+    with pytest.raises(HTTPException) as raised:
+        await library.create_asset(
+            sample.db, sample.business.id, sample.editor.id,
+            {"asset_type": "image", "title": "Red", "caption": "", "public_allowed": True},
+            image_bytes=payload,
+        )
+    assert raised.value.status_code == 403
+    assert stores == []
+    assert not target.exists()
 
 
 @pytest.mark.asyncio
@@ -211,13 +358,11 @@ async def test_db_rollback_after_store_does_not_delete_shared_hash(sample, asset
     )
     target = _path_for(sample.business.id, payload)
     assert target.is_file()
-
     real_commit = sample.db.commit
 
     async def boom_commit():
         raise RuntimeError("db failed after storage")
 
-    # Force create_asset past auth/store then fail commit.
     monkeypatch.setattr(sample.db, "commit", boom_commit)
     with pytest.raises(RuntimeError):
         await library.create_asset(

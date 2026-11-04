@@ -49,14 +49,32 @@ def _content_digest(image_bytes: bytes) -> str:
     return hashlib.sha256(image_bytes).hexdigest()
 
 
-def _path_is_within(root: Path, candidate: Path) -> bool:
-    """True when ``candidate`` is ``root`` or a descendant.
+def _normalize_fs_path_key(path: Path | str) -> str:
+    """Normalize a filesystem path for containment checks.
 
-    Uses normcase/abspath so Windows ``\\\\?\\`` resolve prefixes do not false-reject
-    a same-directory content-addressed target under concurrent mkdir.
+    Recognizes equivalent ordinary and extended-length Win32 paths:
+    ``C:\\...`` ↔ ``\\\\?\\C:\\...`` and ``\\\\server\\share`` ↔ ``\\\\?\\UNC\\server\\share``.
+    Device paths under ``\\\\.\\`` / non-drive ``\\\\?\\`` namespaces are left intact so
+    they do not silently coerce into ordinary filesystem roots.
     """
-    root_key = os.path.normcase(os.path.abspath(root))
-    candidate_key = os.path.normcase(os.path.abspath(candidate))
+    key = os.path.normcase(os.path.abspath(os.fspath(path)))
+    if key.startswith("\\\\?\\unc\\"):
+        return "\\\\" + key[8:]
+    if key.startswith("\\\\?\\"):
+        rest = key[4:]
+        # Drive-letter absolute path: \\?\C:\...
+        if len(rest) >= 2 and rest[1] == ":":
+            return rest
+        # \\?\Volume{...}\, \\?\HarddiskVolume*, etc. — not ordinary FS roots.
+        return key
+    # \\.\ device namespace must not be rewritten into ordinary paths.
+    return key
+
+
+def _path_is_within(root: Path, candidate: Path) -> bool:
+    """True when ``candidate`` is ``root`` or a descendant on the same volume/share."""
+    root_key = _normalize_fs_path_key(root)
+    candidate_key = _normalize_fs_path_key(candidate)
     try:
         return os.path.commonpath([root_key, candidate_key]) == root_key
     except ValueError:
@@ -114,34 +132,71 @@ def _stage_image_bytes(directory: Path, digest: str, image_bytes: bytes) -> Path
     return staged
 
 
-def _publish_staged_image(staged: Path, target: Path, expected_digest: str) -> None:
-    """Atomically publish a staged object with no-clobber semantics.
+def _publish_via_windows_rename(staged: Path, target: Path, expected_digest: str) -> str:
+    """Windows-only no-clobber publish when ``os.link`` cannot create a new name.
 
-    Uses ``os.link`` so an existing destination is never replaced. POSIX
-    ``os.rename`` / ``os.replace`` can overwrite and are intentionally unused.
-    Hard links require the staged file and target to share a filesystem; when
-    the backend cannot provide that guarantee the call fails closed.
-
-    Durability notes: staged content is fsync'd before link. Directory entry
-    durability after link is filesystem/platform dependent and is not claimed
-    beyond process-local visibility of the new name.
+    On Windows, ``os.rename(src, dst)`` raises ``FileExistsError`` when ``dst``
+    already exists and leaves the destination bytes intact (verified on NTFS).
+    ``os.replace`` overwrites and must not be used. POSIX ``os.rename`` can
+    clobber and is never used here.
     """
     try:
-        os.link(staged, target)
+        os.rename(staged, target)
+        return "renamed"
     except FileExistsError:
         _verify_hash_file(target, expected_digest)
-    except OSError:
-        # Another writer may have published first; Windows can surface a non-FileExists
-        # OSError while the destination already exists. Never overwrite — only verify.
-        if target.is_file():
-            _verify_hash_file(target, expected_digest)
-        else:
-            fail("asset_storage_unavailable", 500)
-    finally:
         try:
             staged.unlink(missing_ok=True)
         except OSError:
             pass
+        return "reused"
+    except OSError:
+        if target.is_file():
+            _verify_hash_file(target, expected_digest)
+            try:
+                staged.unlink(missing_ok=True)
+            except OSError:
+                pass
+            return "reused"
+        fail("asset_storage_unavailable", 500)
+
+
+def _publish_staged_image(staged: Path, target: Path, expected_digest: str) -> None:
+    """Atomically publish a staged object with no-clobber semantics.
+
+    Primary path: ``os.link`` (POSIX and Windows when permitted). An existing
+    destination is never replaced. When ``os.link`` fails on Windows because the
+    destination is absent (for example WinError 5 in a restricted sandbox), a
+    Windows-only ``os.rename`` fallback is used — it fails closed if the
+    destination already exists. POSIX keeps link-only fail-closed behavior.
+
+    Durability notes: staged content is fsync'd before publish. Directory entry
+    durability after publish is filesystem/platform dependent and is not claimed
+    beyond process-local visibility of the new name.
+    """
+    outcome = "linked"
+    try:
+        try:
+            os.link(staged, target)
+        except FileExistsError:
+            _verify_hash_file(target, expected_digest)
+            outcome = "reused"
+        except OSError:
+            # Another writer may have published first; never overwrite.
+            if target.is_file():
+                _verify_hash_file(target, expected_digest)
+                outcome = "reused"
+            elif os.name == "nt":
+                outcome = _publish_via_windows_rename(staged, target, expected_digest)
+            else:
+                fail("asset_storage_unavailable", 500)
+    finally:
+        # After a successful rename the staged path is already the target name.
+        if outcome != "renamed":
+            try:
+                staged.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def store_image(business_id, image_bytes: bytes) -> str:
@@ -149,7 +204,9 @@ def store_image(business_id, image_bytes: bytes) -> str:
 
     Existing valid objects are reused without opening them for writing.
     New objects stage to a temp file, verify, then publish via atomic no-clobber
-    hard link. Shared / sealed content is never truncated, overwritten, or deleted.
+    ``os.link`` (Windows may fall back to no-clobber ``os.rename`` when link is
+    denied and the destination is absent). Shared / sealed content is never
+    truncated, overwritten, or deleted.
     """
     locator = image_locator(business_id, image_bytes)
     business = str(uid(business_id))
