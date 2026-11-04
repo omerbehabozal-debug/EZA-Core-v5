@@ -65,23 +65,71 @@ async def create_business(db, admin, data):
     db.add(BusinessMember(business_id=org.id, user_id=owner.id, role='owner'))
     await db.commit(); await db.refresh(business); return business
 
-async def set_brand_logo(db, business_id, user_id, image_bytes: bytes):
-    """Store a brand avatar with the existing profile-avatar pipeline. Owner only."""
-    from backend.services.profile_avatar_store import MAX_PROFILE_AVATAR_BYTES, save_profile_avatar_bytes
+async def update_business_settings(
+    db,
+    business_id,
+    user_id,
+    *,
+    name: str,
+    description: str,
+    logo_url=None,
+    logo_specified: bool = False,
+):
+    """Owner-only settings write under Business → require_locked_actor.
 
-    business = await access(db, business_id, user_id, 'owner')
+    Mutates only name/description/(optional) logo_url. Does not wipe unrelated
+    dirty ORM attributes on other identity-map instances.
+    """
+    await access(db, business_id, user_id, "owner")
+    from backend.services.business_yansi.studio_media import business_media_lock
+    from backend.services.business_yansi.video_authority import require_locked_actor
+
+    async with business_media_lock(db, business_id):
+        await require_locked_actor(db, business_id, user_id, "owner")
+        with db.no_autoflush:
+            row = await db.get(BusinessProfile, uid(business_id))
+            if row is None:
+                fail("business_not_found", 404)
+            row.name = name
+            row.description = description
+            if logo_specified:
+                row.logo_url = logo_url
+        await db.commit()
+        await db.refresh(row)
+        return row
+
+
+async def set_brand_logo(db, business_id, user_id, image_bytes: bytes):
+    """Store a brand avatar with the existing profile-avatar pipeline. Owner only.
+
+    Validate bytes before the Business lock. Authorize under the lock, then write
+    the avatar file and persist ``logo_url`` so unauthorized callers never leave
+    a new on-disk avatar. Small avatar I/O stays inside the lock (same pattern as
+    content-addressed brand image create).
+    """
+    from backend.services.profile_avatar_store import MAX_PROFILE_AVATAR_BYTES, save_profile_avatar_bytes
+    from backend.services.business_yansi.studio_media import business_media_lock
+    from backend.services.business_yansi.video_authority import require_locked_actor
+
+    await access(db, business_id, user_id, "owner")
     if not image_bytes:
-        fail('avatar_empty', 400)
+        fail("avatar_empty", 400)
     if len(image_bytes) > MAX_PROFILE_AVATAR_BYTES:
-        fail('avatar_too_large', 400)
-    try:
-        public_url, _, _ = save_profile_avatar_bytes(image_bytes, str(business.id))
-    except ValueError as exc:
-        fail(str(exc), 400)
-    business.logo_url = public_url
-    await db.commit()
-    await db.refresh(business)
-    return business
+        fail("avatar_too_large", 400)
+    async with business_media_lock(db, business_id):
+        await require_locked_actor(db, business_id, user_id, "owner")
+        try:
+            public_url, _, _ = save_profile_avatar_bytes(image_bytes, str(uid(business_id)))
+        except ValueError as exc:
+            fail(str(exc), 400)
+        with db.no_autoflush:
+            business = await db.get(BusinessProfile, uid(business_id))
+            if business is None:
+                fail("business_not_found", 404)
+            business.logo_url = public_url
+        await db.commit()
+        await db.refresh(business)
+        return business
 
 async def list_knowledge(db, business_id):
     return list((await db.scalars(select(Knowledge).where(Knowledge.business_id == uid(business_id)).order_by(Knowledge.created_at.desc()))).all())

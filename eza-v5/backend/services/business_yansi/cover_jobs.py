@@ -568,106 +568,119 @@ async def retarget_cover(db, business_id, user_id, asset_id, start_seconds, end_
     Segment changes use a conditional UPDATE so a worker that already claimed
     the row cannot lose its token, deadline, or selected window to a stale
     ORM object from an earlier read.
+
+    Authorization: Business lock → require_locked_actor(editor) → asset/job mutate.
     """
     from backend.services.business_yansi.brand_asset_library import _asset_row
     from backend.services.business_yansi.service import access, fail
+    from backend.services.business_yansi.studio_media import business_media_lock
+    from backend.services.business_yansi.video_authority import require_locked_actor
     from backend.services.business_yansi.video_ingest import COVER_MAX_SECONDS
 
     await access(db, business_id, user_id, "editor")
-    asset = await _asset_row(db, business_id, asset_id)
-    if asset.asset_type != "video" or asset.locator_kind != "storage" or not asset.locator:
-        fail("cover_source_not_stored", 422)
-    if asset.status == "archived":
-        fail("archived_asset", 409)
-    scale = asset.verified_timescale
-    duration = asset.verified_duration
-    if type(scale) is not int or type(duration) is not int or scale <= 0 or duration <= 0:
-        fail("cover_segment_rejected", 422)
-    start_ticks = int(round(_seconds(start_seconds) * scale))
-    end_ticks = int(round(_seconds(end_seconds) * scale))
-    if start_ticks < 0 or end_ticks > duration or end_ticks <= start_ticks:
-        fail("cover_segment_rejected", 422)
-    if end_ticks - start_ticks > COVER_MAX_SECONDS * scale:
-        fail("cover_segment_rejected", 422)
-    job = await latest_for_asset(db, asset.business_id, asset.id)
-    if job is None:
-        fail("cover_job_not_found", 404)
-    reuse = start_ticks == 0 and end_ticks == duration and reuse_original(asset)
-    if reuse:
-        values = {
-            "start_ticks": start_ticks,
-            "end_ticks": end_ticks,
-            "attempts": 0,
-            "error_code": None,
-            "claim_token": None,
-            "deadline_at": None,
-            "strategy": STRATEGY,
-            "status": "ready",
-            "result_asset_id": asset.id,
-            "encoder_profile": REUSE_PROFILE,
-        }
-    else:
-        values = {
-            "start_ticks": start_ticks,
-            "end_ticks": end_ticks,
-            "attempts": 0,
-            "error_code": None,
-            "claim_token": None,
-            "deadline_at": None,
-            "strategy": CHOSEN_STRATEGY,
-            "status": "awaiting_encode",
-            "result_asset_id": None,
-            "encoder_profile": DERIVATIVE_PROFILE,
-        }
-    job_id = job.id
-    owner = asset.business_id
-    await _expire_job(db, job_id)
-    result = await db.execute(
-        update(Job)
-        .where(
-            Job.id == job_id,
-            Job.business_id == owner,
-            Job.status.in_(("queued", "awaiting_encode", "ready", "failed")),
+    async with business_media_lock(db, business_id):
+        await require_locked_actor(db, business_id, user_id, "editor")
+        asset = await _asset_row(db, business_id, asset_id)
+        if asset.asset_type != "video" or asset.locator_kind != "storage" or not asset.locator:
+            fail("cover_source_not_stored", 422)
+        if asset.status == "archived":
+            fail("archived_asset", 409)
+        scale = asset.verified_timescale
+        duration = asset.verified_duration
+        if type(scale) is not int or type(duration) is not int or scale <= 0 or duration <= 0:
+            fail("cover_segment_rejected", 422)
+        start_ticks = int(round(_seconds(start_seconds) * scale))
+        end_ticks = int(round(_seconds(end_seconds) * scale))
+        if start_ticks < 0 or end_ticks > duration or end_ticks <= start_ticks:
+            fail("cover_segment_rejected", 422)
+        if end_ticks - start_ticks > COVER_MAX_SECONDS * scale:
+            fail("cover_segment_rejected", 422)
+        job = await latest_for_asset(db, asset.business_id, asset.id)
+        if job is None:
+            fail("cover_job_not_found", 404)
+        reuse = start_ticks == 0 and end_ticks == duration and reuse_original(asset)
+        if reuse:
+            values = {
+                "start_ticks": start_ticks,
+                "end_ticks": end_ticks,
+                "attempts": 0,
+                "error_code": None,
+                "claim_token": None,
+                "deadline_at": None,
+                "strategy": STRATEGY,
+                "status": "ready",
+                "result_asset_id": asset.id,
+                "encoder_profile": REUSE_PROFILE,
+            }
+        else:
+            values = {
+                "start_ticks": start_ticks,
+                "end_ticks": end_ticks,
+                "attempts": 0,
+                "error_code": None,
+                "claim_token": None,
+                "deadline_at": None,
+                "strategy": CHOSEN_STRATEGY,
+                "status": "awaiting_encode",
+                "result_asset_id": None,
+                "encoder_profile": DERIVATIVE_PROFILE,
+            }
+        job_id = job.id
+        owner = asset.business_id
+        await _expire_job(db, job_id)
+        result = await db.execute(
+            update(Job)
+            .where(
+                Job.id == job_id,
+                Job.business_id == owner,
+                Job.status.in_(("queued", "awaiting_encode", "ready", "failed")),
+            )
+            .values(**values)
+            .execution_options(synchronize_session=False)
         )
-        .values(**values)
-        .execution_options(synchronize_session=False)
-    )
-    if result.rowcount != 1:
-        fail("cover_job_busy", 409)
-    refreshed = await _reload_job(db, job_id)
-    if reuse and refreshed is not None:
-        await apply_ready_cover(db, refreshed)
-    await db.commit()
-    return await _reload_job(db, job_id)
+        if result.rowcount != 1:
+            fail("cover_job_busy", 409)
+        refreshed = await _reload_job(db, job_id)
+        if reuse and refreshed is not None:
+            await apply_ready_cover(db, refreshed)
+        await db.commit()
+        return await _reload_job(db, job_id)
 
 
 async def retry_cover(db, business_id, user_id, asset_id):
-    """Run a failed preparation again. Approved and published Yansı are not edited."""
+    """Run a failed preparation again. Approved and published Yansı are not edited.
+
+    Authorization: Business lock → require_locked_actor(editor) → conditional retry UPDATE.
+    """
     from backend.services.business_yansi.brand_asset_library import _asset_row
     from backend.services.business_yansi.service import access, fail
+    from backend.services.business_yansi.studio_media import business_media_lock
+    from backend.services.business_yansi.video_authority import require_locked_actor
 
     await access(db, business_id, user_id, "editor")
-    asset = await _asset_row(db, business_id, asset_id)
-    job = await latest_for_asset(db, asset.business_id, asset.id)
-    if job is None:
-        fail("cover_job_not_found", 404)
-    if job.status != "failed":
-        fail("cover_retry_rejected", 409)
-    nxt = "awaiting_encode" if job.encoder_profile == DERIVATIVE_PROFILE or job.strategy == CHOSEN_STRATEGY else "queued"
-    job_id = job.id
-    owner = asset.business_id
-    await _expire_job(db, job_id)
-    result = await db.execute(
-        update(Job)
-        .where(Job.id == job_id, Job.business_id == owner, Job.status == "failed")
-        .values(
-            attempts=0, error_code=None, claim_token=None, deadline_at=None,
-            result_asset_id=None, status=nxt,
+    async with business_media_lock(db, business_id):
+        await require_locked_actor(db, business_id, user_id, "editor")
+        asset = await _asset_row(db, business_id, asset_id)
+        job = await latest_for_asset(db, asset.business_id, asset.id)
+        if job is None:
+            fail("cover_job_not_found", 404)
+        if job.status != "failed":
+            fail("cover_retry_rejected", 409)
+        nxt = "awaiting_encode" if job.encoder_profile == DERIVATIVE_PROFILE or job.strategy == CHOSEN_STRATEGY else "queued"
+        job_id = job.id
+        owner = asset.business_id
+        await _expire_job(db, job_id)
+        result = await db.execute(
+            update(Job)
+            .where(Job.id == job_id, Job.business_id == owner, Job.status == "failed")
+            .values(
+                attempts=0, error_code=None, claim_token=None, deadline_at=None,
+                result_asset_id=None, status=nxt,
+            )
+            .execution_options(synchronize_session=False)
         )
-        .execution_options(synchronize_session=False)
-    )
-    if result.rowcount != 1:
-        fail("cover_retry_rejected", 409)
-    await db.commit()
-    await db.refresh(job)
-    return job
+        if result.rowcount != 1:
+            fail("cover_retry_rejected", 409)
+        await db.commit()
+        await db.refresh(job)
+        return job

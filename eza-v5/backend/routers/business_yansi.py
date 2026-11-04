@@ -263,9 +263,13 @@ async def overview(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_c
     return {'business':record(business),'role':(await db.get(BusinessMember,(business_id,user.id))).role,'publications':publications}
 @router.patch('/{business_id}/settings')
 async def settings(business_id:uuid.UUID,body:Settings,db=Depends(get_db),claims=Depends(get_current_user)):
-    _,row=await manager(db,claims,business_id,'owner');row.name=body.name;row.description=body.description
-    if 'logoUrl' in body.model_fields_set: row.logo_url=body.logoUrl
-    await db.commit();return await recorded(db,row)
+    user=await svc.actor(db,claims)
+    row=await svc.update_business_settings(
+        db,business_id,user.id,
+        name=body.name,description=body.description,
+        logo_url=body.logoUrl,logo_specified='logoUrl' in body.model_fields_set,
+    )
+    return await recorded(db,row)
 @router.post('/{business_id}/logo')
 async def upload_logo(business_id:uuid.UUID,file:UploadFile=File(...),db=Depends(get_db),claims=Depends(get_current_user)):
     """Owner uploads a brand avatar through the existing profile-avatar store."""
