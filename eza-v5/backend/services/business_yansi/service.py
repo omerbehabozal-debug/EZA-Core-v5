@@ -325,6 +325,12 @@ _DRAFT_CONTENT_ATTRS = (
     "created_by",
 )
 
+# Tenant / primary identity — pending edits must never ride along on lifecycle commits.
+_DRAFT_IDENTITY_ATTRS = (
+    "id",
+    "business_id",
+)
+
 # Fields that participate in review/approval freeze decisions. Pending local edits make
 # "validated snapshot vs committed ORM row" ambiguous — reject rather than park/approve.
 _DRAFT_FREEZE_CONTENT_ATTRS = (
@@ -336,7 +342,7 @@ _DRAFT_FREEZE_CONTENT_ATTRS = (
     "media_plan",
     "created_by",
     "conversation_id",
-)
+) + _DRAFT_IDENTITY_ATTRS
 
 _KNOWLEDGE_CONTENT_ATTRS = (
     "title",
@@ -349,11 +355,20 @@ _KNOWLEDGE_CONTENT_ATTRS = (
 )
 
 
+def assert_no_pending_draft_identity(draft) -> None:
+    """Reject any Draft lifecycle write while id/business_id are pending in the session."""
+    from sqlalchemy.orm.attributes import get_history
+
+    for name in _DRAFT_IDENTITY_ATTRS:
+        if get_history(draft, name).has_changes():
+            fail("revision_conflict", 409)
+
+
 def assert_no_pending_draft_freeze_content(draft) -> None:
     """Reject review/approval when the session holds pending freeze-relevant Draft edits.
 
-    Preferred policy for Implementation 2B-1B: do not approve or advance to review while
-    caller-owned content/provenance differs from the locked DB snapshot used for
+    Preferred policy: do not approve or advance to review while caller-owned
+    content/provenance/tenant identity differs from the locked DB snapshot used for
     validation. Preserves dirty state and history; does not persist unverified content.
     """
     from sqlalchemy.orm.attributes import get_history
@@ -396,6 +411,18 @@ def restore_dirty_draft_content(draft, parked: dict) -> None:
     """Re-apply parked caller-owned Draft content after commit."""
     for name, value in parked.items():
         setattr(draft, name, value)
+
+
+def _restore_parked_draft_best_effort(draft, parked: dict, *, primary=None) -> None:
+    """Restore parked Draft content without masking ``primary`` when both fail."""
+    if not parked:
+        return
+    try:
+        restore_dirty_draft_content(draft, parked)
+    except Exception:
+        if primary is not None:
+            return
+        raise
 
 
 def park_dirty_knowledge_content(row, snap: KnowledgeWriterSnapshot) -> dict:
@@ -568,6 +595,11 @@ async def transition_draft(db,business_id,user_id,draft_id,target,revision):
             row = await db.get(Draft, snap.id)
             if row is None:
                 fail("draft_not_found", 404)
+            # Authoritative tenant identity comes from the locked projection, not ORM cache.
+            if snap.business_id != uid(business_id) or snap.id != uid(draft_id):
+                fail("draft_not_found", 404)
+            # Identity pending on any lifecycle transition (including unapprove).
+            assert_no_pending_draft_identity(row)
             # Review/approval freeze: reject pending content/provenance so commit cannot
             # persist unverified ORM edits that differ from the validated snapshot.
             if target in {"review", "approved"}:
@@ -605,13 +637,18 @@ async def transition_draft(db,business_id,user_id,draft_id,target,revision):
             row.revision = snap.revision + 1
         try:
             await db.commit()
-        except Exception:
-            if parked:
-                restore_dirty_draft_content(row, parked)
+        except Exception as exc:
+            _restore_parked_draft_best_effort(row, parked, primary=exc)
             raise
-        await db.refresh(row)
-        if parked:
-            restore_dirty_draft_content(row, parked)
+        # Restore even when post-commit refresh fails; do not hide the original error.
+        # A failed session is not reusable; committed unapproval is not rolled back here.
+        try:
+            await db.refresh(row)
+        except Exception as exc:
+            _restore_parked_draft_best_effort(row, parked, primary=exc)
+            raise
+        else:
+            _restore_parked_draft_best_effort(row, parked)
         return row
 
 async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,steps,cover_asset_id=None,*,cover_specified=True):
