@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import uuid
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -44,17 +45,131 @@ def image_locator(business_id, image_bytes: bytes) -> str:
     return _locator_for(business, digest, _MIME_EXT[mime])
 
 
+def _content_digest(image_bytes: bytes) -> str:
+    return hashlib.sha256(image_bytes).hexdigest()
+
+
+def _path_is_within(root: Path, candidate: Path) -> bool:
+    """True when ``candidate`` is ``root`` or a descendant.
+
+    Uses normcase/abspath so Windows ``\\\\?\\`` resolve prefixes do not false-reject
+    a same-directory content-addressed target under concurrent mkdir.
+    """
+    root_key = os.path.normcase(os.path.abspath(root))
+    candidate_key = os.path.normcase(os.path.abspath(candidate))
+    try:
+        return os.path.commonpath([root_key, candidate_key]) == root_key
+    except ValueError:
+        return False
+
+
+def _verify_hash_file(target: Path, expected_digest: str) -> bytes:
+    """Read an existing content-addressed object and require an intact SHA-256 match.
+
+    Existence alone is not integrity. A corrupt or truncated object fails closed
+    without repair, replacement, or deletion.
+    """
+    try:
+        payload = target.read_bytes()
+    except OSError:
+        fail("asset_file_unavailable", 404)
+    if not payload or len(payload) > MAX_PROFILE_AVATAR_BYTES:
+        fail("asset_file_corrupt", 409)
+    if _content_digest(payload) != expected_digest:
+        fail("asset_file_corrupt", 409)
+    mime = detect_image_mime(payload)
+    if mime not in _MIME_EXT:
+        fail("asset_file_corrupt", 409)
+    return payload
+
+
+def _stage_image_bytes(directory: Path, digest: str, image_bytes: bytes) -> Path:
+    """Write and fsync complete bytes to a unique temp file in ``directory``."""
+    staged = directory / f".{digest}.{uuid.uuid4().hex}.tmp"
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    if hasattr(os, "O_BINARY"):
+        flags |= os.O_BINARY
+    fd = os.open(staged, flags, 0o644)
+    try:
+        view = memoryview(image_bytes)
+        while view:
+            written = os.write(fd, view)
+            view = view[written:]
+        os.fsync(fd)
+    except Exception:
+        try:
+            os.close(fd)
+        finally:
+            staged.unlink(missing_ok=True)
+        raise
+    else:
+        os.close(fd)
+    try:
+        verified = _verify_hash_file(staged, digest)
+        if verified != image_bytes:
+            fail("asset_file_corrupt", 409)
+    except Exception:
+        staged.unlink(missing_ok=True)
+        raise
+    return staged
+
+
+def _publish_staged_image(staged: Path, target: Path, expected_digest: str) -> None:
+    """Atomically publish a staged object with no-clobber semantics.
+
+    Uses ``os.link`` so an existing destination is never replaced. POSIX
+    ``os.rename`` / ``os.replace`` can overwrite and are intentionally unused.
+    Hard links require the staged file and target to share a filesystem; when
+    the backend cannot provide that guarantee the call fails closed.
+
+    Durability notes: staged content is fsync'd before link. Directory entry
+    durability after link is filesystem/platform dependent and is not claimed
+    beyond process-local visibility of the new name.
+    """
+    try:
+        os.link(staged, target)
+    except FileExistsError:
+        _verify_hash_file(target, expected_digest)
+    except OSError:
+        # Another writer may have published first; Windows can surface a non-FileExists
+        # OSError while the destination already exists. Never overwrite — only verify.
+        if target.is_file():
+            _verify_hash_file(target, expected_digest)
+        else:
+            fail("asset_storage_unavailable", 500)
+    finally:
+        try:
+            staged.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 def store_image(business_id, image_bytes: bytes) -> str:
-    """Save original image bytes. Reuses the avatar format check and size limit, without cropping."""
+    """Persist original image bytes under a content-addressed SHA-256 key.
+
+    Existing valid objects are reused without opening them for writing.
+    New objects stage to a temp file, verify, then publish via atomic no-clobber
+    hard link. Shared / sealed content is never truncated, overwritten, or deleted.
+    """
     locator = image_locator(business_id, image_bytes)
     business = str(uid(business_id))
     name = locator.rsplit("/", 1)[-1]
-    root = asset_root().resolve()
-    target = (root / business / name).resolve()
-    if root != target and root not in target.parents:
+    digest = _content_digest(image_bytes)
+    if not name.startswith(f"{digest}."):
         fail("asset_file_rejected", 400)
+    root = asset_root().resolve()
+    target = (root / business / name)
+    # Create the tenant directory before resolving so concurrent Windows resolves
+    # agree on the same absolute path shape.
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_bytes(image_bytes)
+    target = target.resolve()
+    if not _path_is_within(root, target):
+        fail("asset_file_rejected", 400)
+    if target.is_file():
+        _verify_hash_file(target, digest)
+        return locator
+    staged = _stage_image_bytes(target.parent, digest, image_bytes)
+    _publish_staged_image(staged, target, digest)
     return locator
 
 
