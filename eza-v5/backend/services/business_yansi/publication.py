@@ -1,5 +1,6 @@
 """Business approval attaches to a real sealed Yansı; never fabricate a seal."""
 import os
+import sys
 import uuid
 from sqlalchemy import select
 from .service import (
@@ -7,8 +8,9 @@ from .service import (
     uid,
     fail,
     draft_decision,
+    assert_draft_writer_identity,
     park_dirty_draft_content,
-    restore_dirty_draft_content,
+    _restore_parked_draft_best_effort,
     published_knowledge,
 )
 from backend.models.business_yansi import BusinessPublication, BusinessProfile, BusinessYansiDraft as Draft
@@ -58,8 +60,9 @@ async def export_editorial_conversation(db,business_id,user_id,draft_id):
                 draft = await db.get(Draft, snap.id)
                 if draft is None:
                     fail("draft_not_found", 404)
+                # Reject pending id/business_id/created_by before any flush/commit.
+                assert_draft_writer_identity(snap, draft, business_id, draft_id)
                 # Park before any flush so pending Draft content cannot ride along.
-                # finally restores even if flush/commit fails (no hidden rollback).
                 parked = park_dirty_draft_content(draft, snap)
                 # An editorial conversation contains only approved public-source Q/A, never
                 # customer conversation text. Existing Ayna/preparation/seal APIs own generation.
@@ -91,8 +94,8 @@ async def export_editorial_conversation(db,business_id,user_id,draft_id):
             await db.commit()
             return conversation.client_conversation_id
         finally:
-            if parked and draft is not None:
-                restore_dirty_draft_content(draft, parked)
+            # Cancellation-safe: restore even on CancelledError; do not mask primary.
+            _restore_parked_draft_best_effort(draft, parked, primary=sys.exc_info()[1])
 
 async def publish_draft(db,business_id,user_id,draft_id,slug,revision):
     await access(db, business_id, user_id, "owner")
@@ -149,6 +152,7 @@ async def publish_draft(db,business_id,user_id,draft_id,slug,revision):
                 draft = await db.get(Draft, snap.id)
                 if draft is None:
                     fail("draft_not_found", 404)
+                assert_draft_writer_identity(snap, draft, business_id, draft_id)
                 db.add(
                     BusinessPublication(
                         slug=slug,
@@ -167,8 +171,5 @@ async def publish_draft(db,business_id,user_id,draft_id,slug,revision):
             await db.commit()
             return node
         finally:
-            # Restore after success (Policy A pending again) or after flush/commit failure
-            # so set_committed_value park cannot permanently clear caller history.
-            # No hidden rollback — caller owns failed-transaction recovery.
-            if parked and draft is not None:
-                restore_dirty_draft_content(draft, parked)
+            # Cancellation-safe restore; secondary failure attaches as __restore_error__.
+            _restore_parked_draft_best_effort(draft, parked, primary=sys.exc_info()[1])

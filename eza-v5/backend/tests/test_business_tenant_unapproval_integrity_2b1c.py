@@ -337,14 +337,15 @@ async def test_k2_autoflush_false_reject_dirty_business_id(sample, asset_dir):
 def test_l_m_source_identity_and_restore_policy():
     text = (_BACKEND / "services/business_yansi/service.py").read_text(encoding="utf-8")
     transition = text.split("async def transition_draft", 1)[1].split("async def revise_draft", 1)[0]
-    assert "assert_no_pending_draft_identity" in transition
-    assert transition.index("assert_no_pending_draft_identity") < transition.index('target in {"review", "approved"}')
+    assert "assert_draft_writer_identity" in transition
+    assert transition.index("assert_draft_writer_identity") < transition.index('target in {"review", "approved"}')
     identity = text.split("_DRAFT_IDENTITY_ATTRS", 1)[1].split("_DRAFT_FREEZE_CONTENT_ATTRS", 1)[0]
     assert '"id"' in identity
     assert '"business_id"' in identity
+    assert '"created_by"' in identity
     post_commit = transition.split("await db.commit()", 1)[1]
     assert "await db.refresh(row)" in post_commit
+    assert "finally:" in post_commit
     assert "_restore_parked_draft_best_effort" in post_commit
-    assert post_commit.index("await db.refresh(row)") < post_commit.rfind("_restore_parked_draft_best_effort")
     assert transition.index("business_media_lock") < transition.index("require_locked_access")
     assert transition.index("require_locked_access") < transition.index("draft_decision")

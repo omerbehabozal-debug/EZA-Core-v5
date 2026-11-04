@@ -325,10 +325,11 @@ _DRAFT_CONTENT_ATTRS = (
     "created_by",
 )
 
-# Tenant / primary identity — pending edits must never ride along on lifecycle commits.
+# Immutable Draft identity / provenance — pending edits must never ride along on any writer commit.
 _DRAFT_IDENTITY_ATTRS = (
     "id",
     "business_id",
+    "created_by",
 )
 
 # Fields that participate in review/approval freeze decisions. Pending local edits make
@@ -356,12 +357,24 @@ _KNOWLEDGE_CONTENT_ATTRS = (
 
 
 def assert_no_pending_draft_identity(draft) -> None:
-    """Reject any Draft lifecycle write while id/business_id are pending in the session."""
+    """Reject Draft writers while id/business_id/created_by are pending in the session."""
     from sqlalchemy.orm.attributes import get_history
 
     for name in _DRAFT_IDENTITY_ATTRS:
         if get_history(draft, name).has_changes():
             fail("revision_conflict", 409)
+
+
+def assert_draft_snap_identity(snap: DraftDecisionSnapshot, business_id, draft_id) -> None:
+    """Require locked projection identity to match the requested Draft and Business."""
+    if snap.business_id != uid(business_id) or snap.id != uid(draft_id):
+        fail("draft_not_found", 404)
+
+
+def assert_draft_writer_identity(snap: DraftDecisionSnapshot, draft, business_id, draft_id) -> None:
+    """Authoritative snap identity + no pending immutable ownership fields before mutation."""
+    assert_draft_snap_identity(snap, business_id, draft_id)
+    assert_no_pending_draft_identity(draft)
 
 
 def assert_no_pending_draft_freeze_content(draft) -> None:
@@ -414,13 +427,23 @@ def restore_dirty_draft_content(draft, parked: dict) -> None:
 
 
 def _restore_parked_draft_best_effort(draft, parked: dict, *, primary=None) -> None:
-    """Restore parked Draft content without masking ``primary`` when both fail."""
-    if not parked:
+    """Restore parked Draft content without masking ``primary`` when both fail.
+
+    Secondary restore failures are attached as ``__restore_error__`` (not ``__cause__``)
+    so the primary cancellation/exception remains the raised type and causality is not
+    inverted. No Draft body content is logged.
+    """
+    if not parked or draft is None:
         return
     try:
         restore_dirty_draft_content(draft, parked)
-    except Exception:
+    except Exception as restore_exc:
         if primary is not None:
+            try:
+                if getattr(primary, "__restore_error__", None) is None:
+                    primary.__restore_error__ = restore_exc
+            except Exception:
+                pass
             return
         raise
 
@@ -595,11 +618,8 @@ async def transition_draft(db,business_id,user_id,draft_id,target,revision):
             row = await db.get(Draft, snap.id)
             if row is None:
                 fail("draft_not_found", 404)
-            # Authoritative tenant identity comes from the locked projection, not ORM cache.
-            if snap.business_id != uid(business_id) or snap.id != uid(draft_id):
-                fail("draft_not_found", 404)
-            # Identity pending on any lifecycle transition (including unapprove).
-            assert_no_pending_draft_identity(row)
+            # Authoritative tenant/creator identity from locked projection + pending guards.
+            assert_draft_writer_identity(snap, row, business_id, draft_id)
             # Review/approval freeze: reject pending content/provenance so commit cannot
             # persist unverified ORM edits that differ from the validated snapshot.
             if target in {"review", "approved"}:
@@ -635,20 +655,14 @@ async def transition_draft(db,business_id,user_id,draft_id,target,revision):
                     row.media_plan = plan
             row.status = target
             row.revision = snap.revision + 1
+        # Cancellation-safe restore: BaseException (incl. CancelledError) must still restore
+        # after a successful commit. Do not hide primary errors with secondary restore failures.
+        import sys
         try:
             await db.commit()
-        except Exception as exc:
-            _restore_parked_draft_best_effort(row, parked, primary=exc)
-            raise
-        # Restore even when post-commit refresh fails; do not hide the original error.
-        # A failed session is not reusable; committed unapproval is not rolled back here.
-        try:
             await db.refresh(row)
-        except Exception as exc:
-            _restore_parked_draft_best_effort(row, parked, primary=exc)
-            raise
-        else:
-            _restore_parked_draft_best_effort(row, parked)
+        finally:
+            _restore_parked_draft_best_effort(row, parked, primary=sys.exc_info()[1])
         return row
 
 async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,steps,cover_asset_id=None,*,cover_specified=True):
@@ -661,12 +675,14 @@ async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,st
     from backend.services.business_yansi.video_authority import require_locked_access
     async with business_media_lock(db, business_id):
         await require_locked_access(db, business_id, user_id, 'editor')
-        snap = await draft_decision(db, business_id, draft_id, lock=True)
-        if snap.revision != revision or snap.status != "draft" or snap.conversation_id:
-            fail("editable_draft_required", 409)
-        row = await db.get(Draft, snap.id)
-        if row is None:
-            fail("draft_not_found", 404)
+        with db.no_autoflush:
+            snap = await draft_decision(db, business_id, draft_id, lock=True)
+            if snap.revision != revision or snap.status != "draft" or snap.conversation_id:
+                fail("editable_draft_required", 409)
+            row = await db.get(Draft, snap.id)
+            if row is None:
+                fail("draft_not_found", 404)
+            assert_draft_writer_identity(snap, row, business_id, draft_id)
         allowed={str(v.id):v for v in await published_knowledge(db,business_id,fresh=True)}
         _assert_supported_steps(steps, allowed)
         if not cover_specified and isinstance(snap.media_plan, dict):
