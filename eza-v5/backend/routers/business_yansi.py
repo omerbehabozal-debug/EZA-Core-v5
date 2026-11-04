@@ -276,8 +276,8 @@ async def members(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_cu
     await manager(db,claims,business_id,'owner');return {'items':[record(row) for row in (await db.scalars(select(BusinessMember).where(BusinessMember.business_id==business_id))).all()]}
 @router.put('/{business_id}/members')
 async def member(business_id:uuid.UUID,body:Member,db=Depends(get_db),claims=Depends(get_current_user)):
-    await manager(db,claims,business_id,'owner')
-    row=await assign_member_role(db,business_id,body.userId,body.role)
+    user,_=await manager(db,claims,business_id,'owner')
+    row=await assign_member_role(db,business_id,user.id,body.userId,body.role)
     return await recorded(db,row)
 def _asset_payload(body):
     return {'asset_type':body.assetType,'title':body.title,'caption':body.caption,'public_allowed':body.publicAllowed,'locator':body.locator,'latitude':body.latitude,'longitude':body.longitude,'revision':getattr(body,'revision',None)}

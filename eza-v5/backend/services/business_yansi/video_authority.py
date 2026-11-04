@@ -204,24 +204,34 @@ async def update_brand_verification(db: AsyncSession, business_id, *, verified: 
     return row
 
 
-async def assign_member_role(db: AsyncSession, business_id, target_user_id, role: str):
-    """Brand, organization, target user, then membership — never reverse that order."""
-    business = await lock_brand(db, business_id)
-    organization = await db.scalar(_locked(Organization, Organization.id == business.id))
-    if organization is None or organization.status != "active":
-        fail("business_not_found", 404)
-    user = await db.scalar(_locked(User, User.id == uid(target_user_id)))
-    if user is None or not user.is_active or user.id == business.owner_id:
+async def assign_member_role(db: AsyncSession, business_id, actor_id, target_user_id, role: str):
+    """Assign a target membership under Business-first actor reauthorization.
+
+    Order: Business → require_locked_actor(owner, extra=target) which locks
+    Org → Users(sorted) → Memberships(sorted) → then mutate only the target membership.
+    Actor authority is never inferred from the target row.
+    """
+    from backend.services.business_yansi.service import access
+
+    await access(db, business_id, actor_id, "owner")
+    if role not in ROLES or role == "owner":
         fail("invalid_member", 422)
-    row = await db.scalar(
-        _locked(
-            BusinessMember,
-            BusinessMember.business_id == business.id,
-            BusinessMember.user_id == user.id,
-        )
+    business = await lock_brand(db, business_id)
+    target_key = uid(target_user_id)
+    await require_locked_actor(
+        db, business_id, actor_id, "owner", extra_user_ids=(target_key,),
     )
+    # Target User/Membership already locked by require_locked_actor; do not re-lock out of order.
+    with db.no_autoflush:
+        target_locked = await db.execute(
+            select(User.id, User.is_active).where(User.id == target_key)
+        )
+        target = target_locked.one_or_none()
+    if target is None or not bool(target.is_active) or target.id == business.owner_id:
+        fail("invalid_member", 422)
+    row = await db.get(BusinessMember, (business.id, target.id))
     if row is None:
-        row = BusinessMember(business_id=business.id, user_id=user.id, role=role)
+        row = BusinessMember(business_id=business.id, user_id=target.id, role=role)
         db.add(row)
     else:
         row.role = role

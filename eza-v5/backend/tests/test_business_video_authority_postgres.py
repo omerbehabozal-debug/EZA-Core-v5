@@ -152,10 +152,12 @@ async def test_revocation_committed_first_rejects_insert():
             await set_user_active(db, editor_id, True)
 
         async with maker() as db:
-            await assign_member_role(db, business_id, editor_id, "viewer")
+            owner_id = (await db.get(BusinessProfile, business_id)).owner_id
+            await assign_member_role(db, business_id, owner_id, editor_id, "viewer")
         await _denied(maker, business_id, editor_id, 403)
         async with maker() as db:
-            await assign_member_role(db, business_id, editor_id, "editor")
+            owner_id = (await db.get(BusinessProfile, business_id)).owner_id
+            await assign_member_role(db, business_id, owner_id, editor_id, "editor")
 
         async with maker() as db:
             await update_brand_verification(db, business_id, verified=False, official=False, status="suspended")

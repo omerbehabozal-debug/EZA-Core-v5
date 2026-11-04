@@ -269,27 +269,35 @@ async def create_asset(db, business_id, user_id, data, *, image_bytes=None):
             latitude=data.get("latitude"),
             longitude=data.get("longitude"),
         )
-    row = Asset(business_id=uid(business_id), created_by=uid(user_id), revision=1)
-    _apply_fields(row, fields, user_id, data.get("public_allowed", False))
-    db.add(row)
-    await db.flush()
-    from sqlalchemy.exc import OperationalError, ProgrammingError
-    try:
-        from backend.services.business_yansi.media_observations import ensure_observation
-        await ensure_observation(db, row, user_id)
-    except (OperationalError, ProgrammingError):
-        pass
-    await db.commit()
-    await db.refresh(row)
-    return row
+    from backend.services.business_yansi.studio_media import business_media_lock
+    from backend.services.business_yansi.video_authority import require_locked_actor
+
+    # Business → require_locked_actor (Org/User/Member) → insert. File I/O stays outside the hold.
+    async with business_media_lock(db, business_id):
+        await require_locked_actor(db, business_id, user_id, "editor")
+        row = Asset(business_id=uid(business_id), created_by=uid(user_id), revision=1)
+        _apply_fields(row, fields, user_id, data.get("public_allowed", False))
+        db.add(row)
+        await db.flush()
+        from sqlalchemy.exc import OperationalError, ProgrammingError
+        try:
+            from backend.services.business_yansi.media_observations import ensure_observation
+            await ensure_observation(db, row, user_id)
+        except (OperationalError, ProgrammingError):
+            pass
+        await db.commit()
+        await db.refresh(row)
+        return row
 
 
 async def update_asset(db, business_id, user_id, asset_id, data, *, image_bytes=None):
     await access(db, business_id, user_id, "editor")
     from backend.services.business_yansi.studio_media import business_media_lock, sealed_content_uses_asset
+    from backend.services.business_yansi.video_authority import require_locked_actor
 
-    # Profile row first, then this asset. Approval and publish take the same first lock.
+    # Business → actor reauth → Asset. Approval and publish take the same first lock.
     async with business_media_lock(db, business_id):
+        await require_locked_actor(db, business_id, user_id, "editor")
         row = await _asset_row(db, business_id, asset_id, True)
         if row.revision != data["revision"]:
             fail("revision_conflict", 409)
@@ -339,9 +347,11 @@ async def update_asset(db, business_id, user_id, asset_id, data, *, image_bytes=
 async def archive_asset(db, business_id, user_id, asset_id, revision):
     await access(db, business_id, user_id, "editor")
     from backend.services.business_yansi.studio_media import business_media_lock
+    from backend.services.business_yansi.video_authority import require_locked_actor
 
-    # Business first, then this asset — same order as update_asset / draft selection.
+    # Business → actor reauth → Asset.
     async with business_media_lock(db, business_id):
+        await require_locked_actor(db, business_id, user_id, "editor")
         row = await _asset_row(db, business_id, asset_id, True)
         if row.revision != revision:
             fail("revision_conflict", 409)
@@ -360,9 +370,11 @@ async def set_links(db, business_id, user_id, asset_id, version_ids, revision):
     """
     await access(db, business_id, user_id, "editor")
     from backend.services.business_yansi.studio_media import business_media_lock
+    from backend.services.business_yansi.video_authority import require_locked_actor
 
-    # Business first, then asset + links — serializes with cover selection eligibility.
+    # Business → actor reauth → Asset → Links.
     async with business_media_lock(db, business_id):
+        await require_locked_actor(db, business_id, user_id, "editor")
         asset = await _asset_row(db, business_id, asset_id, True)
         if asset.revision != revision:
             fail("revision_conflict", 409)

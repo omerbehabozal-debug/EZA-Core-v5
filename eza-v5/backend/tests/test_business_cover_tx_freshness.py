@@ -126,7 +126,7 @@ async def test_b_role_demoted_to_viewer_before_protected_persist(sample, asset_d
     await _image(sample, knowledge, "Zeytinyagi hasadi", b"fresh-b")
 
     async def demote(db):
-        await assign_member_role(db, sample.business.id, sample.editor.id, "viewer")
+        await assign_member_role(db, sample.business.id, sample.owner.id, sample.editor.id, "viewer")
 
     _patch_lock_after_side_effect(monkeypatch, sample, demote)
     with pytest.raises(HTTPException) as raised:
