@@ -95,8 +95,8 @@ def test_module_source_uses_single_protected_pass_and_business_before_draft():
     assert revise.index("draft_row") < revise.index("await bind_media_plan")
     archive = library_text.split("async def archive_asset", 1)[1].split("async def ", 1)[0]
     links = library_text.split("async def set_links", 1)[1].split("async def ", 1)[0]
-    assert archive.index("business_media_lock") < archive.index("_asset_row")
-    assert links.index("business_media_lock") < links.index("_asset_row")
+    assert archive.index("business_media_lock") < archive.index("_asset_decision")
+    assert links.index("business_media_lock") < links.index("_asset_decision")
 
 
 async def test_create_draft_acquires_business_lock_before_bind(sample, asset_dir, monkeypatch):

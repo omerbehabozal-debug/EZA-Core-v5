@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 
@@ -108,62 +109,142 @@ def present_asset(asset, links):
     }
 
 
-_ASSET_LOCK_ATTRS = (
-    "status",
-    "public_allowed",
-    "revision",
-    "approved_by",
-    "asset_type",
-    "source_asset_id",
-    "locator",
-    "locator_kind",
-    "verified_duration",
-    "verified_timescale",
-    "verified_size_bytes",
-    "verified_has_audio",
-    "title",
-    "caption",
-)
+@dataclass(frozen=True, slots=True)
+class AssetDecisionSnapshot:
+    """Authoritative Asset columns for writer decisions.
+
+    Built from a projected SELECT under ``no_autoflush``. Never written back onto
+    identity-map instances via ``populate_existing`` / ``set_committed_value``.
+    """
+
+    id: object
+    business_id: object
+    status: str
+    revision: int
+    public_allowed: bool
+    approved_by: object
+    asset_type: str
+    source_asset_id: object
+    locator: object
+    locator_kind: object
+    verified_duration: object
+    verified_timescale: object
+    verified_size_bytes: object
+    verified_has_audio: object
+    title: str
+    caption: object
+    latitude: object
+    longitude: object
+
+
+@dataclass(frozen=True, slots=True)
+class KnowledgeDecisionSnapshot:
+    """Authoritative Knowledge columns for ``set_links`` eligibility."""
+
+    id: object
+    business_id: object
+    item_id: object
+    status: str
+    public_allowed: bool
+
+
+async def _asset_decision(db, business_id, asset_id, *, lock: bool = False) -> AssetDecisionSnapshot:
+    """Read Asset decision columns from the database without mutating the identity map."""
+    criteria = (Asset.id == uid(asset_id), Asset.business_id == uid(business_id))
+    query = select(
+        Asset.id,
+        Asset.business_id,
+        Asset.status,
+        Asset.revision,
+        Asset.public_allowed,
+        Asset.approved_by,
+        Asset.asset_type,
+        Asset.source_asset_id,
+        Asset.locator,
+        Asset.locator_kind,
+        Asset.verified_duration,
+        Asset.verified_timescale,
+        Asset.verified_size_bytes,
+        Asset.verified_has_audio,
+        Asset.title,
+        Asset.caption,
+        Asset.latitude,
+        Asset.longitude,
+    ).where(*criteria)
+    if lock:
+        query = query.with_for_update()
+    with db.no_autoflush:
+        current = await db.execute(query)
+        locked = current.one_or_none()
+    if locked is None:
+        fail("asset_not_found", 404)
+    return AssetDecisionSnapshot(
+        id=locked.id,
+        business_id=locked.business_id,
+        status=str(locked.status),
+        revision=int(locked.revision),
+        public_allowed=bool(locked.public_allowed),
+        approved_by=locked.approved_by,
+        asset_type=str(locked.asset_type),
+        source_asset_id=locked.source_asset_id,
+        locator=locked.locator,
+        locator_kind=locked.locator_kind,
+        verified_duration=locked.verified_duration,
+        verified_timescale=locked.verified_timescale,
+        verified_size_bytes=locked.verified_size_bytes,
+        verified_has_audio=locked.verified_has_audio,
+        title=str(locked.title),
+        caption=locked.caption,
+        latitude=locked.latitude,
+        longitude=locked.longitude,
+    )
 
 
 async def _asset_row(db, business_id, asset_id, lock=False):
-    criteria = (Asset.id == uid(asset_id), Asset.business_id == uid(business_id))
+    """Return the Asset ORM instance. Locked path uses a decision snapshot, not refresh."""
     if not lock:
-        row = await db.scalar(select(Asset).where(*criteria))
+        row = await db.scalar(
+            select(Asset).where(Asset.id == uid(asset_id), Asset.business_id == uid(business_id))
+        )
         if not row:
             fail("asset_not_found", 404)
         return row
-    from sqlalchemy.orm.attributes import set_committed_value
+    snap = await _asset_decision(db, business_id, asset_id, lock=True)
+    row = await db.get(Asset, snap.id)
+    if row is None:
+        fail("asset_not_found", 404)
+    return row
 
+
+async def _knowledge_decision_for_link(db, business_id, version_id) -> KnowledgeDecisionSnapshot:
+    """Authoritative Knowledge eligibility for set_links. Does not trust the identity map."""
     with db.no_autoflush:
         current = await db.execute(
             select(
-                Asset.id,
-                Asset.status,
-                Asset.public_allowed,
-                Asset.revision,
-                Asset.approved_by,
-                Asset.asset_type,
-                Asset.source_asset_id,
-                Asset.locator,
-                Asset.locator_kind,
-                Asset.verified_duration,
-                Asset.verified_timescale,
-                Asset.verified_size_bytes,
-                Asset.verified_has_audio,
-                Asset.title,
-                Asset.caption,
-            ).where(*criteria).with_for_update()
+                Knowledge.id,
+                Knowledge.business_id,
+                Knowledge.item_id,
+                Knowledge.status,
+                Knowledge.public_allowed,
+            ).where(
+                Knowledge.id == uid(version_id),
+                Knowledge.business_id == uid(business_id),
+            )
         )
         locked = current.one_or_none()
-        if locked is None:
-            fail("asset_not_found", 404)
-        row = await db.get(Asset, locked.id)
-        if row is None:
-            fail("asset_not_found", 404)
-        for name in _ASSET_LOCK_ATTRS:
-            set_committed_value(row, name, locked._mapping[name])
-        return row
+    if (
+        locked is None
+        or str(locked.status) != "published"
+        or not bool(locked.public_allowed)
+    ):
+        fail("published_knowledge_required", 422)
+    return KnowledgeDecisionSnapshot(
+        id=locked.id,
+        business_id=locked.business_id,
+        item_id=locked.item_id,
+        status=str(locked.status),
+        public_allowed=bool(locked.public_allowed),
+    )
 
 
 def _same_coord(left, right) -> bool:
@@ -239,8 +320,11 @@ async def listed_assets(db, business_id):
 async def create_asset(db, business_id, user_id, data, *, image_bytes=None):
     await access(db, business_id, user_id, "editor")
     asset_type = data["asset_type"]
+    pending_image = None
     if asset_type == "image":
-        locator = store_image(business_id, image_bytes or b"")
+        # Validate only; durable store happens after post-lock authorization.
+        locator = image_locator(business_id, image_bytes or b"")
+        pending_image = image_bytes or b""
         fields = normalize_asset(
             business_id=business_id,
             asset_type="image",
@@ -272,9 +356,12 @@ async def create_asset(db, business_id, user_id, data, *, image_bytes=None):
     from backend.services.business_yansi.studio_media import business_media_lock
     from backend.services.business_yansi.video_authority import require_locked_actor
 
-    # Business → require_locked_actor (Org/User/Member) → insert. File I/O stays outside the hold.
+    # Business → require_locked_actor → durable image write (if any) → insert.
+    # Content-addressed store is idempotent; auth failure never writes a new file.
     async with business_media_lock(db, business_id):
         await require_locked_actor(db, business_id, user_id, "editor")
+        if pending_image is not None:
+            store_image(business_id, pending_image)
         row = Asset(business_id=uid(business_id), created_by=uid(user_id), revision=1)
         _apply_fields(row, fields, user_id, data.get("public_allowed", False))
         db.add(row)
@@ -295,40 +382,43 @@ async def update_asset(db, business_id, user_id, asset_id, data, *, image_bytes=
     from backend.services.business_yansi.studio_media import business_media_lock, sealed_content_uses_asset
     from backend.services.business_yansi.video_authority import require_locked_actor
 
-    # Business → actor reauth → Asset. Approval and publish take the same first lock.
+    # Business → actor reauth → Asset decision snapshot → mutate. Approval/publish share first lock.
     async with business_media_lock(db, business_id):
         await require_locked_actor(db, business_id, user_id, "editor")
-        row = await _asset_row(db, business_id, asset_id, True)
-        if row.revision != data["revision"]:
+        snap = await _asset_decision(db, business_id, asset_id, lock=True)
+        if snap.revision != data["revision"]:
             fail("revision_conflict", 409)
-        if row.status == "archived":
+        if snap.status == "archived":
             fail("archived_asset", 409)
-        locator = row.locator
-        kind = row.locator_kind
+        row = await db.get(Asset, snap.id)
+        if row is None:
+            fail("asset_not_found", 404)
+        locator = snap.locator
+        kind = snap.locator_kind
         pending_image = None
-        if row.asset_type == "image" and image_bytes:
+        if snap.asset_type == "image" and image_bytes:
             locator = image_locator(business_id, image_bytes)
             kind = "storage"
             pending_image = image_bytes
-        elif row.asset_type in {"video", "link"} and data.get("locator"):
+        elif snap.asset_type in {"video", "link"} and data.get("locator"):
             locator = data["locator"]
             kind = "https"
         fields = normalize_asset(
             business_id=business_id,
-            asset_type=row.asset_type,
+            asset_type=snap.asset_type,
             title=data["title"],
             caption=data.get("caption") or None,
             locator=locator,
             locator_kind=kind,
-            latitude=data.get("latitude", row.latitude),
-            longitude=data.get("longitude", row.longitude),
+            latitude=data.get("latitude", snap.latitude),
+            longitude=data.get("longitude", snap.longitude),
         )
-        measurements_stale = row.asset_type == "video" and (
-            (fields.get("locator") or None) != (row.locator or None)
-            or fields.get("locator_kind") != row.locator_kind
+        measurements_stale = snap.asset_type == "video" and (
+            (fields.get("locator") or None) != (snap.locator or None)
+            or fields.get("locator_kind") != snap.locator_kind
         )
-        if content_fields_changed(row, fields):
-            if await sealed_content_uses_asset(db, business_id, row.id):
+        if content_fields_changed(snap, fields):
+            if await sealed_content_uses_asset(db, business_id, snap.id):
                 fail("sealed_media_immutable", 409)
             if pending_image is not None:
                 store_image(business_id, pending_image)
@@ -338,7 +428,7 @@ async def update_asset(db, business_id, user_id, asset_id, data, *, image_bytes=
             row.verified_timescale = None
             row.verified_size_bytes = None
             row.verified_has_audio = None
-        row.revision += 1
+        row.revision = snap.revision + 1
         await db.commit()
         await db.refresh(row)
         return row
@@ -349,15 +439,18 @@ async def archive_asset(db, business_id, user_id, asset_id, revision):
     from backend.services.business_yansi.studio_media import business_media_lock
     from backend.services.business_yansi.video_authority import require_locked_actor
 
-    # Business → actor reauth → Asset.
+    # Business → actor reauth → Asset decision snapshot → mutate.
     async with business_media_lock(db, business_id):
         await require_locked_actor(db, business_id, user_id, "editor")
-        row = await _asset_row(db, business_id, asset_id, True)
-        if row.revision != revision:
+        snap = await _asset_decision(db, business_id, asset_id, lock=True)
+        if snap.revision != revision:
             fail("revision_conflict", 409)
+        row = await db.get(Asset, snap.id)
+        if row is None:
+            fail("asset_not_found", 404)
         row.status = "archived"
         row.public_allowed = False
-        row.revision += 1
+        row.revision = snap.revision + 1
         await db.commit()
         await db.refresh(row)
         return row
@@ -372,32 +465,42 @@ async def set_links(db, business_id, user_id, asset_id, version_ids, revision):
     from backend.services.business_yansi.studio_media import business_media_lock
     from backend.services.business_yansi.video_authority import require_locked_actor
 
-    # Business → actor reauth → Asset → Links.
+    # Business → actor reauth → Asset decision → authoritative Knowledge → Links.
     async with business_media_lock(db, business_id):
         await require_locked_actor(db, business_id, user_id, "editor")
-        asset = await _asset_row(db, business_id, asset_id, True)
-        if asset.revision != revision:
+        snap = await _asset_decision(db, business_id, asset_id, lock=True)
+        if snap.revision != revision:
             fail("revision_conflict", 409)
-        if asset.status == "archived":
+        if snap.status == "archived":
             fail("archived_asset", 409)
+        asset = await db.get(Asset, snap.id)
+        if asset is None:
+            fail("asset_not_found", 404)
         wanted = []
         seen_items = set()
         for version_id in version_ids:
-            knowledge = await db.scalar(select(Knowledge).where(Knowledge.id == uid(version_id), Knowledge.business_id == asset.business_id))
-            if not knowledge or knowledge.status != "published":
-                fail("published_knowledge_required", 422)
+            knowledge = await _knowledge_decision_for_link(db, snap.business_id, version_id)
             if knowledge.item_id in seen_items:
                 fail("duplicate_knowledge_item", 422)
             seen_items.add(knowledge.item_id)
             wanted.append(knowledge)
-        existing = list((await db.scalars(select(Link).where(Link.asset_id == asset.id, Link.business_id == asset.business_id).with_for_update())).all())
+        with db.no_autoflush:
+            existing = list(
+                (
+                    await db.scalars(
+                        select(Link)
+                        .where(Link.asset_id == snap.id, Link.business_id == snap.business_id)
+                        .with_for_update()
+                    )
+                ).all()
+            )
         by_item = {row.item_id: row for row in existing}
         for knowledge in wanted:
             link = by_item.get(knowledge.item_id)
             if link is None:
                 db.add(Link(
-                    business_id=asset.business_id,
-                    asset_id=asset.id,
+                    business_id=snap.business_id,
+                    asset_id=snap.id,
                     item_id=knowledge.item_id,
                     confirmed_version_id=knowledge.id,
                     status="active",
@@ -410,7 +513,7 @@ async def set_links(db, business_id, user_id, asset_id, version_ids, revision):
         for link in existing:
             if link.item_id not in wanted_items:
                 link.status = "retired"
-        asset.revision += 1
+        asset.revision = snap.revision + 1
         await db.commit()
         await db.refresh(asset)
         return asset
