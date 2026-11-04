@@ -183,12 +183,20 @@ async def transition_knowledge(db,business_id,user_id,version_id,target,revision
                 uid(user_id) if target == "approved" else None if target == "draft" else snap.approved_by
             )
         await db.commit()
-    finally:
+    except Exception:
+        # Restore before any refresh/expire so failed writes keep caller pending state.
         if parked and row is not None:
             restore_dirty_knowledge_content(row, parked)
-    await db.refresh(row)
-    await _sync_knowledge_index(db, [*others, row])
-    await db.refresh(row)
+        raise
+    # Refresh/index may expire the instance — always restore after the last touch,
+    # including when indexing fails (commit already succeeded; session may still need caller rollback).
+    try:
+        await db.refresh(row)
+        await _sync_knowledge_index(db, [*others, row])
+        await db.refresh(row)
+    finally:
+        if parked:
+            restore_dirty_knowledge_content(row, parked)
     return row
 
 async def delete_knowledge(db, business_id, user_id, version_id, revision):
@@ -214,16 +222,27 @@ async def delete_knowledge(db, business_id, user_id, version_id, revision):
                 row.status = "archived"
                 row.revision = snap.revision + 1
         if already_archived:
-            await _sync_knowledge_index(db, [row])
-            await db.refresh(row)
+            # Capture pending content across index sync / refresh without persisting it.
+            parked = park_dirty_knowledge_content(row, snap)
+            try:
+                await _sync_knowledge_index(db, [row])
+                await db.refresh(row)
+            finally:
+                if parked:
+                    restore_dirty_knowledge_content(row, parked)
             return row
         await db.commit()
-    finally:
+    except Exception:
         if parked and row is not None:
             restore_dirty_knowledge_content(row, parked)
-    await db.refresh(row)
-    await _sync_knowledge_index(db, [row])
-    await db.refresh(row)
+        raise
+    try:
+        await db.refresh(row)
+        await _sync_knowledge_index(db, [row])
+        await db.refresh(row)
+    finally:
+        if parked:
+            restore_dirty_knowledge_content(row, parked)
     return row
 
 async def published_knowledge(db,business_id,snapshot=None,*,fresh=False):
@@ -306,6 +325,19 @@ _DRAFT_CONTENT_ATTRS = (
     "created_by",
 )
 
+# Fields that participate in review/approval freeze decisions. Pending local edits make
+# "validated snapshot vs committed ORM row" ambiguous — reject rather than park/approve.
+_DRAFT_FREEZE_CONTENT_ATTRS = (
+    "title",
+    "summary",
+    "steps",
+    "knowledge_snapshot",
+    "source_hash",
+    "media_plan",
+    "created_by",
+    "conversation_id",
+)
+
 _KNOWLEDGE_CONTENT_ATTRS = (
     "title",
     "category",
@@ -315,6 +347,20 @@ _KNOWLEDGE_CONTENT_ATTRS = (
     "approved_by",
     "item_id",
 )
+
+
+def assert_no_pending_draft_freeze_content(draft) -> None:
+    """Reject review/approval when the session holds pending freeze-relevant Draft edits.
+
+    Preferred policy for Implementation 2B-1B: do not approve or advance to review while
+    caller-owned content/provenance differs from the locked DB snapshot used for
+    validation. Preserves dirty state and history; does not persist unverified content.
+    """
+    from sqlalchemy.orm.attributes import get_history
+
+    for name in _DRAFT_FREEZE_CONTENT_ATTRS:
+        if get_history(draft, name).has_changes():
+            fail("revision_conflict", 409)
 
 
 def park_dirty_draft_content(draft, snap: DraftDecisionSnapshot) -> dict:
@@ -512,45 +558,60 @@ async def transition_draft(db,business_id,user_id,draft_id,target,revision):
     from backend.services.business_yansi.video_authority import require_locked_access
     async with business_media_lock(db,business_id):
         await require_locked_access(db,business_id,user_id,role)
-        snap = await draft_decision(db, business_id, draft_id, lock=True)
-        if snap.revision != revision:
-            fail("revision_conflict", 409)
-        if target not in TRANSITIONS.get(snap.status, set()) or target == "published":
-            fail("invalid_transition", 409)
-        row = await db.get(Draft, snap.id)
-        if row is None:
-            fail("draft_not_found", 404)
-        if target in {"review", "approved"} and snap.media_plan is not None:
-            from backend.services.business_yansi.studio_media import assert_live_plan
-            await assert_live_plan(db, business_id, snap.steps, snap.media_plan)
-        if target == "approved":
-            if len(await published_knowledge(db, business_id, snap.knowledge_snapshot, fresh=True)) != len(snap.knowledge_snapshot):
-                fail("source_snapshot_unavailable", 409)
-            if snap.media_plan is not None:
-                from backend.services.business_yansi.studio_media import media_seal
-                plan = {
-                    "coverAssetId": snap.media_plan.get("coverAssetId"),
-                    "blocks": snap.media_plan.get("blocks") or [],
-                    "seal": None,
-                }
-                plan["seal"] = media_seal(plan)
-                row.media_plan = plan
-            row.approved_by = uid(user_id)
-        elif target == "draft":
-            row.approved_by = None
-            if isinstance(snap.media_plan, dict):
-                plan = {
-                    "coverAssetId": snap.media_plan.get("coverAssetId"),
-                    "blocks": snap.media_plan.get("blocks") or [],
-                    "seal": None,
-                }
-                if snap.media_plan.get("coverMode") == "automatic" and not snap.media_plan.get("seal"):
-                    plan["coverMode"] = "automatic"
-                row.media_plan = plan
-        row.status = target
-        row.revision = snap.revision + 1
-        await db.commit()
+        parked = {}
+        with db.no_autoflush:
+            snap = await draft_decision(db, business_id, draft_id, lock=True)
+            if snap.revision != revision:
+                fail("revision_conflict", 409)
+            if target not in TRANSITIONS.get(snap.status, set()) or target == "published":
+                fail("invalid_transition", 409)
+            row = await db.get(Draft, snap.id)
+            if row is None:
+                fail("draft_not_found", 404)
+            # Review/approval freeze: reject pending content/provenance so commit cannot
+            # persist unverified ORM edits that differ from the validated snapshot.
+            if target in {"review", "approved"}:
+                assert_no_pending_draft_freeze_content(row)
+            if target in {"review", "approved"} and snap.media_plan is not None:
+                from backend.services.business_yansi.studio_media import assert_live_plan
+                await assert_live_plan(db, business_id, snap.steps, snap.media_plan)
+            if target == "approved":
+                if len(await published_knowledge(db, business_id, snap.knowledge_snapshot, fresh=True)) != len(snap.knowledge_snapshot):
+                    fail("source_snapshot_unavailable", 409)
+                if snap.media_plan is not None:
+                    from backend.services.business_yansi.studio_media import media_seal
+                    plan = {
+                        "coverAssetId": snap.media_plan.get("coverAssetId"),
+                        "blocks": snap.media_plan.get("blocks") or [],
+                        "seal": None,
+                    }
+                    plan["seal"] = media_seal(plan)
+                    row.media_plan = plan
+                row.approved_by = uid(user_id)
+            elif target == "draft":
+                # Unapprove: park pending content so commit only writes lifecycle fields.
+                parked = park_dirty_draft_content(row, snap)
+                row.approved_by = None
+                if isinstance(snap.media_plan, dict):
+                    plan = {
+                        "coverAssetId": snap.media_plan.get("coverAssetId"),
+                        "blocks": snap.media_plan.get("blocks") or [],
+                        "seal": None,
+                    }
+                    if snap.media_plan.get("coverMode") == "automatic" and not snap.media_plan.get("seal"):
+                        plan["coverMode"] = "automatic"
+                    row.media_plan = plan
+            row.status = target
+            row.revision = snap.revision + 1
+        try:
+            await db.commit()
+        except Exception:
+            if parked:
+                restore_dirty_draft_content(row, parked)
+            raise
         await db.refresh(row)
+        if parked:
+            restore_dirty_draft_content(row, parked)
         return row
 
 async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,steps,cover_asset_id=None,*,cover_specified=True):
