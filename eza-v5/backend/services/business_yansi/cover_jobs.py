@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from fastapi import HTTPException
 
@@ -31,6 +31,11 @@ _ENCODE_PREFIX = "e"
 
 def job_key(asset_id) -> str:
     return hashlib.sha256(f"cover-default-v1|{asset_id}".encode()).hexdigest()
+
+
+def confirmed_key(asset_id, start_ticks, end_ticks) -> str:
+    """One explicit window. Distinct from the automatic first-span job."""
+    return hashlib.sha256(f"cover-confirmed-v1|{asset_id}|{start_ticks}|{end_ticks}".encode()).hexdigest()
 
 
 def _silent(asset) -> bool:
@@ -530,9 +535,75 @@ async def apply_ready_cover(db, job) -> int:
     return 0
 
 
+def mutable_window_clause(job_id, business_id):
+    """A ready result cannot be cleared by a retarget that lost the race."""
+    return (
+        Job.id == job_id,
+        Job.business_id == business_id,
+        Job.result_asset_id.is_(None),
+        Job.status.in_(("queued", "awaiting_encode", "failed", "ready")),
+    )
+
+
 async def latest_for_asset(db, business_id, asset_id):
+    """Newest persisted stamp. A UUID is not a creation order."""
     return await db.scalar(
-        select(Job).where(Job.business_id == business_id, Job.source_asset_id == asset_id).order_by(Job.created_at.desc()).limit(1)
+        select(Job).where(Job.business_id == business_id, Job.source_asset_id == asset_id).order_by(Job.created_at.desc(), Job.updated_at.desc()).limit(1)
+    )
+
+
+async def _next_created_at(db, business_id, asset_id):
+    """Keep one source's jobs ordered when the clock repeats.
+
+    The business lock serializes these inserts. The stored timestamp is the
+    order. Job ids are not compared.
+    """
+    previous = await db.scalar(
+        select(Job.created_at)
+        .where(Job.business_id == business_id, Job.source_asset_id == asset_id)
+        .order_by(Job.created_at.desc())
+        .limit(1)
+    )
+    now = _moment()
+    if previous is None:
+        return now
+    if previous.tzinfo is None:
+        previous = previous.replace(tzinfo=timezone.utc)
+    if now > previous:
+        return now
+    return previous + timedelta(microseconds=1)
+
+
+async def job_for_source(db, business_id, asset_id, job_id):
+    return await db.scalar(
+        select(Job).where(
+            Job.id == job_id,
+            Job.business_id == business_id,
+            Job.source_asset_id == asset_id,
+        )
+    )
+
+
+async def ready_result_for(db, business_id, asset_id):
+    """A finished derivative stays eligible after a later window is requested."""
+    return await db.scalar(
+        select(Job).where(
+            Job.business_id == business_id,
+            Job.result_asset_id == asset_id,
+            Job.status == "ready",
+        ).limit(1)
+    )
+
+
+async def confirmed_ready_result(db, business_id, asset_id):
+    """Server-side proof that cover-segment accepted this file. Automatic jobs do not count."""
+    return await db.scalar(
+        select(Job).where(
+            Job.business_id == business_id,
+            Job.result_asset_id == asset_id,
+            Job.status == "ready",
+            Job.strategy == CHOSEN_STRATEGY,
+        ).limit(1)
     )
 
 
@@ -543,6 +614,7 @@ def present_job(job, timescale: int | None = None) -> dict:
         start = job.start_ticks / timescale
         end = job.end_ticks / timescale
     return {
+        "jobId": str(job.id),
         "status": job.status,
         "resultAssetId": None if job.result_asset_id is None else str(job.result_asset_id),
         "errorCode": job.error_code,
@@ -562,12 +634,30 @@ def _seconds(value) -> float:
     return number
 
 
-async def retarget_cover(db, business_id, user_id, asset_id, start_seconds, end_seconds):
-    """Queue a brand-chosen window. The original file is not rewritten.
+async def _sqlite_outer_begin(db) -> None:
+    """Open a real SQLite BEGIN before a SAVEPOINT.
 
-    Segment changes use a conditional UPDATE so a worker that already claimed
-    the row cannot lose its token, deadline, or selected window to a stale
-    ORM object from an earlier read.
+    Session begin does not emit BEGIN: the SQLite dialect leaves that to the
+    driver, and the driver skips it for SAVEPOINT. SQLite then treats the
+    savepoint as the whole transaction and commits it when the savepoint
+    closes. A later rollback cannot remove that row.
+    """
+    bind = db.get_bind()
+    if bind is None or bind.dialect.name != "sqlite":
+        return
+    connection = await db.connection()
+    try:
+        await connection.exec_driver_sql("BEGIN")
+    except DBAPIError as exc:
+        if "within a transaction" not in str(exc).lower():
+            raise
+
+
+async def retarget_cover(db, business_id, user_id, asset_id, start_seconds, end_seconds):
+    """Queue one confirmed window. That job id never moves to another window.
+
+    The same source and the same ticks reuse the existing row. A different
+    window is a new row. A running claim keeps its token and its window.
 
     Authorization: Business lock → require_locked_actor(editor) → asset/job mutate.
     """
@@ -595,59 +685,48 @@ async def retarget_cover(db, business_id, user_id, asset_id, start_seconds, end_
             fail("cover_segment_rejected", 422)
         if end_ticks - start_ticks > COVER_MAX_SECONDS * scale:
             fail("cover_segment_rejected", 422)
-        job = await latest_for_asset(db, asset.business_id, asset.id)
-        if job is None:
-            fail("cover_job_not_found", 404)
         reuse = start_ticks == 0 and end_ticks == duration and reuse_original(asset)
-        if reuse:
-            values = {
-                "start_ticks": start_ticks,
-                "end_ticks": end_ticks,
-                "attempts": 0,
-                "error_code": None,
-                "claim_token": None,
-                "deadline_at": None,
-                "strategy": STRATEGY,
-                "status": "ready",
-                "result_asset_id": asset.id,
-                "encoder_profile": REUSE_PROFILE,
-            }
-        else:
-            values = {
-                "start_ticks": start_ticks,
-                "end_ticks": end_ticks,
-                "attempts": 0,
-                "error_code": None,
-                "claim_token": None,
-                "deadline_at": None,
-                "strategy": CHOSEN_STRATEGY,
-                "status": "awaiting_encode",
-                "result_asset_id": None,
-                "encoder_profile": DERIVATIVE_PROFILE,
-            }
-        job_id = job.id
-        owner = asset.business_id
-        await _expire_job(db, job_id)
-        result = await db.execute(
-            update(Job)
-            .where(
-                Job.id == job_id,
-                Job.business_id == owner,
-                Job.status.in_(("queued", "awaiting_encode", "ready", "failed")),
-            )
-            .values(**values)
-            .execution_options(synchronize_session=False)
+        key = confirmed_key(asset.id, start_ticks, end_ticks)
+        job = await db.scalar(select(Job).where(Job.business_id == asset.business_id, Job.idempotency_key == key))
+        if job is not None:
+            if job.status == "running":
+                fail("cover_job_busy", 409)
+            return job
+        created = Job(
+            id=uuid.uuid4(),
+            business_id=asset.business_id,
+            source_asset_id=asset.id,
+            idempotency_key=key,
+            strategy=CHOSEN_STRATEGY,
+            start_ticks=start_ticks,
+            end_ticks=end_ticks,
+            encoder_profile=REUSE_PROFILE if reuse else DERIVATIVE_PROFILE,
+            status="ready" if reuse else "awaiting_encode",
+            attempts=0,
+            max_attempts=3,
+            result_asset_id=asset.id if reuse else None,
+            created_by=user_id,
+            created_at=await _next_created_at(db, asset.business_id, asset.id),
         )
-        if result.rowcount != 1:
-            fail("cover_job_busy", 409)
-        refreshed = await _reload_job(db, job_id)
-        if reuse and refreshed is not None:
-            await apply_ready_cover(db, refreshed)
+        try:
+            await _sqlite_outer_begin(db)
+            async with db.begin_nested():
+                db.add(created)
+                await db.flush()
+        except IntegrityError:
+            winner = await db.scalar(select(Job).where(Job.business_id == asset.business_id, Job.idempotency_key == key))
+            if winner is None:
+                raise
+            if winner.status == "running":
+                fail("cover_job_busy", 409)
+            return winner
+        if reuse:
+            await apply_ready_cover(db, created)
         await db.commit()
-        return await _reload_job(db, job_id)
+        return await _reload_job(db, created.id)
 
 
-async def retry_cover(db, business_id, user_id, asset_id):
+async def retry_cover(db, business_id, user_id, asset_id, job_id=None):
     """Run a failed preparation again. Approved and published Yansı are not edited.
 
     Authorization: Business lock → require_locked_actor(editor) → conditional retry UPDATE.
@@ -661,7 +740,10 @@ async def retry_cover(db, business_id, user_id, asset_id):
     async with business_media_lock(db, business_id):
         await require_locked_actor(db, business_id, user_id, "editor")
         asset = await _asset_row(db, business_id, asset_id)
-        job = await latest_for_asset(db, asset.business_id, asset.id)
+        if job_id is None:
+            job = await latest_for_asset(db, asset.business_id, asset.id)
+        else:
+            job = await job_for_source(db, asset.business_id, asset.id, job_id)
         if job is None:
             fail("cover_job_not_found", 404)
         if job.status != "failed":

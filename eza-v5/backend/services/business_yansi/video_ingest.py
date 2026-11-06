@@ -100,7 +100,7 @@ def _now_ms() -> int:
     return int(time.time() * 1000)
 
 
-async def ingest_upload(db, business_id, user_id, *, store, upload, title: str, caption: str, purpose: str, public_allowed: bool):
+async def ingest_upload(db, business_id, user_id, *, store, upload, title: str, caption: str, purpose: str, public_allowed: bool, prepare_cover: bool = True):
     await _authorize_start(db, business_id, user_id)
     if purpose not in {"cover", "step"}:
         fail("video_purpose_rejected", 422)
@@ -116,6 +116,7 @@ async def ingest_upload(db, business_id, user_id, *, store, upload, title: str, 
     return await _guarded(
         db, business_id, user_id, store=store, chunks=chunks(), title=title, caption=caption,
         public_allowed=public_allowed, max_bytes=max_bytes, max_seconds=max_seconds,
+        prepare_cover=prepare_cover,
     )
 
 
@@ -223,7 +224,7 @@ async def _release_lease(business_id, token: str) -> None:
             raise asyncio.CancelledError()
 
 
-async def _ingest(db, business_id, user_id, *, store, chunks: AsyncIterator[bytes], title, caption, public_allowed, max_bytes, max_seconds):
+async def _ingest(db, business_id, user_id, *, store, chunks: AsyncIterator[bytes], title, caption, public_allowed, max_bytes, max_seconds, prepare_cover: bool = True):
     staging = staging_object_key(business_id, uuid.uuid4())
     assert_brand_key(business_id, staging)
     published = False
@@ -259,7 +260,7 @@ async def _ingest(db, business_id, user_id, *, store, chunks: AsyncIterator[byte
     return await _insert_asset(
         db, business_id, user_id, key=final, title=title, caption=caption, public_allowed=public_allowed,
         size_bytes=stat.size, duration=inspected.duration, timescale=inspected.timescale,
-        has_audio=inspected.has_audio,
+        has_audio=inspected.has_audio, prepare_cover=prepare_cover,
     )
 
 
@@ -274,7 +275,7 @@ async def _bounded(chunks: AsyncIterator[bytes], max_bytes: int) -> AsyncIterato
         yield chunk
 
 
-async def _insert_asset(db, business_id, user_id, *, key: str, title: str, caption: str, public_allowed: bool, size_bytes: int, duration: int, timescale: int, has_audio: bool = True):
+async def _insert_asset(db, business_id, user_id, *, key: str, title: str, caption: str, public_allowed: bool, size_bytes: int, duration: int, timescale: int, has_audio: bool = True, prepare_cover: bool = True):
     if type(size_bytes) is not int or type(duration) is not int or type(timescale) is not int or type(has_audio) is not bool:
         fail("video_file_rejected", 422)
     if size_bytes <= 0 or duration < 0 or timescale <= 0 or max(size_bytes, duration, timescale) > 2**63 - 1:
@@ -297,8 +298,9 @@ async def _insert_asset(db, business_id, user_id, *, key: str, title: str, capti
         row.verified_has_audio = has_audio
         db.add(row)
         await db.flush()
-        from backend.services.business_yansi.cover_jobs import ensure_cover_job
-        await ensure_cover_job(db, row, user_id)
+        if prepare_cover:
+            from backend.services.business_yansi.cover_jobs import ensure_cover_job
+            await ensure_cover_job(db, row, user_id)
         from sqlalchemy.exc import OperationalError, ProgrammingError
         try:
             from backend.services.business_yansi.media_observations import ensure_observation

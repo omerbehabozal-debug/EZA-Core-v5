@@ -37,10 +37,13 @@ def _budget_and_probe(monkeypatch):
 
 
 async def _keep(sample, body, *, purpose="step", title="Atolye filmi"):
-    return await ingest_upload(
+    row = await ingest_upload(
         sample.db, sample.business.id, sample.editor.id, store=MemoryVideoStore(), upload=Upload(body),
         title=title, caption="", purpose=purpose, public_allowed=True,
     )
+    await ensure_cover_job(sample.db, row, sample.editor.id)
+    await sample.db.flush()
+    return row
 
 
 async def test_silent_original_is_reused_and_a_loud_or_long_one_waits(sample, asset_dir):
@@ -66,7 +69,7 @@ async def test_silent_original_is_reused_and_a_loud_or_long_one_waits(sample, as
     assert finished[long.id].status == "awaiting_encode" and finished[long.id].result_asset_id is None
     from backend.services.business_yansi.cover_jobs import present_job
     shown = present_job(finished[silent.id])
-    assert set(shown) == {"status", "resultAssetId", "errorCode", "startSeconds", "endSeconds"}
+    assert set(shown) == {"jobId", "status", "resultAssetId", "errorCode", "startSeconds", "endSeconds"}
     assert "brand-videos" not in str(shown)
     assert shown["resultAssetId"] == str(silent.id)
     assert await process_one(sample.db) is None
@@ -236,10 +239,13 @@ def _silent_mp4() -> bytes:
 
 
 async def _keep_in(sample, store, body, *, purpose="step", title="Atolye filmi"):
-    return await ingest_upload(
+    row = await ingest_upload(
         sample.db, sample.business.id, sample.editor.id, store=store, upload=Upload(body),
         title=title, caption="", purpose=purpose, public_allowed=True,
     )
+    await ensure_cover_job(sample.db, row, sample.editor.id)
+    await sample.db.flush()
+    return row
 
 
 def _patch_encoder(monkeypatch, writer):
@@ -723,8 +729,6 @@ async def test_authority_change_during_encode_cannot_clear_a_newer_claim(sample,
 
 
 async def test_retarget_rejects_a_running_claim_without_clearing_it(sample, asset_dir):
-    from fastapi import HTTPException
-
     from backend.services.business_yansi.cover_jobs import claim_encode, retarget_cover
 
     knowledge = await source(sample, content="Atolye filmi kapak secimi icin yeterince aciktir.")
@@ -735,9 +739,9 @@ async def test_retarget_rejects_a_running_claim_without_clearing_it(sample, asse
     await sample.db.commit()
     token = claimed.claim_token
     start_before, end_before = claimed.start_ticks, claimed.end_ticks
-    with pytest.raises(HTTPException) as busy:
-        await retarget_cover(sample.db, sample.business.id, sample.editor.id, original.id, 5, 15)
-    assert busy.value.status_code == 409 and busy.value.detail["code"] == "cover_job_busy"
+    changed = await retarget_cover(sample.db, sample.business.id, sample.editor.id, original.id, 5, 15)
+    assert changed.id != claimed.id
+    assert changed.start_ticks == 5000 and changed.end_ticks == 15000
     await sample.db.refresh(claimed)
     assert claimed.status == "running" and claimed.claim_token == token
     assert claimed.start_ticks == start_before and claimed.end_ticks == end_before

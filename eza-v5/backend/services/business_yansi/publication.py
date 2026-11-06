@@ -150,7 +150,9 @@ async def publish_draft(db,business_id,user_id,draft_id,slug,revision):
                     from backend.services.business_yansi.studio_media import assert_live_plan, media_seal
                     if snap.media_plan.get("seal") != media_seal(snap.media_plan):
                         fail("sealed_media_mismatch", 409)
-                    await assert_live_plan(db, business_id, snap.steps, snap.media_plan)
+                    await assert_live_plan(
+                        db, business_id, snap.steps, snap.media_plan, sealed_cover_stands=True,
+                    )
                 if await db.get(BusinessPublication, (slug, node.journey_version)):
                     fail("publication_already_bound", 409)
                 draft = await db.get(Draft, snap.id)

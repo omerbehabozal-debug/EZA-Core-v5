@@ -20,7 +20,7 @@ import {
   type StudioGeneration,
   type StudioTopic,
 } from '@/lib/eza/businessStudio';
-import { CoverPreparation } from './CoverPreparation';
+import { CoverExperience } from './CoverExperience';
 import StudioChatPreview, { type StudioBrand } from './StudioChatPreview';
 import StudioGenerationStatus from './StudioGenerationStatus';
 import StudioStepRail, { type StudioRailStep, type StudioRailStepId } from './StudioStepRail';
@@ -92,6 +92,11 @@ export default function BusinessYansiStudio({
   const [summary, setSummary] = useState(editDraft?.summary || '');
   const [steps, setSteps] = useState<Step[]>(editDraft?.steps?.length === 8 ? editDraft.steps : emptySteps());
   const [coverAssetId, setCoverAssetId] = useState(coverChoiceFromDraft(editDraft));
+  const [coverKind, setCoverKind] = useState<'video' | 'image' | null>(() => {
+    const id = coverChoiceFromDraft(editDraft);
+    const asset = assets.find((item) => item.id === id);
+    return asset?.asset_type === 'video' || asset?.asset_type === 'image' ? asset.asset_type : null;
+  });
   const [coverTouched, setCoverTouched] = useState(false);
   const coverChoices = useMemo(() => {
     const sourceIds = new Set(steps.flatMap((step) => step.sources));
@@ -103,7 +108,6 @@ export default function BusinessYansiStudio({
         asset.links.some((link) => link.status === 'active' && sourceIds.has(link.confirmed_version_id))
     );
   }, [assets, steps]);
-  const selectedCover = coverChoices.find((asset) => asset.id === coverAssetId) || null;
 
   const topicsKeyRef = useRef<string | null>(null);
   const draftKeyRef = useRef<string | null>(null);
@@ -384,6 +388,13 @@ export default function BusinessYansiStudio({
   const saveDraft = async (event?: FormEvent) => {
     event?.preventDefault();
     if (!canEdit || busy) return;
+    const heldExplicit =
+      Boolean(editDraft) && !coverTouched && Boolean(coverAssetId) && coverAssetId === coverChoiceFromDraft(editDraft);
+    const heldLegacy = Boolean(editDraft) && !coverTouched && !coverChoiceFromDraft(editDraft);
+    if (!heldExplicit && !heldLegacy && (!coverAssetId || !coverKind)) {
+      setError('Kapağı onaylamadan bu adım tamamlanamaz.');
+      return;
+    }
     setBusy(true);
     setError('');
     try {
@@ -391,7 +402,7 @@ export default function BusinessYansiStudio({
         title,
         summary,
         steps,
-        ...revisionCoverPayload(coverAssetId, !editDraft || coverTouched),
+        ...(heldExplicit || heldLegacy ? {} : revisionCoverPayload(coverAssetId, true, coverKind)),
         ...(editDraft ? { revision: editDraft.revision } : {}),
       });
       onClearEdit?.();
@@ -418,46 +429,24 @@ export default function BusinessYansiStudio({
     });
   }, [steps, draftResult, sourceTitles]);
 
-  const coverPicker = coverChoices.length ? (
-    <div className="biz-studio-hint">
-      <label>
-        Kapak
-        <select
-          aria-label="Yansı kapağı"
-          data-testid="biz-studio-cover-choice"
-          value={coverChoices.some((asset) => asset.id === coverAssetId) ? coverAssetId : ''}
-          disabled={busy}
-          onChange={(event) => {
-            setCoverTouched(true);
-            setCoverAssetId(event.target.value);
-          }}
-        >
-          <option value="">Otomatik öneri</option>
-          {coverChoices.map((asset) => (
-            <option key={asset.id} value={asset.id}>
-              {asset.title} · {asset.asset_type === 'video' ? 'video' : 'görsel'}
-            </option>
-          ))}
-        </select>
-      </label>
-      <p className="biz-card-meta" data-testid="biz-studio-selected-cover">
-        {selectedCover
-          ? `Seçilen kapak: ${selectedCover.title} · ${selectedCover.asset_type === 'video' ? 'video' : 'görsel'}`
-          : 'Seçilen kapak: otomatik öneri'}
-      </p>
-      {selectedCover ? (
-        <p className="biz-card-meta" data-testid="biz-studio-explicit-cover">Seçtiğiniz kapak duruyor.</p>
-      ) : (
-        <div data-testid="biz-studio-automatic-cover">
-          {coverChoices
-            .filter((asset) => asset.asset_type === 'video' && asset.locator_kind === 'storage')
-            .map((asset) => (
-              <CoverPreparation key={asset.id} businessId={businessId} assetId={asset.id} />
-            ))}
-        </div>
-      )}
-    </div>
-  ) : null;
+  const coverPicker = (
+    <CoverExperience
+      businessId={businessId}
+      assets={coverChoices}
+      kind={coverKind}
+      confirmedId={coverAssetId}
+      linkVersionIds={Array.from(new Set(steps.flatMap((step) => step.sources)))}
+      busy={busy}
+      onKind={(next) => {
+        setCoverKind(next);
+      }}
+      onConfirm={(nextKind, assetId) => {
+        setCoverTouched(true);
+        setCoverKind(nextKind);
+        setCoverAssetId(assetId);
+      }}
+    />
+  );
 
   if (!canEdit) {
     return (

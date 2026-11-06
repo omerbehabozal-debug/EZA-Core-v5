@@ -38,10 +38,12 @@ export function AuthorizedVideo({
   businessId,
   assetId,
   label,
+  onDuration,
 }: {
   businessId: string;
   assetId: string;
   label: string;
+  onDuration?: (seconds: number) => void;
 }) {
   const [src, setSrc] = useState('');
   useEffect(() => {
@@ -70,6 +72,7 @@ export function AuthorizedVideo({
       preload="metadata"
       aria-label={label}
       data-testid={`biz-video-${assetId}`}
+      onLoadedMetadata={(event) => onDuration?.(event.currentTarget.duration)}
     />
   );
 }
@@ -145,7 +148,7 @@ export function CoverPreparation({ businessId, assetId }: { businessId: string; 
   const readyId = job.status === 'ready' ? job.resultAssetId : null;
   return (
     <div className="biz-cover-prep" data-testid={`biz-cover-prep-${assetId}`}>
-      {label ? <p className="biz-card-meta" data-testid={`biz-cover-status-${assetId}`}>{label}. Başka bir onay gerekmez.</p> : null}
+      {label ? <p className="biz-card-meta" data-testid={`biz-cover-status-${assetId}`}>{label}. Kesit onayından sonra hazırlanır.</p> : null}
       {job.status === 'failed' ? (
         <button type="button" className="biz-btn-ghost" onClick={() => void retry()} disabled={busy}>
           Yeniden dene

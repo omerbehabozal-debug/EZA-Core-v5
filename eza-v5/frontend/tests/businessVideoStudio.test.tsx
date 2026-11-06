@@ -216,25 +216,26 @@ describe('business studio video experience', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
-    const choice = screen.getByTestId('biz-studio-cover-choice');
-    expect(choice).toHaveValue('');
-    expect(screen.getByTestId('biz-studio-selected-cover')).toHaveTextContent('otomatik öneri');
+    expect(screen.getByTestId('biz-studio-selected-cover')).toHaveTextContent('onay bekleniyor');
     expect(screen.queryByRole('button', { name: /hazırlanan kapağı kullan/i })).not.toBeInTheDocument();
-    fireEvent.change(choice, { target: { value: image.id } });
-    expect(screen.getByTestId('biz-studio-explicit-cover')).toHaveTextContent('Seçtiğiniz kapak duruyor.');
-    mocks.fetchCoverJob.mockResolvedValue(job('ready', '33333333-3333-4333-8333-333333333333'));
+    fireEvent.click(screen.getByTestId('biz-studio-save-draft'));
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(2000);
+      await vi.advanceTimersByTimeAsync(0);
     });
-    expect(screen.getByTestId('biz-studio-cover-choice')).toHaveValue(image.id);
-    fireEvent.change(choice, { target: { value: '' } });
+    const kept = mocks.businessRequest.mock.calls.at(-1)?.[2] as { coverAssetId?: string | null };
+    expect(kept).not.toHaveProperty('coverAssetId');
+    fireEvent.click(screen.getByRole('button', { name: 'Görsel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Atolye gorseli' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Bu kapağı kullan' }));
+    expect(screen.getByTestId('biz-studio-explicit-cover')).toHaveTextContent('Seçtiğiniz kapak duruyor.');
     fireEvent.click(screen.getByTestId('biz-studio-save-draft'));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
     expect(mocks.businessRequest).toHaveBeenCalled();
-    const body = mocks.businessRequest.mock.calls.at(-1)?.[2] as { coverAssetId: string | null };
-    expect(body.coverAssetId).toBeNull();
+    const body = mocks.businessRequest.mock.calls.at(-1)?.[2] as { coverAssetId: string | null; coverKind?: string };
+    expect(body.coverAssetId).toBe(image.id);
+    expect(body.coverKind).toBe('image');
   });
 
   it('leaves coverAssetId out of a revision that does not touch an explicit cover', async () => {
@@ -262,12 +263,47 @@ describe('business studio video experience', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(screen.getByTestId('biz-studio-cover-choice')).toHaveValue(image.id);
+    expect(screen.getByTestId('biz-studio-explicit-cover')).toHaveTextContent('Seçtiğiniz kapak duruyor.');
     fireEvent.click(screen.getByTestId('biz-studio-save-draft'));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
     const body = mocks.businessRequest.mock.calls.at(-1)?.[2] as { coverAssetId?: string | null };
+    expect(body).not.toHaveProperty('coverAssetId');
+  });
+
+  it('keeps cover preparation available when the library has no eligible assets', async () => {
+    const editDraft: Draft = {
+      id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      title: 'Atolye',
+      summary: 'Atolye ozeti',
+      steps,
+      status: 'draft',
+      revision: 1,
+      conversation_id: null,
+      media_plan: { coverAssetId: null, blocks: [], seal: null, coverMode: 'automatic' },
+    };
+    mocks.businessRequest.mockResolvedValue({});
+    render(
+      <BusinessYansiStudio
+        businessId="biz-1"
+        knowledge={[knowledge]}
+        canEdit
+        editDraft={editDraft}
+        assets={[]}
+        onDraftSaved={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('biz-studio-cover-choice')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Video' }));
+    expect(screen.getByLabelText('Video dosyası')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Görsel' }));
+    expect(screen.getByLabelText('Kapak görseli')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('biz-studio-save-draft'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    const body = mocks.businessRequest.mock.calls.at(-1)?.[2] as { coverAssetId?: string };
     expect(body).not.toHaveProperty('coverAssetId');
   });
 });

@@ -238,7 +238,33 @@ async def eligible_for_versions(db, business_id, version_ids):
         return grouped
 
 
-async def bind_media_plan(db, business_id, title, summary, steps, media_choices=None, cover_asset_id=None):
+async def assert_ready_derivative(db, business_id, asset) -> None:
+    """A derivative stays selectable while any ready job still names that file.
+
+    A later interval on the same source is a different job. It must not erase
+    an approved cover that already points at this derivative.
+    """
+    if getattr(asset, "asset_type", None) != "video" or getattr(asset, "source_asset_id", None) is None:
+        return
+    from backend.services.business_yansi.cover_jobs import ready_result_for
+
+    job = await ready_result_for(db, business_id, asset.id)
+    if job is None or str(job.source_asset_id) != str(asset.source_asset_id):
+        fail("cover_not_ready", 409)
+
+
+async def assert_confirmed_interval(db, business_id, asset) -> None:
+    """Manual video covers need a cover-segment job. An eligible original is not enough."""
+    if getattr(asset, "asset_type", None) != "video":
+        return
+    from backend.services.business_yansi.cover_jobs import confirmed_ready_result
+
+    job = await confirmed_ready_result(db, business_id, asset.id)
+    if job is None:
+        fail("cover_interval_required", 409)
+
+
+async def bind_media_plan(db, business_id, title, summary, steps, media_choices=None, cover_asset_id=None, *, cover_kind=None):
     if media_choices is not None and len(media_choices) != len(steps):
         fail("asset_choice_rejected", 422)
     version_ids = [source for step in steps for source in step["sources"]]
@@ -264,9 +290,21 @@ async def bind_media_plan(db, business_id, title, summary, steps, media_choices=
             blocks.append(select_step_blocks(step["question"], step["answer"], unique, choice))
             cover_assets.extend(asset for asset in unique if asset.asset_type in {"image", "video"})
         pool = list({asset.id: asset for asset in cover_assets}.values())
+        if cover_kind not in {None, "video", "image"}:
+            fail("cover_type_rejected", 422)
+        if cover_kind is not None:
+            pool = [asset for asset in pool if asset.asset_type == cover_kind]
         explicit = not (cover_asset_id is None or cover_asset_id == "")
+        if cover_kind is not None and not explicit:
+            fail("cover_choice_required", 422)
         if explicit:
             chosen = accept_cover_choice(cover_asset_id, pool)
+            match = next(asset for asset in pool if str(asset.id) == chosen)
+            if cover_kind is not None and match.asset_type != cover_kind:
+                fail("cover_type_mismatch", 422)
+            await assert_ready_derivative(db, business_id, match)
+            if cover_kind == "video":
+                await assert_confirmed_interval(db, business_id, match)
             mode = "explicit"
         else:
             # Phase 7G-4c.2/3A: optional observation-assisted ranking on the existing
@@ -296,12 +334,15 @@ async def bind_media_plan(db, business_id, title, summary, steps, media_choices=
             else:
                 chosen = select_cover(title, summary, pool, steps)
             mode = "automatic"
-        return {
+        plan = {
             "coverAssetId": chosen,
             "blocks": blocks,
             "seal": None,
             "coverMode": mode,
         }
+        if cover_kind in {"video", "image"}:
+            plan["coverKind"] = cover_kind
+        return plan
 
 
 def _plan_uses_asset(plan, asset_id):
@@ -384,7 +425,7 @@ async def business_media_lock(db, business_id):
     yield snapshot
 
 
-async def assert_live_plan(db, business_id, steps, plan):
+async def assert_live_plan(db, business_id, steps, plan, *, sealed_cover_stands: bool = False):
     if plan is None:
         return
     version_ids = [source for step in steps for source in step["sources"]]
@@ -396,6 +437,12 @@ async def assert_live_plan(db, business_id, steps, plan):
         chosen = next((asset for rows in grouped.values() for asset in rows if str(asset.id) == cover), None)
         if chosen is not None and not video_may_be_cover(chosen):
             fail("video_cover_rejected", 422)
+        # A seal already commits this exact asset. A later job must not unpublish it.
+        # New selections still pass through bind_media_plan before any seal exists.
+        if chosen is not None and not sealed_cover_stands:
+            await assert_ready_derivative(db, business_id, chosen)
+            if (plan or {}).get("coverKind") == "video":
+                await assert_confirmed_interval(db, business_id, chosen)
 
 
 def media_asset_ids(blocks):

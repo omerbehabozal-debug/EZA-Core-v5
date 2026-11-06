@@ -98,6 +98,7 @@ class DraftCreate(Body):
     summary: str=Field(default='',max_length=500)
     steps: list[Step]=Field(min_length=8,max_length=8)
     coverAssetId: uuid.UUID|None=None
+    coverKind: Literal['video','image']|None=None
 class DraftUpdate(DraftCreate):
     revision: int=Field(ge=1)
 class Publish(Body):
@@ -316,7 +317,10 @@ async def add_stored_video(business_id:uuid.UUID, request:Request, _upload_gate=
         caption = form.get('caption') or ''
         purpose = form.get('purpose')
         public = form.get('publicAllowed') or 'false'
+        preparation = form.get('coverPreparation') or ''
         if not isinstance(upload, ParsedUploadFile) or not isinstance(title, str) or not title.strip() or not isinstance(purpose, str) or not isinstance(caption, str):
+            svc.fail('video_file_rejected', 422)
+        if not isinstance(preparation, str):
             svc.fail('video_file_rejected', 422)
         user=await svc.actor(db,claims)
         store=video_store_from_env()
@@ -324,6 +328,7 @@ async def add_stored_video(business_id:uuid.UUID, request:Request, _upload_gate=
             row=await ingest_upload(
                 db, business_id, user.id, store=store, upload=upload, title=title, caption=caption,
                 purpose=purpose, public_allowed=str(public).lower() in {'1','true','on','yes'},
+                prepare_cover=preparation.strip().lower() != 'manual',
             )
         finally:
             await store.aclose()
@@ -365,6 +370,27 @@ async def cover_job(business_id:uuid.UUID,asset_id:uuid.UUID,db=Depends(get_db),
     await svc.access(db,business_id,user.id,'viewer')
     job=await latest_for_asset(db,business_id,asset_id)
     if job is None: svc.fail('cover_job_not_found',404)
+    from backend.models.business_brand_assets import BusinessBrandAsset
+    source=await db.get(BusinessBrandAsset,asset_id)
+    scale=source.verified_timescale if source is not None and source.business_id==business_id else None
+    return present_job(job, scale if type(scale) is int else None)
+@router.get('/{business_id}/assets/{asset_id}/cover-jobs/{job_id}')
+async def cover_job_by_id(business_id:uuid.UUID,asset_id:uuid.UUID,job_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
+    """One cover job. A newer window on the same video is a different row."""
+    from backend.services.business_yansi.cover_jobs import job_for_source, present_job
+    user=await svc.actor(db,claims)
+    await svc.access(db,business_id,user.id,'viewer')
+    job=await job_for_source(db,business_id,asset_id,job_id)
+    if job is None: svc.fail('cover_job_not_found',404)
+    from backend.models.business_brand_assets import BusinessBrandAsset
+    source=await db.get(BusinessBrandAsset,asset_id)
+    scale=source.verified_timescale if source is not None and source.business_id==business_id else None
+    return present_job(job, scale if type(scale) is int else None)
+@router.post('/{business_id}/assets/{asset_id}/cover-jobs/{job_id}/retry')
+async def cover_job_retry(business_id:uuid.UUID,asset_id:uuid.UUID,job_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
+    from backend.services.business_yansi.cover_jobs import present_job, retry_cover
+    user=await svc.actor(db,claims)
+    job=await retry_cover(db,business_id,user.id,asset_id,job_id)
     from backend.models.business_brand_assets import BusinessBrandAsset
     source=await db.get(BusinessBrandAsset,asset_id)
     scale=source.verified_timescale if source is not None and source.business_id==business_id else None
@@ -434,7 +460,7 @@ async def drafts(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_cur
     await manager(db,claims,business_id);return {'items':[record(row) for row in (await db.scalars(select(BusinessYansiDraft).where(BusinessYansiDraft.business_id==business_id))).all()]}
 @router.post('/{business_id}/drafts')
 async def add_draft(business_id:uuid.UUID,body:DraftCreate,db=Depends(get_db),claims=Depends(get_current_user)):
-    user=await svc.actor(db,claims);return await recorded(db,await svc.create_draft(db,business_id,user.id,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps],cover_asset_id=body.coverAssetId))
+    user=await svc.actor(db,claims);return await recorded(db,await svc.create_draft(db,business_id,user.id,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps],cover_asset_id=body.coverAssetId,cover_kind=body.coverKind))
 @router.post('/{business_id}/drafts/{draft_id}/transition')
 async def draft_transition(business_id:uuid.UUID,draft_id:uuid.UUID,body:Transition,db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims);return await recorded(db,await svc.transition_draft(db,business_id,user.id,draft_id,body.target,body.revision))
@@ -463,7 +489,7 @@ async def public_profile(slug:str,db=Depends(get_db)):
 @router.patch('/{business_id}/drafts/{draft_id}')
 async def edit_draft(business_id:uuid.UUID,draft_id:uuid.UUID,body:DraftUpdate,db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims)
-    return await recorded(db,await svc.revise_draft(db,business_id,user.id,draft_id,body.revision,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps],body.coverAssetId,cover_specified='coverAssetId' in body.model_fields_set))
+    return await recorded(db,await svc.revise_draft(db,business_id,user.id,draft_id,body.revision,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps],body.coverAssetId,cover_specified='coverAssetId' in body.model_fields_set,cover_kind=body.coverKind if 'coverKind' in body.model_fields_set else None,cover_kind_specified='coverKind' in body.model_fields_set))
 
 @router.delete('/{business_id}/members/{user_id}')
 async def remove_member(business_id:uuid.UUID,user_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):

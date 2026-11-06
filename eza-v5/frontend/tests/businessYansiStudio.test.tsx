@@ -438,18 +438,21 @@ describe('BusinessYansiStudio', () => {
       />
     );
     const choice = screen.getByTestId('biz-studio-cover-choice');
-    expect(choice).toHaveTextContent('Atolye gorseli');
-    expect(choice).toHaveTextContent('Atolye filmi');
     expect(choice).not.toHaveTextContent('Baska marka');
-    expect(screen.getByTestId('biz-studio-selected-cover')).toHaveTextContent('otomatik öneri');
-    fireEvent.change(choice, { target: { value: image.id } });
+    expect(screen.getByTestId('biz-studio-selected-cover')).toHaveTextContent('onay bekleniyor');
+    fireEvent.click(screen.getByRole('button', { name: 'Görsel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Atolye gorseli' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Bu kapağı kullan' }));
     expect(screen.getByTestId('biz-studio-selected-cover')).toHaveTextContent('Seçilen kapak: Atolye gorseli · görsel');
-    fireEvent.change(choice, { target: { value: film.id } });
+    fireEvent.click(screen.getByRole('button', { name: 'Video' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Atolye filmi' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Bu kapağı kullan' }));
     expect(screen.getByTestId('biz-studio-selected-cover')).toHaveTextContent('Seçilen kapak: Atolye filmi · video');
     fireEvent.click(screen.getByTestId('biz-studio-save-draft'));
     await waitFor(() => expect(apiMocks.businessRequest).toHaveBeenCalled());
-    const body = apiMocks.businessRequest.mock.calls[0][2] as { coverAssetId: string };
+    const body = apiMocks.businessRequest.mock.calls[0][2] as { coverAssetId: string; coverKind: string };
     expect(body.coverAssetId).toBe(film.id);
+    expect(body.coverKind).toBe('video');
     expect(JSON.stringify(body)).not.toContain('atolye.mp4');
   });
 });

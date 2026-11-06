@@ -77,10 +77,13 @@ async def _image(sample, knowledge, title):
 
 
 async def _video(sample, store, knowledge, title):
+    from backend.services.business_yansi.cover_jobs import ensure_cover_job
     row = await ingest_upload(
         sample.db, sample.business.id, sample.editor.id, store=store, upload=Upload(_mp4(seconds=8)),
         title=title, caption="", purpose="step", public_allowed=True,
     )
+    await ensure_cover_job(sample.db, row, sample.editor.id)
+    await sample.db.flush()
     return await _confirm(sample, knowledge, row)
 
 

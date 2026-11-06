@@ -69,10 +69,14 @@ async def _render(binary, path, seconds, *, audio):
 
 
 async def _store(sample, store, body, title):
-    return await ingest_upload(
+    row = await ingest_upload(
         sample.db, sample.business.id, sample.editor.id, store=store, upload=Upload(body),
         title=title, caption="", purpose="step", public_allowed=True,
     )
+    from backend.services.business_yansi.cover_jobs import ensure_cover_job
+    await ensure_cover_job(sample.db, row, sample.editor.id)
+    await sample.db.flush()
+    return row
 
 
 async def _finish(sample, store):

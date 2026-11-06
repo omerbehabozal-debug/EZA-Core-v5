@@ -340,11 +340,13 @@ async def test_retarget_editor_success(sample):
     changed = await covers.retarget_cover(
         sample.db, sample.business.id, sample.editor.id, asset.id, 2, 7,
     )
+    assert changed.id != job.id
     assert changed.status == "awaiting_encode"
     assert changed.strategy == covers.CHOSEN_STRATEGY
+    assert changed.start_ticks == 2000 and changed.end_ticks == 7000
     remote = await _db_job(sample, job.id)
-    assert remote.status == "awaiting_encode"
-    assert remote.start_ticks == 2000 and remote.end_ticks == 7000
+    assert remote.status == "ready"
+    assert remote.start_ticks == 0 and remote.end_ticks == 20_000
 
 
 async def test_retarget_revoked_editor_rejected(sample, monkeypatch):

@@ -58,6 +58,7 @@ export type Draft = {
     blocks: DraftMediaBlock[][];
     seal: string | null;
     coverMode?: 'automatic' | 'explicit' | null;
+    coverKind?: 'video' | 'image' | null;
   } | null;
 };
 
@@ -65,9 +66,14 @@ export type Draft = {
 export function revisionCoverPayload(
   selection: string,
   specified: boolean,
-): { coverAssetId?: string | null } {
+  coverKind?: 'video' | 'image' | null,
+): { coverAssetId?: string | null; coverKind?: 'video' | 'image' } {
   if (!specified) return {};
-  return { coverAssetId: selection ? selection : null };
+  const body: { coverAssetId?: string | null; coverKind?: 'video' | 'image' } = {
+    coverAssetId: selection ? selection : null,
+  };
+  if (coverKind && selection) body.coverKind = coverKind;
+  return body;
 }
 export type Publication = { slug: string; journey_version: number; visibility?: string };
 export type BrandApplication = {
@@ -320,6 +326,7 @@ export async function replaceBrandImage(
 export const STORED_VIDEO_MAX_BYTES = 40 * 1024 * 1024;
 
 export type CoverJob = {
+  jobId?: string | null;
   status: string;
   resultAssetId: string | null;
   errorCode: string | null;
@@ -331,8 +338,16 @@ export async function fetchCoverJob(businessId: string, assetId: string): Promis
   return businessRequest(`/${businessId}/assets/${assetId}/cover-job`);
 }
 
+export async function fetchCoverJobById(businessId: string, assetId: string, jobId: string): Promise<CoverJob> {
+  return businessRequest(`/${businessId}/assets/${assetId}/cover-jobs/${jobId}`);
+}
+
 export async function retryCoverJob(businessId: string, assetId: string): Promise<CoverJob> {
   return businessRequest(`/${businessId}/assets/${assetId}/cover-retry`, 'POST');
+}
+
+export async function retryCoverJobById(businessId: string, assetId: string, jobId: string): Promise<CoverJob> {
+  return businessRequest(`/${businessId}/assets/${assetId}/cover-jobs/${jobId}/retry`, 'POST');
 }
 
 export async function requestCoverSegment(
@@ -347,7 +362,7 @@ export async function requestCoverSegment(
 export function uploadBrandVideo(
   businessId: string,
   file: File,
-  fields: { title: string; caption: string; publicAllowed: boolean },
+  fields: { title: string; caption: string; publicAllowed: boolean; coverPreparation?: 'manual' },
   onProgress?: (ratio: number) => void,
 ): Promise<BrandAsset> {
   const token = getAuthToken();
@@ -358,6 +373,7 @@ export function uploadBrandVideo(
   body.append('caption', fields.caption);
   body.append('purpose', 'step');
   body.append('publicAllowed', fields.publicAllowed ? 'true' : 'false');
+  if (fields.coverPreparation === 'manual') body.append('coverPreparation', 'manual');
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', getApiUrl().replace(/\/$/, '') + `/api/business-yansi/${businessId}/assets/video`);
