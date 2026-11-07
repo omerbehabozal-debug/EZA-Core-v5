@@ -94,7 +94,7 @@ afterEach(() => {
 });
 
 describe('business studio video experience', () => {
-  it('shows upload progress and does not ask for a storage key', async () => {
+  it('shows upload progress for dropzone video without asking for a storage key', async () => {
     let release: (asset: BrandAsset) => void = () => undefined;
     mocks.uploadBrandVideo.mockImplementation(async (_business, _file, _fields, onProgress) => {
       onProgress?.(0.4);
@@ -112,15 +112,16 @@ describe('business studio video experience', () => {
         onChanged={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Video / konum / bağlantı' }));
-    fireEvent.change(screen.getByLabelText('İçerik türü'), { target: { value: 'video' } });
-    fireEvent.change(screen.getByLabelText('İçerik başlığı'), { target: { value: 'Atolye filmi' } });
     const file = new File([new Uint8Array(8)], 'atolye.mp4', { type: 'video/mp4' });
-    fireEvent.change(screen.getByLabelText('Video dosyası'), { target: { files: [file] } });
-    fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
-    expect(screen.getByTestId('biz-video-progress')).toHaveTextContent('Yükleniyor… 40%');
+    fireEvent.change(screen.getByTestId('biz-asset-file-input'), { target: { files: [file] } });
+    expect(screen.getByTestId('biz-asset-upload-grid').textContent).toMatch(/Yükleniyor\s+40%/);
     expect(screen.queryByLabelText('Video adresi')).not.toBeInTheDocument();
     expect(mocks.businessRequest).not.toHaveBeenCalled();
+    expect(mocks.uploadBrandVideo.mock.calls[0][2]).toEqual({
+      title: '',
+      caption: '',
+      publicAllowed: false,
+    });
     await act(async () => {
       release({ ...film });
     });

@@ -134,9 +134,7 @@ def normalize_asset(*, business_id, asset_type, title, locator=None, locator_kin
         fail("asset_type_rejected", 422)
     if not isinstance(title, str) or len(title.strip()) > 160:
         fail("asset_title_rejected", 422)
-    # Library images may upload without a title; other types still require one.
-    if asset_type != "image" and not title.strip():
-        fail("asset_title_rejected", 422)
+    # Library assets (image/video/place/link) may omit a title; provided titles stay validated.
     if caption is not None and (not isinstance(caption, str) or len(caption) > 500):
         fail("asset_caption_rejected", 422)
     public_content(title, caption or "")

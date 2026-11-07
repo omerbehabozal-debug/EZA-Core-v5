@@ -789,11 +789,13 @@ describe('Business public identity', () => {
     expect(screen.getByText('41.025000, 28.974000')).toBeInTheDocument();
     expect(screen.getByText('Bilgi yeni sürüme geçti. İlişkiyi yeniden onaylayın.')).toBeInTheDocument();
     expect(screen.queryByText(/fiyat|stok|sepet|ödeme/i)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: '+ Yeni içerik' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Konum / bağlantı' }));
     expect(screen.getByLabelText('İçerik türü')).toBeInTheDocument();
-    for (const label of ['Görsel', 'Video', 'Konum', 'Bağlantı']) {
+    for (const label of ['Konum', 'Bağlantı']) {
       expect(screen.getByRole('option', { name: label })).toBeInTheDocument();
     }
+    expect(screen.queryByRole('option', { name: 'Görsel' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Video' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Vazgeç' }));
     fireEvent.click(screen.getByRole('button', { name: 'Düzenle' }));
     expect(screen.getByLabelText('Enlem')).toHaveValue('41.025000');

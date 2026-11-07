@@ -497,15 +497,15 @@ export function coverImageSuggestionPreviewUrl(
 export function uploadBrandVideo(
   businessId: string,
   file: File,
-  fields: { title: string; caption: string; publicAllowed: boolean; coverPreparation?: 'manual' },
+  fields: { title?: string; caption?: string; publicAllowed?: boolean; coverPreparation?: 'manual' } = {},
   onProgress?: (ratio: number) => void,
 ): Promise<BrandAsset> {
   const token = getAuthToken();
   if (!token) return Promise.reject(new Error('Business yönetimi için giriş yapmalısın.'));
   const body = new FormData();
   body.append('file', file);
-  body.append('title', fields.title);
-  body.append('caption', fields.caption);
+  body.append('title', fields.title ?? '');
+  body.append('caption', fields.caption ?? '');
   body.append('purpose', 'step');
   body.append('publicAllowed', fields.publicAllowed ? 'true' : 'false');
   if (fields.coverPreparation === 'manual') body.append('coverPreparation', 'manual');

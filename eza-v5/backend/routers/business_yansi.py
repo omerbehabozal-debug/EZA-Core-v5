@@ -55,13 +55,13 @@ class Member(Body):
     role: Literal['editor','viewer']
 class VideoImport(Body):
     url: str=Field(min_length=8,max_length=1000)
-    title: str=Field(min_length=1,max_length=160)
+    title: str=Field(default='',max_length=160)
     caption: str=Field(default='',max_length=500)
     purpose: Literal['cover','step']
     publicAllowed: bool=False
 class AssetWrite(Body):
     assetType: Literal['video','place','link']
-    title: str=Field(min_length=1,max_length=160)
+    title: str=Field(default='',max_length=160)
     caption: str=Field(default='',max_length=500)
     publicAllowed: bool=False
     locator: str|None=Field(default=None,max_length=1000)
@@ -327,12 +327,17 @@ async def add_stored_video(business_id:uuid.UUID, request:Request, _upload_gate=
     try:
         upload = form.get('file')
         title = form.get('title')
+        if title is None:
+            title = ''
         caption = form.get('caption') or ''
         purpose = form.get('purpose')
         public = form.get('publicAllowed') or 'false'
         preparation = form.get('coverPreparation') or ''
-        if not isinstance(upload, ParsedUploadFile) or not isinstance(title, str) or not title.strip() or not isinstance(purpose, str) or not isinstance(caption, str):
+        # Title may be empty (optional metadata); non-empty titles remain length-checked downstream.
+        if not isinstance(upload, ParsedUploadFile) or not isinstance(title, str) or not isinstance(purpose, str) or not isinstance(caption, str):
             svc.fail('video_file_rejected', 422)
+        if len(title.strip()) > 160:
+            svc.fail('asset_title_rejected', 422)
         if not isinstance(preparation, str):
             svc.fail('video_file_rejected', 422)
         user=await svc.actor(db,claims)

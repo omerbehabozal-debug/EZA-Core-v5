@@ -22,11 +22,12 @@ const TYPES = [
 ] as const;
 
 type AssetType = (typeof TYPES)[number]['id'];
-
+type MediaKind = 'image' | 'video';
 type UploadStatus = 'queued' | 'uploading' | 'success' | 'error';
 
 type UploadItem = {
   localId: string;
+  kind: MediaKind;
   file: File;
   previewUrl: string;
   status: UploadStatus;
@@ -40,23 +41,33 @@ type UploadItem = {
 };
 
 const COPY: Record<string, string> = {
-  asset_file_rejected: 'Görsel PNG, JPEG veya WebP olmalı.',
-  asset_file_too_large: 'Görsel 15 MB sınırını aşıyor.',
-  asset_file_empty: 'Görsel dosyası boş.',
+  asset_file_rejected: 'Dosya türü desteklenmiyor.',
+  asset_file_too_large: 'Dosya boyut sınırı aşıldı.',
+  asset_file_empty: 'Dosya boş.',
   asset_url_rejected: 'Adres yalnızca güvenli bir HTTPS bağlantısı olabilir.',
   asset_coordinate_rejected: 'Enlem ve boylam geçerli bir aralıkta olmalı.',
+  asset_title_rejected: 'Başlık geçersiz.',
   revision_conflict: 'Bu kayıt başka bir kayıtla değişti. Listeyi yenileyip tekrar deneyin.',
   published_knowledge_required: 'Yalnızca güncel bilgi kaydı seçilebilir.',
   archived_asset: 'Arşivlenmiş içerik düzenlenemez.',
   video_too_large: 'Video 40 MB sınırını aşıyor.',
   video_too_long: 'Video 60 saniyeden uzun olamaz.',
   video_file_rejected: 'Video MP4 olmalı.',
+  video_quota_unavailable: 'Video kotası geçici olarak kullanılamıyor. Biraz sonra deneyin.',
+  video_rate_limited: 'Video yükleme limiti doldu. Biraz sonra deneyin.',
 };
 
 const IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp';
+const VIDEO_ACCEPT = 'video/mp4';
+const MEDIA_ACCEPT = `${IMAGE_ACCEPT},${VIDEO_ACCEPT}`;
 const UPLOAD_CONCURRENCY = 3;
 
 function messageOf(error: unknown) {
+  const code =
+    error && typeof error === 'object' && 'code' in error && typeof (error as { code: unknown }).code === 'string'
+      ? (error as { code: string }).code
+      : '';
+  if (code && COPY[code]) return COPY[code];
   const text = error instanceof Error ? error.message : 'İşlem tamamlanamadı.';
   return COPY[text] || text;
 }
@@ -72,6 +83,34 @@ function statusLabel(asset: BrandAsset) {
 
 function isImageFile(file: File) {
   return ['image/png', 'image/jpeg', 'image/webp', 'image/jpg'].includes(file.type);
+}
+
+function isVideoFile(file: File) {
+  if (file.type === 'video/mp4') return true;
+  return file.name.toLowerCase().endsWith('.mp4');
+}
+
+function mediaKindOf(file: File): MediaKind | null {
+  if (isImageFile(file)) return 'image';
+  if (isVideoFile(file)) return 'video';
+  return null;
+}
+
+function linkHostname(locator: string | null | undefined) {
+  if (!locator) return '';
+  try {
+    return new URL(locator).hostname || locator;
+  } catch {
+    return locator;
+  }
+}
+
+function displayTitle(asset: BrandAsset) {
+  if (asset.title?.trim()) return asset.title.trim();
+  if (asset.asset_type === 'link') return linkHostname(asset.locator) || 'Başlıksız bağlantı';
+  if (asset.asset_type === 'place') return asset.caption?.trim() || 'Başlıksız konum';
+  if (asset.asset_type === 'video') return 'Başlıksız video';
+  return 'Başlıksız görsel';
 }
 
 function AssetPreview({ businessId, asset }: { businessId: string; asset: BrandAsset }) {
@@ -118,7 +157,7 @@ function AssetPreview({ businessId, asset }: { businessId: string; asset: BrandA
   if (asset.asset_type === 'link' && asset.locator) {
     return (
       <a className="biz-asset-placeholder" href={asset.locator} target="_blank" rel="noopener noreferrer">
-        {asset.locator}
+        {linkHostname(asset.locator) || asset.locator}
       </a>
     );
   }
@@ -145,14 +184,13 @@ export default function BusinessAssetLibrary({
   const [formOpen, setFormOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [editing, setEditing] = useState<BrandAsset | null>(null);
-  const [assetType, setAssetType] = useState<AssetType>('video');
+  const [assetType, setAssetType] = useState<'place' | 'link'>('place');
   const [saving, setSaving] = useState(false);
-  const [uploadRatio, setUploadRatio] = useState<number | null>(null);
-  const [videoFile, setVideoFile] = useState<File | null>(null);
   const [error, setError] = useState('');
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [dragOver, setDragOver] = useState(false);
   const [metaAssetId, setMetaAssetId] = useState<string | null>(null);
+  const [archiveTarget, setArchiveTarget] = useState<BrandAsset | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadsRef = useRef(uploads);
   uploadsRef.current = uploads;
@@ -174,8 +212,6 @@ export default function BusinessAssetLibrary({
     };
   }, []);
 
-  // When the parent library refetch already contains a successful upload, drop the
-  // temporary card (unless the optional metadata editor is open on that card).
   useEffect(() => {
     const owned = new Set(assets.map((row) => row.id));
     const stale = uploadsRef.current.filter(
@@ -206,15 +242,19 @@ export default function BusinessAssetLibrary({
     if (!live || live.status === 'success') return;
     patchUpload(item.localId, { status: 'uploading', progress: 0, error: '' });
     try {
-      if (item.file.size > BRAND_LIBRARY_IMAGE_MAX_BYTES) throw new Error('asset_file_too_large');
-      if (!isImageFile(item.file)) throw new Error('asset_file_rejected');
+      if (item.kind === 'image') {
+        if (item.file.size > BRAND_LIBRARY_IMAGE_MAX_BYTES) throw new Error('asset_file_too_large');
+        if (!isImageFile(item.file)) throw new Error('asset_file_rejected');
+      } else {
+        if (item.file.size > STORED_VIDEO_MAX_BYTES) throw new Error('video_too_large');
+        if (!isVideoFile(item.file)) throw new Error('video_file_rejected');
+      }
       const latest = uploadsRef.current.find((row) => row.localId === item.localId) || item;
-      const saved = await uploadBrandImage(
-        businessId,
-        item.file,
-        { title: latest.title, caption: latest.caption, publicAllowed: false },
-        (ratio) => patchUpload(item.localId, { progress: ratio }),
-      );
+      const fields = { title: latest.title, caption: latest.caption, publicAllowed: false };
+      const saved =
+        item.kind === 'image'
+          ? await uploadBrandImage(businessId, item.file, fields, (ratio) => patchUpload(item.localId, { progress: ratio }))
+          : await uploadBrandVideo(businessId, item.file, fields, (ratio) => patchUpload(item.localId, { progress: ratio }));
       const after = uploadsRef.current.find((row) => row.localId === item.localId);
       if (after?.knowledgeIds.length) {
         await businessRequest(`/${businessId}/assets/${saved.id}/links`, 'POST', {
@@ -222,8 +262,6 @@ export default function BusinessAssetLibrary({
           revision: saved.revision,
         });
       }
-      // Keep the temp card only while the optional metadata panel is open; otherwise
-      // drop it before refetch so the library card is the single surface.
       if (after?.metaOpen) {
         patchUpload(item.localId, { status: 'success', progress: 1, asset: saved, error: '' });
         await onChanged();
@@ -265,15 +303,22 @@ export default function BusinessAssetLibrary({
         .map((row) => fileKey(row.file)),
     );
     const next: UploadItem[] = [];
+    const rejected: string[] = [];
     for (const file of files) {
+      const kind = mediaKindOf(file);
+      if (!kind) {
+        rejected.push(file.name);
+        continue;
+      }
       const key = fileKey(file);
       if (inFlight.has(key)) continue;
       inFlight.add(key);
       next.push({
-        localId: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
+        localId: `${kind}-${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
+        kind,
         file,
         previewUrl: typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : '',
-        status: 'queued' as const,
+        status: 'queued',
         progress: 0,
         error: '',
         asset: null,
@@ -283,11 +328,12 @@ export default function BusinessAssetLibrary({
         knowledgeIds: [],
       });
     }
+    if (rejected.length) setError('Yalnızca PNG/JPEG/WebP görselleri ve MP4 videoları yüklenebilir.');
     if (!next.length) return;
     const merged = [...next, ...uploadsRef.current];
     uploadsRef.current = merged;
     setUploads(merged);
-    setError('');
+    if (!rejected.length) setError('');
     pumpUploads();
   }
 
@@ -314,11 +360,14 @@ export default function BusinessAssetLibrary({
     setError('');
     try {
       const saved = await businessRequest<BrandAsset>(`/${businessId}/assets/${item.asset.id}`, 'PATCH', {
-        assetType: 'image',
+        assetType: item.asset.asset_type,
         title: item.title,
         caption: item.caption,
         publicAllowed: item.asset.public_allowed,
         revision: item.asset.revision,
+        locator: item.asset.locator_kind === 'https' ? item.asset.locator : null,
+        latitude: item.asset.latitude,
+        longitude: item.asset.longitude,
       });
       const previous = new Set(
         (item.asset.links || [])
@@ -344,8 +393,7 @@ export default function BusinessAssetLibrary({
 
   function openNew() {
     setEditing(null);
-    setAssetType('video');
-    setVideoFile(null);
+    setAssetType('place');
     setFormOpen(true);
     setDirty(false);
     setError('');
@@ -353,8 +401,7 @@ export default function BusinessAssetLibrary({
 
   function openEdit(asset: BrandAsset) {
     setEditing(asset);
-    setAssetType(asset.asset_type);
-    setVideoFile(null);
+    setAssetType(asset.asset_type === 'link' ? 'link' : asset.asset_type === 'place' ? 'place' : 'place');
     setFormOpen(true);
     setDirty(false);
     setError('');
@@ -378,19 +425,12 @@ export default function BusinessAssetLibrary({
     const versionIds = data.getAll('knowledge').map(String);
     const file = data.get('file');
     const chosen = editing?.asset_type || assetType;
-    const selectedVideo = videoFile && videoFile.size > 0 ? videoFile : null;
     setSaving(true);
-    setUploadRatio(null);
     setError('');
     try {
       let saved: BrandAsset;
       const fields = { title, caption, publicAllowed };
-      if (chosen === 'video' && !editing) {
-        const video = selectedVideo;
-        if (!video) throw new Error('Video dosyası seçin.');
-        if (video.size > STORED_VIDEO_MAX_BYTES) throw new Error('video_too_large');
-        saved = await uploadBrandVideo(businessId, video, fields, setUploadRatio);
-      } else if (chosen === 'image') {
+      if (chosen === 'image') {
         const image = file instanceof File && file.size > 0 ? file : null;
         if (editing && image) {
           saved = await replaceBrandImage(businessId, editing.id, image, {
@@ -403,21 +443,37 @@ export default function BusinessAssetLibrary({
             ...fields,
             revision: editing.revision,
           });
-        } else if (image) {
-          saved = await uploadBrandImage(businessId, image, fields);
         } else throw new Error('Görsel seçin.');
+      } else if (chosen === 'video') {
+        if (!editing) throw new Error('Videoları sürükleyip bırakarak veya seçerek yükleyin.');
+        const storedVideo = editing.locator_kind === 'storage';
+        saved = await businessRequest(`/${businessId}/assets/${editing.id}`, 'PATCH', {
+          assetType: 'video',
+          title,
+          caption,
+          publicAllowed,
+          locator: storedVideo ? null : String(data.get('locator') || '').trim(),
+          latitude: null,
+          longitude: null,
+          revision: editing.revision,
+        });
       } else {
-        const storedVideo = editing?.asset_type === 'video' && editing.locator_kind === 'storage';
         const body = {
           assetType: chosen,
           title,
           caption,
           publicAllowed,
-          locator: chosen === 'place' || storedVideo ? null : String(data.get('locator') || '').trim(),
+          locator: chosen === 'place' ? null : String(data.get('locator') || '').trim(),
           latitude: chosen === 'place' ? String(data.get('latitude') || '').trim() : null,
           longitude: chosen === 'place' ? String(data.get('longitude') || '').trim() : null,
           ...(editing ? { revision: editing.revision } : {}),
         };
+        if (chosen === 'place' && (!body.latitude || !body.longitude)) {
+          throw new Error('Konum kaydı için enlem ve boylam gerekli. Adres metninden koordinat üretilmez.');
+        }
+        if (chosen === 'link' && !body.locator) {
+          throw new Error('asset_url_rejected');
+        }
         saved = editing
           ? await businessRequest(`/${businessId}/assets/${editing.id}`, 'PATCH', body)
           : await businessRequest(`/${businessId}/assets`, 'POST', body);
@@ -435,24 +491,23 @@ export default function BusinessAssetLibrary({
       }
       setFormOpen(false);
       setEditing(null);
-      setVideoFile(null);
       setDirty(false);
       await onChanged();
     } catch (err) {
       setError(messageOf(err));
     } finally {
       setSaving(false);
-      setUploadRatio(null);
     }
   }
 
-  async function archive(asset: BrandAsset) {
-    if (saving || busy) return;
-    if (!window.confirm('Bu içerik arşivlensin mi? Herkese açık kullanım kapanır.')) return;
+  async function confirmArchive() {
+    if (!archiveTarget || saving || busy) return;
+    const asset = archiveTarget;
     setSaving(true);
     setError('');
     try {
       await businessRequest(`/${businessId}/assets/${asset.id}/archive`, 'POST', { revision: asset.revision });
+      setArchiveTarget(null);
       await onChanged();
     } catch (err) {
       setError(messageOf(err));
@@ -513,11 +568,10 @@ export default function BusinessAssetLibrary({
   }
 
   const libraryIds = useMemo(() => new Set(assets.map((row) => row.id)), [assets]);
-  // Hide completed temp cards once the persistent library already owns that asset id,
-  // unless the optional metadata panel is open on the upload card.
   const visibleUploads = uploads.filter(
     (item) => item.status !== 'success' || !item.asset || !libraryIds.has(item.asset.id) || item.metaOpen,
   );
+  const formKind = editing?.asset_type || assetType;
 
   return (
     <section className="biz-asset-library" data-testid="biz-asset-library">
@@ -525,12 +579,12 @@ export default function BusinessAssetLibrary({
         <div>
           <h2 className="biz-section-title">İçerik Kütüphanesi</h2>
           <p className="biz-section-lead">
-            Görselleri sürükleyip bırakın veya seçin. Başlık ve açıklama zorunlu değildir; kayıtlar varsayılan olarak marka içinde kalır.
+            Görsel ve videoları sürükleyip bırakın veya seçin. Başlık zorunlu değildir; kayıtlar varsayılan olarak marka içinde kalır.
           </p>
         </div>
         {canEdit && !formOpen ? (
           <button type="button" className="biz-btn-ghost" data-testid="biz-asset-new" onClick={openNew}>
-            Video / konum / bağlantı
+            Konum / bağlantı
           </button>
         ) : null}
       </header>
@@ -555,8 +609,8 @@ export default function BusinessAssetLibrary({
           }}
           onDrop={onDrop}
         >
-          <p>Görselleri buraya bırakın veya seçin</p>
-          <p className="biz-card-meta">PNG, JPEG veya WebP · en fazla 15 MB · birden fazla dosya</p>
+          <p>Görsel ve videoları buraya bırakın veya seçin</p>
+          <p className="biz-card-meta">Görsel: PNG/JPEG/WebP · 15 MB · Video: MP4 · 40 MB / 60 sn · birden fazla dosya</p>
           <button
             type="button"
             className="biz-btn-primary"
@@ -564,15 +618,15 @@ export default function BusinessAssetLibrary({
             disabled={busy}
             onClick={() => fileInputRef.current?.click()}
           >
-            Görsel seç
+            Medya seç
           </button>
           <input
             ref={fileInputRef}
             type="file"
-            accept={IMAGE_ACCEPT}
+            accept={MEDIA_ACCEPT}
             multiple
             hidden
-            aria-label="Görsel dosyaları"
+            aria-label="Medya dosyaları"
             data-testid="biz-asset-file-input"
             onChange={(event) => {
               if (event.target.files?.length) enqueueFiles(event.target.files);
@@ -586,8 +640,10 @@ export default function BusinessAssetLibrary({
         <div className="biz-asset-upload-grid" data-testid="biz-asset-upload-grid">
           {visibleUploads.map((item) => (
             <article className="biz-asset-card biz-asset-upload-card" key={item.localId} data-testid={`biz-upload-${item.localId}`}>
-              {item.previewUrl ? (
+              {item.previewUrl && item.kind === 'image' ? (
                 <img className="biz-asset-preview" src={item.previewUrl} alt="" />
+              ) : item.previewUrl && item.kind === 'video' ? (
+                <video className="biz-asset-preview" src={item.previewUrl} muted playsInline preload="metadata" />
               ) : (
                 <div className="biz-asset-placeholder">Önizleme</div>
               )}
@@ -603,13 +659,13 @@ export default function BusinessAssetLibrary({
                         : 'Hata'}
                 </span>
               </div>
+              <p className="biz-card-meta">{item.kind === 'video' ? 'Video' : 'Görsel'} · Marka içinde</p>
               {item.status === 'uploading' ? (
                 <div className="biz-asset-progress" role="progressbar" aria-valuenow={Math.round(item.progress * 100)} aria-valuemin={0} aria-valuemax={100}>
                   <span style={{ width: `${Math.round(item.progress * 100)}%` }} />
                 </div>
               ) : null}
               {item.error ? <p className="biz-form-error">{item.error}</p> : null}
-              <p className="biz-card-meta">Marka içinde · başlık zorunlu değil</p>
               <div className="biz-actions">
                 {item.status === 'success' ? (
                   <button
@@ -686,7 +742,7 @@ export default function BusinessAssetLibrary({
 
       {canEdit && formOpen ? (
         <form className="biz-form biz-asset-form" data-testid="biz-asset-form" onInput={() => setDirty(true)} onSubmit={(event) => void save(event)}>
-          <h3>{editing ? 'İçeriği güncelle' : 'Video / konum / bağlantı'}</h3>
+          <h3>{editing ? 'İçeriği güncelle' : 'Konum / bağlantı'}</h3>
           {!editing ? (
             <label>
               Tür
@@ -694,54 +750,90 @@ export default function BusinessAssetLibrary({
                 aria-label="İçerik türü"
                 value={assetType}
                 onChange={(event) => {
-                  setAssetType(event.target.value as AssetType);
+                  setAssetType(event.target.value as 'place' | 'link');
                   setDirty(true);
                 }}
               >
-                {TYPES.filter((item) => item.id !== 'image').map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-                {editing ? null : null}
+                <option value="place">Konum</option>
+                <option value="link">Bağlantı</option>
               </select>
             </label>
           ) : (
             <p className="biz-card-meta">{typeLabel(editing.asset_type)}</p>
           )}
-          <label>
-            Başlık
-            <input
-              name="title"
-              aria-label="İçerik başlığı"
-              maxLength={160}
-              defaultValue={editing?.title || ''}
-              required={editing?.asset_type !== 'image' && assetType !== 'image'}
-              disabled={saving}
-            />
-          </label>
-          <label>
-            {assetType === 'place' || editing?.asset_type === 'place' ? 'Adres' : 'Açıklama'}
-            <textarea name="caption" aria-label="İçerik açıklaması" maxLength={500} defaultValue={editing?.caption || ''} disabled={saving} />
-          </label>
+          {formKind === 'place' ? (
+            <>
+              <label>
+                Adres / yer tanımı
+                <textarea
+                  name="caption"
+                  aria-label="Adres veya yer tanımı"
+                  maxLength={500}
+                  defaultValue={editing?.caption || ''}
+                  placeholder="Örn. Karaköy iskele yanı"
+                  disabled={saving}
+                />
+              </label>
+              <p className="biz-card-meta" data-testid="biz-place-coord-hint">
+                Harita araması bu aşamada yok. Kaydetmek için enlem ve boylamı kendiniz girin; adres metninden koordinat üretilmez.
+              </p>
+              <div className="biz-asset-coords">
+                <label>
+                  Enlem
+                  <input name="latitude" aria-label="Enlem" inputMode="decimal" defaultValue={editing?.latitude || ''} required disabled={saving} />
+                </label>
+                <label>
+                  Boylam
+                  <input name="longitude" aria-label="Boylam" inputMode="decimal" defaultValue={editing?.longitude || ''} required disabled={saving} />
+                </label>
+              </div>
+              <label>
+                Başlık (isteğe bağlı)
+                <input name="title" aria-label="İçerik başlığı" maxLength={160} defaultValue={editing?.title || ''} disabled={saving} />
+              </label>
+            </>
+          ) : null}
+          {formKind === 'link' ? (
+            <>
+              <label>
+                HTTPS adresi
+                <input
+                  name="locator"
+                  aria-label="Bağlantı adresi"
+                  type="url"
+                  inputMode="url"
+                  placeholder="https://"
+                  defaultValue={editing?.locator || ''}
+                  required
+                  disabled={saving}
+                />
+              </label>
+              <label>
+                Başlık (isteğe bağlı)
+                <input name="title" aria-label="İçerik başlığı" maxLength={160} defaultValue={editing?.title || ''} disabled={saving} />
+              </label>
+              <label>
+                Açıklama (isteğe bağlı)
+                <textarea name="caption" aria-label="İçerik açıklaması" maxLength={500} defaultValue={editing?.caption || ''} disabled={saving} />
+              </label>
+            </>
+          ) : null}
+          {formKind === 'image' || formKind === 'video' ? (
+            <>
+              <label>
+                Başlık (isteğe bağlı)
+                <input name="title" aria-label="İçerik başlığı" maxLength={160} defaultValue={editing?.title || ''} disabled={saving} />
+              </label>
+              <label>
+                Açıklama
+                <textarea name="caption" aria-label="İçerik açıklaması" maxLength={500} defaultValue={editing?.caption || ''} disabled={saving} />
+              </label>
+            </>
+          ) : null}
           {editing?.asset_type === 'image' ? (
             <label>
               Görseli değiştir
               <input name="file" aria-label="Görsel dosyası" type="file" accept={IMAGE_ACCEPT} disabled={saving} />
-            </label>
-          ) : null}
-          {(assetType === 'video' || editing?.asset_type === 'video') && !editing ? (
-            <label>
-              Video dosyası
-              <input
-                name="file"
-                aria-label="Video dosyası"
-                type="file"
-                accept="video/mp4"
-                disabled={saving}
-                onChange={(event) => setVideoFile(event.target.files?.[0] || null)}
-              />
-              <span className="biz-card-meta">MP4, en fazla 60 saniye ve 40 MB. Kapak kendiliğinden hazırlanır.</span>
             </label>
           ) : null}
           {editing?.asset_type === 'video' && editing.locator_kind === 'https' ? (
@@ -752,29 +844,6 @@ export default function BusinessAssetLibrary({
           ) : null}
           {editing?.asset_type === 'video' && editing.locator_kind === 'storage' ? (
             <p className="biz-card-meta">Yüklenen video duruyor. Kapak kendiliğinden hazırlanır.</p>
-          ) : null}
-          {uploadRatio !== null ? (
-            <p className="biz-card-meta" data-testid="biz-video-progress" role="status">
-              Yükleniyor… {Math.round(uploadRatio * 100)}%
-            </p>
-          ) : null}
-          {(assetType === 'link' || editing?.asset_type === 'link') && (!editing || editing.asset_type === 'link') ? (
-            <label>
-              HTTPS adresi
-              <input name="locator" aria-label="Bağlantı adresi" type="url" inputMode="url" placeholder="https://" defaultValue={editing?.locator || ''} required disabled={saving} />
-            </label>
-          ) : null}
-          {(assetType === 'place' || editing?.asset_type === 'place') && (!editing || editing.asset_type === 'place') ? (
-            <div className="biz-asset-coords">
-              <label>
-                Enlem
-                <input name="latitude" aria-label="Enlem" inputMode="decimal" defaultValue={editing?.latitude || ''} required disabled={saving} />
-              </label>
-              <label>
-                Boylam
-                <input name="longitude" aria-label="Boylam" inputMode="decimal" defaultValue={editing?.longitude || ''} required disabled={saving} />
-              </label>
-            </div>
           ) : null}
           <fieldset className="biz-asset-links">
             <legend>Bilgi kayıtları</legend>
@@ -809,7 +878,7 @@ export default function BusinessAssetLibrary({
       ) : null}
 
       {!assets.length && !visibleUploads.length ? <p className="biz-empty">Henüz içerik yok.</p> : null}
-      <div className="biz-asset-grid">
+      <div className="biz-asset-grid" data-testid="biz-asset-grid">
         {assets.map((asset) => {
           const activeLinks = asset.links.filter((link) => link.status === 'active');
           const stale = activeLinks.some((link) => !link.confirmation_current);
@@ -824,14 +893,15 @@ export default function BusinessAssetLibrary({
                 <CoverPreparation businessId={businessId} assetId={asset.id} />
               ) : null}
               <div className="biz-card-head">
-                <h3>{asset.title || 'Başlıksız görsel'}</h3>
+                <h3>{displayTitle(asset)}</h3>
                 <span className={`biz-status biz-status--${asset.status === 'archived' ? 'archived' : asset.public_allowed ? 'published' : 'draft'}`}>
                   {statusLabel(asset)}
                 </span>
               </div>
               <p className="biz-card-meta">
                 {typeLabel(asset.asset_type)}
-                {asset.caption ? ` · ${asset.caption}` : ''}
+                {asset.asset_type !== 'place' && asset.caption ? ` · ${asset.caption}` : ''}
+                {asset.asset_type === 'link' && asset.locator ? ` · ${linkHostname(asset.locator)}` : ''}
               </p>
               {activeLinks.length ? (
                 <p className="biz-card-meta">{activeLinks.map((link) => link.knowledge_title).filter(Boolean).join(', ')}</p>
@@ -841,27 +911,59 @@ export default function BusinessAssetLibrary({
               {stale ? <p className="biz-form-error">Bilgi yeni sürüme geçti. İlişkiyi yeniden onaylayın.</p> : null}
               {canEdit && asset.status !== 'archived' ? (
                 <div className="biz-actions">
-                  {asset.asset_type === 'image' ? (
-                    <button type="button" className="biz-btn-ghost" data-testid={`biz-asset-plus-${asset.id}`} onClick={() => setMetaAssetId(metaOpen ? null : asset.id)}>
-                      +
-                    </button>
-                  ) : null}
+                  <button type="button" className="biz-btn-ghost" data-testid={`biz-asset-plus-${asset.id}`} onClick={() => setMetaAssetId(metaOpen ? null : asset.id)}>
+                    +
+                  </button>
                   <button type="button" className="biz-btn-ghost" onClick={() => openEdit(asset)}>
                     Düzenle
                   </button>
-                  <button type="button" className="biz-btn-ghost" onClick={() => void archive(asset)}>
-                    Arşivle
+                  <button
+                    type="button"
+                    className="biz-btn-ghost"
+                    data-testid={`biz-asset-archive-${asset.id}`}
+                    disabled={saving || busy}
+                    onClick={() => {
+                      setMetaAssetId(null);
+                      setArchiveTarget(asset);
+                    }}
+                  >
+                    Arşive Kaldır
                   </button>
                 </div>
               ) : null}
-              {metaOpen && asset.asset_type === 'image' ? (
+              {archiveTarget?.id === asset.id ? (
+                <div
+                  className="biz-asset-archive-confirm"
+                  role="alertdialog"
+                  aria-modal="true"
+                  aria-labelledby={`biz-archive-title-${asset.id}`}
+                  data-testid={`biz-asset-archive-confirm-${asset.id}`}
+                >
+                  <p id={`biz-archive-title-${asset.id}`}>Bu içerik aktif kütüphaneden kaldırılacak.</p>
+                  <div className="biz-actions">
+                    <button type="button" className="biz-btn-ghost" disabled={saving} onClick={() => setArchiveTarget(null)}>
+                      İptal
+                    </button>
+                    <button
+                      type="button"
+                      className="biz-btn-primary"
+                      data-testid={`biz-asset-archive-confirm-submit-${asset.id}`}
+                      disabled={saving || busy}
+                      onClick={() => void confirmArchive()}
+                    >
+                      Arşive Kaldır
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              {metaOpen ? (
                 <ExistingMetaPanel
                   asset={asset}
                   published={published}
                   selected={selected}
                   saving={saving}
                   onCancel={() => setMetaAssetId(null)}
-                  onSave={(title, caption, knowledgeIds) => void saveExistingMetadata(asset, title, caption, knowledgeIds)}
+                  onSave={(nextTitle, nextCaption, knowledgeIds) => void saveExistingMetadata(asset, nextTitle, nextCaption, knowledgeIds)}
                 />
               ) : null}
             </article>
@@ -894,11 +996,11 @@ function ExistingMetaPanel({
     <div className="biz-asset-meta-panel" data-testid={`biz-asset-meta-panel-${asset.id}`}>
       <label>
         Başlık
-        <input aria-label="Kayıtlı görsel başlığı" maxLength={160} value={title} onChange={(event) => setTitle(event.target.value)} disabled={saving} />
+        <input aria-label="Kayıtlı içerik başlığı" maxLength={160} value={title} onChange={(event) => setTitle(event.target.value)} disabled={saving} />
       </label>
       <label>
         Açıklama
-        <textarea aria-label="Kayıtlı görsel açıklaması" maxLength={500} value={caption} onChange={(event) => setCaption(event.target.value)} disabled={saving} />
+        <textarea aria-label="Kayıtlı içerik açıklaması" maxLength={500} value={caption} onChange={(event) => setCaption(event.target.value)} disabled={saving} />
       </label>
       <fieldset className="biz-asset-links">
         <legend>Bilgi kayıtları</legend>
