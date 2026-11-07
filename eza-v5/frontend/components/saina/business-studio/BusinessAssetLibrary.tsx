@@ -174,13 +174,36 @@ export default function BusinessAssetLibrary({
     };
   }, []);
 
+  // When the parent library refetch already contains a successful upload, drop the
+  // temporary card (unless the optional metadata editor is open on that card).
+  useEffect(() => {
+    const owned = new Set(assets.map((row) => row.id));
+    const stale = uploadsRef.current.filter(
+      (item) => item.status === 'success' && item.asset && owned.has(item.asset.id) && !item.metaOpen,
+    );
+    if (!stale.length) return;
+    stale.forEach((item) => {
+      if (item.previewUrl && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(item.previewUrl);
+    });
+    const drop = new Set(stale.map((item) => item.localId));
+    const merged = uploadsRef.current.filter((item) => !drop.has(item.localId));
+    uploadsRef.current = merged;
+    setUploads(merged);
+  }, [assets]);
+
   function patchUpload(localId: string, patch: Partial<UploadItem>) {
     const merged = uploadsRef.current.map((row) => (row.localId === localId ? { ...row, ...patch } : row));
     uploadsRef.current = merged;
     setUploads(merged);
   }
 
+  function fileKey(file: File) {
+    return `${file.name}::${file.size}::${file.lastModified}`;
+  }
+
   async function runUpload(item: UploadItem) {
+    const live = uploadsRef.current.find((row) => row.localId === item.localId);
+    if (!live || live.status === 'success') return;
     patchUpload(item.localId, { status: 'uploading', progress: 0, error: '' });
     try {
       if (item.file.size > BRAND_LIBRARY_IMAGE_MAX_BYTES) throw new Error('asset_file_too_large');
@@ -199,8 +222,15 @@ export default function BusinessAssetLibrary({
           revision: saved.revision,
         });
       }
-      patchUpload(item.localId, { status: 'success', progress: 1, asset: saved, error: '' });
-      await onChanged();
+      // Keep the temp card only while the optional metadata panel is open; otherwise
+      // drop it before refetch so the library card is the single surface.
+      if (after?.metaOpen) {
+        patchUpload(item.localId, { status: 'success', progress: 1, asset: saved, error: '' });
+        await onChanged();
+      } else {
+        removeUpload(item.localId);
+        await onChanged();
+      }
     } catch (err) {
       patchUpload(item.localId, { status: 'error', error: messageOf(err), progress: 0 });
     } finally {
@@ -229,19 +259,31 @@ export default function BusinessAssetLibrary({
   function enqueueFiles(fileList: FileList | File[]) {
     const files = Array.from(fileList).filter(Boolean);
     if (!files.length) return;
-    const next: UploadItem[] = files.map((file) => ({
-      localId: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
-      file,
-      previewUrl: typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : '',
-      status: 'queued' as const,
-      progress: 0,
-      error: '',
-      asset: null,
-      metaOpen: false,
-      title: '',
-      caption: '',
-      knowledgeIds: [],
-    }));
+    const inFlight = new Set(
+      uploadsRef.current
+        .filter((row) => row.status === 'queued' || row.status === 'uploading' || row.status === 'success')
+        .map((row) => fileKey(row.file)),
+    );
+    const next: UploadItem[] = [];
+    for (const file of files) {
+      const key = fileKey(file);
+      if (inFlight.has(key)) continue;
+      inFlight.add(key);
+      next.push({
+        localId: `${file.name}-${file.size}-${file.lastModified}-${Math.random().toString(36).slice(2)}`,
+        file,
+        previewUrl: typeof URL.createObjectURL === 'function' ? URL.createObjectURL(file) : '',
+        status: 'queued' as const,
+        progress: 0,
+        error: '',
+        asset: null,
+        metaOpen: false,
+        title: '',
+        caption: '',
+        knowledgeIds: [],
+      });
+    }
+    if (!next.length) return;
     const merged = [...next, ...uploadsRef.current];
     uploadsRef.current = merged;
     setUploads(merged);
@@ -285,14 +327,13 @@ export default function BusinessAssetLibrary({
       );
       const next = new Set(item.knowledgeIds);
       const same = previous.size === next.size && Array.from(previous).every((id) => next.has(id));
-      let finalAsset = saved;
       if (!same) {
-        finalAsset = await businessRequest(`/${businessId}/assets/${saved.id}/links`, 'POST', {
+        await businessRequest(`/${businessId}/assets/${saved.id}/links`, 'POST', {
           knowledgeVersionIds: item.knowledgeIds,
           revision: saved.revision,
         });
       }
-      patchUpload(item.localId, { asset: finalAsset, metaOpen: false });
+      removeUpload(item.localId);
       await onChanged();
     } catch (err) {
       setError(messageOf(err));
@@ -471,6 +512,13 @@ export default function BusinessAssetLibrary({
     enqueueFiles(event.dataTransfer.files);
   }
 
+  const libraryIds = useMemo(() => new Set(assets.map((row) => row.id)), [assets]);
+  // Hide completed temp cards once the persistent library already owns that asset id,
+  // unless the optional metadata panel is open on the upload card.
+  const visibleUploads = uploads.filter(
+    (item) => item.status !== 'success' || !item.asset || !libraryIds.has(item.asset.id) || item.metaOpen,
+  );
+
   return (
     <section className="biz-asset-library" data-testid="biz-asset-library">
       <header className="biz-section-head">
@@ -534,9 +582,9 @@ export default function BusinessAssetLibrary({
         </div>
       ) : null}
 
-      {uploads.length ? (
+      {visibleUploads.length ? (
         <div className="biz-asset-upload-grid" data-testid="biz-asset-upload-grid">
-          {uploads.map((item) => (
+          {visibleUploads.map((item) => (
             <article className="biz-asset-card biz-asset-upload-card" key={item.localId} data-testid={`biz-upload-${item.localId}`}>
               {item.previewUrl ? (
                 <img className="biz-asset-preview" src={item.previewUrl} alt="" />
@@ -760,7 +808,7 @@ export default function BusinessAssetLibrary({
         </form>
       ) : null}
 
-      {!assets.length && !uploads.length ? <p className="biz-empty">Henüz içerik yok.</p> : null}
+      {!assets.length && !visibleUploads.length ? <p className="biz-empty">Henüz içerik yok.</p> : null}
       <div className="biz-asset-grid">
         {assets.map((asset) => {
           const activeLinks = asset.links.filter((link) => link.status === 'active');
