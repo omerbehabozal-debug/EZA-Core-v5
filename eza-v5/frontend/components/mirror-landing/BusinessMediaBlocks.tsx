@@ -1,5 +1,7 @@
 'use client';
 
+import { useState } from 'react';
+import MediaLightbox from '@/components/media/MediaLightbox';
 import SainaMessageBody from '@/components/standalone/SainaMessageBody';
 import type { PublicBusinessBlock } from '@/lib/eza/mirror/journey/businessMedia';
 import { businessMediaUrl } from '@/lib/eza/mirror/journey/businessMedia';
@@ -15,6 +17,7 @@ export function BusinessAnswerBody({ text, blocks, layout }: { text: string; blo
 
 /** Approved brand media inside an existing Yansı or Business answer. */
 export default function BusinessMediaBlocks({ blocks, layout }: { blocks: PublicBusinessBlock[]; layout: 'mobile' | 'desktop' }) {
+  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
   if (!blocks.length) return null;
   return (
     <div
@@ -25,14 +28,23 @@ export default function BusinessMediaBlocks({ blocks, layout }: { blocks: Public
     >
       {blocks.map((block) => {
         if (block.type === 'image') {
+          const src = businessMediaUrl(block.contentPath);
           return (
-            <img
+            <button
               key={block.assetId}
-              src={businessMediaUrl(block.contentPath)}
-              alt={block.title}
-              className="max-h-80 w-full rounded-2xl bg-[#0c0b0a] object-contain"
-              data-testid="business-media-image"
-            />
+              type="button"
+              className="block w-full cursor-zoom-in border-0 bg-transparent p-0 text-left"
+              data-testid="business-media-image-open"
+              aria-label={`${block.title} görselini büyüt`}
+              onClick={() => setLightbox({ src, alt: block.title })}
+            >
+              <img
+                src={src}
+                alt={block.title}
+                className="max-h-80 w-full rounded-2xl bg-[#0c0b0a] object-contain"
+                data-testid="business-media-image"
+              />
+            </button>
           );
         }
         if (block.type === 'video') {
@@ -43,7 +55,7 @@ export default function BusinessMediaBlocks({ blocks, layout }: { blocks: Public
               controls
               playsInline
               preload="metadata"
-              className="max-h-80 w-full rounded-2xl bg-[#0c0b0a]"
+              className="max-h-80 w-full rounded-2xl bg-[#0c0b0a] object-contain"
               data-testid="business-media-video"
               aria-label={block.title}
             />
@@ -80,6 +92,12 @@ export default function BusinessMediaBlocks({ blocks, layout }: { blocks: Public
           </a>
         );
       })}
+      <MediaLightbox
+        open={Boolean(lightbox)}
+        src={lightbox?.src || null}
+        alt={lightbox?.alt || ''}
+        onClose={() => setLightbox(null)}
+      />
     </div>
   );
 }

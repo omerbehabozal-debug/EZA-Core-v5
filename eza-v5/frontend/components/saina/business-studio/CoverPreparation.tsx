@@ -69,6 +69,7 @@ export function AuthorizedVideo({
       className="biz-asset-preview"
       src={src}
       controls
+      playsInline
       preload="metadata"
       aria-label={label}
       data-testid={`biz-video-${assetId}`}

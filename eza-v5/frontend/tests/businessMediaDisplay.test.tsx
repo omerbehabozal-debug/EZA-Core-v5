@@ -97,4 +97,22 @@ describe('business media display', () => {
     expect(screen.getByTestId('business-media-image')).toHaveClass('object-contain');
     expect(screen.getByTestId('business-media-image').getAttribute('src')).not.toContain('brand-assets');
   });
+
+  it('opens a contain lightbox for chat images and keeps video uncropped', () => {
+    render(<BusinessAnswerBody text="Seramik atolyesi aciktir." layout="mobile" blocks={[
+      { type: 'image', assetId: image, title: 'Atolye', contentPath: `/api/business-yansi/public-media/${brand}/${image}` },
+      { type: 'video', assetId: video, title: 'Film', href: 'https://cdn.bilign.example/seramik.mp4' },
+    ]} />);
+    expect(screen.getByTestId('business-media-video')).toHaveClass('object-contain');
+    expect(screen.getByTestId('business-media-video')).toHaveAttribute('controls');
+    fireEvent.click(screen.getByTestId('business-media-image-open'));
+    expect(screen.getByTestId('media-lightbox')).toBeInTheDocument();
+    expect(screen.getByTestId('media-lightbox-image')).toHaveClass('object-contain');
+    expect(screen.getByTestId('media-lightbox-image')).toHaveAttribute(
+      'src',
+      expect.stringContaining(`/api/business-yansi/public-media/${brand}/${image}`),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Kapat' }));
+    expect(screen.queryByTestId('media-lightbox')).not.toBeInTheDocument();
+  });
 });

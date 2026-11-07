@@ -139,6 +139,22 @@ describe('Business asset bulk media upload', () => {
     expect(screen.queryByTestId('biz-asset-upload-grid')).not.toBeInTheDocument();
   });
 
+  it('opens a contain lightbox from compact cover-fit library image cards', async () => {
+    render(
+      <LibraryHarness
+        initial={[makeAsset('img-open', { title: 'Atölye' })]}
+      />,
+    );
+    await waitFor(() => expect(screen.getByTestId('biz-asset-image-open-img-open')).toBeInTheDocument());
+    expect(document.querySelector('.biz-asset-preview')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('biz-asset-image-open-img-open'));
+    expect(screen.getByTestId('media-lightbox')).toBeInTheDocument();
+    expect(screen.getByTestId('media-lightbox-image')).toHaveClass('object-contain');
+    expect(screen.getByTestId('media-lightbox-image')).toHaveAttribute('src', 'blob:image');
+    fireEvent.click(screen.getByRole('button', { name: 'Kapat' }));
+    expect(screen.queryByTestId('media-lightbox')).not.toBeInTheDocument();
+  });
+
   it('uploads multiple videos privately without cover preparation UI on library cards', async () => {
     render(<LibraryHarness />);
     const files = [

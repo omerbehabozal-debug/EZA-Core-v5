@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react';
+import MediaLightbox from '@/components/media/MediaLightbox';
 import { AuthorizedVideo } from './CoverPreparation';
 import {
   BRAND_LIBRARY_IMAGE_MAX_BYTES,
@@ -118,6 +119,7 @@ function displayTitle(asset: BrandAsset) {
 
 function AssetPreview({ businessId, asset }: { businessId: string; asset: BrandAsset }) {
   const [src, setSrc] = useState('');
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   useEffect(() => {
     if (asset.asset_type !== 'image' || asset.locator_kind !== 'storage') return;
     let url = '';
@@ -138,17 +140,27 @@ function AssetPreview({ businessId, asset }: { businessId: string; asset: BrandA
   }, [asset.asset_type, asset.id, asset.locator_kind, asset.revision, businessId]);
 
   if (asset.asset_type === 'image') {
-    return src ? (
-      <img className="biz-asset-preview" src={src} alt="" />
-    ) : (
-      <div className="biz-asset-placeholder">Görsel önizlemesi</div>
+    if (!src) return <div className="biz-asset-placeholder">Görsel önizlemesi</div>;
+    return (
+      <>
+        <button
+          type="button"
+          className="biz-asset-preview-button"
+          data-testid={`biz-asset-image-open-${asset.id}`}
+          aria-label={`${displayTitle(asset)} görselini büyüt`}
+          onClick={() => setLightboxOpen(true)}
+        >
+          <img className="biz-asset-preview" src={src} alt="" />
+        </button>
+        <MediaLightbox open={lightboxOpen} src={src} alt={displayTitle(asset)} onClose={() => setLightboxOpen(false)} />
+      </>
     );
   }
   if (asset.asset_type === 'video' && asset.locator_kind === 'storage') {
     return <AuthorizedVideo businessId={businessId} assetId={asset.id} label="Yüklenen video" />;
   }
   if (asset.asset_type === 'video' && asset.locator) {
-    return <video className="biz-asset-preview" src={asset.locator} controls preload="metadata" />;
+    return <video className="biz-asset-preview" src={asset.locator} controls playsInline preload="metadata" />;
   }
   if (asset.asset_type === 'place') {
     return (

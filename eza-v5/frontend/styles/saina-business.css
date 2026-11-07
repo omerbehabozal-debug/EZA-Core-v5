@@ -2921,6 +2921,23 @@
   object-fit: cover;
 }
 
+.biz-asset-preview-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.biz-asset-preview-button:focus-visible {
+  outline: 2px solid var(--biz-gold);
+  outline-offset: 3px;
+}
+
 .biz-asset-placeholder {
   display: grid;
   place-items: center;
