@@ -14,20 +14,13 @@ import redis.asyncio as redis
 
 # Config import - load_dotenv() is called ONLY in config.py
 from backend.config import get_settings
+from backend.core.utils.database_url import normalize_async_database_url
 
 # Get settings (config.py already loaded .env)
 settings = get_settings()
 
 # Database - Get from settings (config.py loads .env)
-DATABASE_URL = settings.DATABASE_URL
-
-# Normalize DATABASE_URL to use asyncpg driver
-# Railway and other providers often give postgresql:// but we need postgresql+asyncpg://
-if DATABASE_URL.startswith("postgresql://"):
-    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
-elif DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
-# If already has +asyncpg, keep it as is
+DATABASE_URL = normalize_async_database_url(settings.DATABASE_URL)
 
 # Configure engine with pool settings to prevent connection issues
 # echo=False to reduce logging verbosity (set to True only for debugging)

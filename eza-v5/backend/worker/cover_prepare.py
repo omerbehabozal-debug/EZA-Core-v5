@@ -5,10 +5,21 @@ Run from the eza-v5 tree:
     python -m backend.worker.cover_prepare
 """
 import asyncio
+import os
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 POLL_SECONDS = 1.0
+
+
+def resolve_database_url() -> str:
+    """Read DATABASE_URL without loading API settings (no JWT enforcement)."""
+    from backend.core.utils.database_url import normalize_async_database_url
+
+    raw = (os.environ.get("DATABASE_URL") or "").strip()
+    if not raw:
+        raise RuntimeError("DATABASE_URL is required")
+    return normalize_async_database_url(raw)
 
 
 class _HeldClaim:
@@ -52,11 +63,11 @@ async def serve(session_factory, *, store=None, stop: asyncio.Event | None = Non
 
 
 def main() -> None:
-    from backend.config import settings
     from backend.services.business_yansi.video_storage import video_store_from_env
 
+    database_url = resolve_database_url()
     store = video_store_from_env()
-    engine = create_async_engine(settings.DATABASE_URL)
+    engine = create_async_engine(database_url)
     factory = async_sessionmaker(engine, expire_on_commit=False)
 
     async def close() -> None:
