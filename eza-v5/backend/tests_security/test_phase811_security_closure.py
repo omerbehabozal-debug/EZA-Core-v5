@@ -62,6 +62,22 @@ def test_normalize_public_http_error_content_masks_500():
     assert "postgresql" not in json.dumps(body).lower()
 
 
+def test_normalize_public_http_error_content_preserves_allowlisted_video_5xx_codes():
+    for code in (
+        "video_quota_unavailable",
+        "video_storage_unconfigured",
+        "video_probe_unavailable",
+        "video_storage_failed",
+    ):
+        body = normalize_public_http_error_content(503 if code != "video_storage_failed" else 502, {"code": code})
+        assert body == {"detail": {"code": code}}
+
+
+def test_normalize_public_http_error_content_masks_unknown_5xx_domain_codes():
+    body = normalize_public_http_error_content(503, {"code": "redis_host_secret_path"})
+    assert body == PUBLIC_INTERNAL_ERROR_BODY
+
+
 def test_normalize_public_http_error_content_preserves_422():
     detail = [{"loc": ["body", "email"], "msg": "value is not a valid email", "type": "value_error"}]
     body = normalize_public_http_error_content(422, detail)
@@ -83,6 +99,23 @@ async def test_http_exception_handler_masks_500_detail():
     body = json.loads(response.body.decode())
     assert body == PUBLIC_INTERNAL_ERROR_BODY
     assert response.status_code == 500
+
+
+@pytest.mark.asyncio
+async def test_http_exception_handler_preserves_allowlisted_video_503_code():
+    scope = {
+        "type": "http",
+        "method": "POST",
+        "path": "/api/business-yansi/x/assets/video",
+        "headers": [],
+        "query_string": b"",
+    }
+    request = Request(scope)
+    exc = StarletteHTTPException(status_code=503, detail={"code": "video_quota_unavailable"})
+    response = await http_exception_handler(request, exc)
+    body = json.loads(response.body.decode())
+    assert response.status_code == 503
+    assert body == {"detail": {"code": "video_quota_unavailable"}}
 
 
 @pytest.mark.asyncio

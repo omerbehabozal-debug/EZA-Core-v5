@@ -168,6 +168,10 @@ const MSG = {
   network: 'Business servisine bağlanılamadı. Bağlantını kontrol edip tekrar dene.',
   not_found: 'İstenen kayıt bulunamadı.',
   unknown: 'İşlem tamamlanamadı.',
+  video_quota_unavailable: 'Video yükleme kontrolü şu anda kullanılamıyor. Lütfen biraz sonra tekrar deneyin.',
+  video_storage_unconfigured: 'Video depolama servisi şu anda kullanılamıyor.',
+  video_probe_unavailable: 'Video işleme servisi şu anda kullanılamıyor.',
+  video_storage_failed: 'Video kaydedilemedi. Lütfen biraz sonra tekrar deneyin.',
 } as const;
 
 function detailCode(detail: unknown): string {
@@ -178,6 +182,11 @@ function detailCode(detail: unknown): string {
     if (typeof row.reason === 'string' && row.reason.trim()) return row.reason.trim();
   }
   return '';
+}
+
+function messageForCode(code: string, fallback: string): string {
+  if (code && code in MSG) return MSG[code as keyof typeof MSG];
+  return fallback;
 }
 
 function classify(status: number, detail: unknown): { kind: BusinessApiErrorKind; code: string; message: string } {
@@ -200,10 +209,11 @@ function classify(status: number, detail: unknown): { kind: BusinessApiErrorKind
     return { kind: 'not_found', code: code || 'not_found', message: code || MSG.not_found };
   }
   if (status >= 500) {
-    return { kind: 'server', code: code || `http_${status}`, message: MSG.server };
+    const resolved = code || `http_${status}`;
+    return { kind: 'server', code: resolved, message: messageForCode(code, MSG.server) };
   }
   if (code) {
-    return { kind: 'unknown', code, message: code };
+    return { kind: 'unknown', code, message: messageForCode(code, code) };
   }
   return { kind: 'unknown', code: `http_${status}`, message: `${MSG.unknown} (${status}).` };
 }

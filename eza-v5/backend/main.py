@@ -60,6 +60,7 @@ from backend.security.rate_limit import (
 )
 from backend.security.production_surface import (
     public_internal_error_content,
+    public_safe_5xx_detail_code,
     normalize_public_http_error_content,
 )
 from backend.security.public_demo_guard import enforce_public_demo_limits
@@ -279,6 +280,25 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     }
     if request_id:
         headers[REQUEST_ID_HEADER] = request_id
+
+    # Server-only breadcrumb for intentional 5xx domain codes (no secrets / raw detail).
+    if exc.status_code >= 500:
+        safe_code = public_safe_5xx_detail_code(exc.detail)
+        if safe_code:
+            logging.warning(
+                "http_5xx_domain_code code=%s status=%s path=%s request_id=%s",
+                safe_code,
+                exc.status_code,
+                request.url.path,
+                request_id or "-",
+            )
+        else:
+            logging.warning(
+                "http_5xx_masked status=%s path=%s request_id=%s",
+                exc.status_code,
+                request.url.path,
+                request_id or "-",
+            )
 
     return JSONResponse(
         status_code=exc.status_code,

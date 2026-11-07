@@ -26,6 +26,28 @@ describe('BusinessApiError classification', () => {
     expect(new BusinessApiError(0, 'network_error').kind).toBe('network');
   });
 
+  it('maps recognized video 5xx codes to clear Turkish copy', () => {
+    const quota = new BusinessApiError(503, { code: 'video_quota_unavailable' });
+    expect(quota.kind).toBe('server');
+    expect(quota.code).toBe('video_quota_unavailable');
+    expect(quota.message).toBe(
+      'Video yükleme kontrolü şu anda kullanılamıyor. Lütfen biraz sonra tekrar deneyin.',
+    );
+
+    expect(new BusinessApiError(503, { code: 'video_storage_unconfigured' }).message).toBe(
+      'Video depolama servisi şu anda kullanılamıyor.',
+    );
+    expect(new BusinessApiError(503, { code: 'video_probe_unavailable' }).message).toBe(
+      'Video işleme servisi şu anda kullanılamıyor.',
+    );
+    expect(new BusinessApiError(502, { code: 'video_storage_failed' }).message).toBe(
+      'Video kaydedilemedi. Lütfen biraz sonra tekrar deneyin.',
+    );
+    expect(new BusinessApiError(503, null).message).toBe(
+      'Business servisinde geçici bir sorun oluştu. Biraz sonra tekrar dene.',
+    );
+  });
+
   it('omits an untouched cover and sends null only for an explicit automatic choice', () => {
     expect(revisionCoverPayload('asset-1', false)).toEqual({});
     expect(revisionCoverPayload('', false)).toEqual({});

@@ -14,6 +14,15 @@ from backend.config import get_settings, is_production_settings
 # Canonical public envelope for unexpected server failures (Phase 8.1).
 PUBLIC_INTERNAL_ERROR_BODY: dict[str, str] = {"error": "internal_server_error"}
 
+# Intentional Business domain 5xx codes that are safe to expose (no infra/secrets).
+# Unexpected 5xx detail (tracebacks, connection strings, raw exceptions) stays masked.
+PUBLIC_SAFE_5XX_DETAIL_CODES = frozenset({
+    "video_quota_unavailable",
+    "video_storage_unconfigured",
+    "video_probe_unavailable",
+    "video_storage_failed",
+})
+
 # Explicit env labels where dev/debug/lab/test surfaces may exist (Phase 8.1.1).
 NON_PRODUCTION_SURFACE_ENV_VALUES = frozenset({
     "dev",
@@ -24,6 +33,16 @@ NON_PRODUCTION_SURFACE_ENV_VALUES = frozenset({
 })
 
 logger = logging.getLogger(__name__)
+
+
+def public_safe_5xx_detail_code(detail: Any) -> str | None:
+    """Return an allowlisted domain code from HTTPException detail, else None."""
+    if not isinstance(detail, dict):
+        return None
+    code = detail.get("code")
+    if isinstance(code, str) and code in PUBLIC_SAFE_5XX_DETAIL_CODES:
+        return code
+    return None
 
 
 def raw_runtime_env_label() -> str | None:
@@ -79,9 +98,12 @@ def normalize_public_http_error_content(status_code: int, detail: Any) -> dict[s
     Map HTTP errors to public response bodies.
 
     - 4xx: preserve intentional domain detail under ``detail``.
-    - 5xx: always canonical generic envelope (no raw exception text).
+    - 5xx: mask unexpected detail; allowlist-only stable domain codes may pass through.
     """
     if status_code >= 500:
+        code = public_safe_5xx_detail_code(detail)
+        if code:
+            return {"detail": {"code": code}}
         return public_internal_error_content()
     return {"detail": detail}
 

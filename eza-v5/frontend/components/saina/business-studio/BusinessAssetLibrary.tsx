@@ -53,7 +53,10 @@ const COPY: Record<string, string> = {
   video_too_large: 'Video 40 MB sınırını aşıyor.',
   video_too_long: 'Video 60 saniyeden uzun olamaz.',
   video_file_rejected: 'Video MP4 olmalı.',
-  video_quota_unavailable: 'Video kotası geçici olarak kullanılamıyor. Biraz sonra deneyin.',
+  video_quota_unavailable: 'Video yükleme kontrolü şu anda kullanılamıyor. Lütfen biraz sonra tekrar deneyin.',
+  video_storage_unconfigured: 'Video depolama servisi şu anda kullanılamıyor.',
+  video_probe_unavailable: 'Video işleme servisi şu anda kullanılamıyor.',
+  video_storage_failed: 'Video kaydedilemedi. Lütfen biraz sonra tekrar deneyin.',
   video_rate_limited: 'Video yükleme limiti doldu. Biraz sonra deneyin.',
 };
 
