@@ -112,3 +112,73 @@ def test_save_rejects_oversized_bytes(tmp_path, monkeypatch):
     huge = _PNG_BYTES + (b"\x00" * (MAX_PROFILE_AVATAR_BYTES + 1))
     with pytest.raises(ValueError, match="avatar_too_large"):
         save_profile_avatar_bytes(huge, str(uuid.uuid4()))
+
+
+def test_resolve_profile_avatar_dir_prefers_persistent_data_mount(tmp_path, monkeypatch):
+    from backend.services import profile_avatar_store as store
+
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    monkeypatch.setattr(store, "get_settings", lambda: type("S", (), {"EZA_PROFILE_AVATAR_DIR": None})())
+    monkeypatch.setattr(store, "_persistent_data_root", lambda: data_root)
+    assert store.resolve_profile_avatar_dir() == data_root / "profile_avatars"
+
+
+def test_resolve_profile_avatar_dir_honors_explicit_env(tmp_path, monkeypatch):
+    from backend.services import profile_avatar_store as store
+
+    configured = tmp_path / "configured_avatars"
+    monkeypatch.setattr(
+        store,
+        "get_settings",
+        lambda: type("S", (), {"EZA_PROFILE_AVATAR_DIR": str(configured)})(),
+    )
+    monkeypatch.setattr(store, "_persistent_data_root", lambda: tmp_path / "ignored")
+    assert store.resolve_profile_avatar_dir() == configured
+
+
+def test_save_fails_closed_when_disk_write_fails(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "backend.services.profile_avatar_store.resolve_profile_avatar_dir",
+        lambda: tmp_path,
+    )
+    original = Path.write_bytes
+
+    def failing_write(self, data):
+        if self.parent == tmp_path:
+            raise OSError("disk full")
+        return original(self, data)
+
+    monkeypatch.setattr(Path, "write_bytes", failing_write)
+    with pytest.raises(ValueError, match="avatar_storage_unavailable"):
+        save_profile_avatar_bytes(_PNG_BYTES, str(uuid.uuid4()))
+    assert list(tmp_path.glob("*")) == []
+
+
+def test_brand_logo_bytes_survive_resolved_persistent_dir(tmp_path, monkeypatch):
+    """Brand logos reuse the profile-avatar pipeline; persistence is the dir choice."""
+    persistent = tmp_path / "volume" / "profile_avatars"
+    monkeypatch.setattr(
+        "backend.services.profile_avatar_store.resolve_profile_avatar_dir",
+        lambda: persistent,
+    )
+    business_id = str(uuid.uuid4())
+    url, _, _ = save_profile_avatar_bytes(_PNG_BYTES, business_id)
+    filename = url.rsplit("/", 1)[-1]
+    assert (persistent / filename).is_file()
+    assert resolve_profile_avatar_path(filename) == persistent / filename
+
+
+def test_resolve_reads_legacy_ephemeral_dir_as_fallback(tmp_path, monkeypatch):
+    from backend.services import profile_avatar_store as store
+
+    persistent = tmp_path / "data" / "profile_avatars"
+    legacy = tmp_path / "legacy" / "profile_avatars"
+    persistent.mkdir(parents=True)
+    legacy.mkdir(parents=True)
+    uid = str(uuid.uuid4())
+    filename = f"{uid}.png"
+    (legacy / filename).write_bytes(_PNG_BYTES)
+    monkeypatch.setattr(store, "resolve_profile_avatar_dir", lambda: persistent)
+    monkeypatch.setattr(store, "_legacy_profile_avatar_dir", lambda: legacy)
+    assert resolve_profile_avatar_path(filename) == legacy / filename

@@ -575,6 +575,30 @@ describe('Business public identity', () => {
     );
   });
 
+  it('falls back to the brand initial when the logo image fails to load', async () => {
+    const brandLogo = '/api/public/profile-avatars/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb.png';
+    const profile = { ...business, logo_url: brandLogo, updated_at: '2026-10-03T00:00:00Z' };
+    api.mockImplementation(async (path = '') => {
+      if (path === '') return { items: [profile], canProvision: false };
+      if (path === '/applications/mine') return { items: [] };
+      if (String(path).endsWith('/overview')) return { business: profile, role: 'owner', publications: [] };
+      if (String(path).endsWith('/members')) return { items: [] };
+      return { items: [] };
+    });
+    render(<SainaBusinessManager />);
+    await screen.findByTestId('biz-panel-brand');
+    const brandImage = await waitFor(() => {
+      const img = screen.getByTestId('biz-panel-brand').querySelector('img');
+      expect(img).not.toBeNull();
+      return img as HTMLImageElement;
+    });
+    fireEvent.error(brandImage);
+    await waitFor(() => {
+      expect(screen.getByTestId('biz-panel-brand').querySelector('img')).toBeNull();
+    });
+    expect(screen.getByTestId('biz-panel-brand')).toHaveTextContent('B');
+  });
+
   it('lets the owner replace the brand avatar from settings', async () => {
     api.mockImplementation(async (path = '') => {
       if (path === '') return { items: [business], canProvision: false };

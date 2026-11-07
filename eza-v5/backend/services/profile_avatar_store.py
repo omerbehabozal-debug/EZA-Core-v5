@@ -42,13 +42,34 @@ def _mime_to_extension(mime: str) -> str:
     raise ValueError(f"unsupported mime: {mime}")
 
 
+def _legacy_profile_avatar_dir() -> Path:
+    """Ephemeral in-image path used before Railway volume-aware defaults."""
+    backend_dir = Path(__file__).resolve().parents[1]
+    return backend_dir / "data" / "profile_avatars"
+
+
+def _persistent_data_root() -> Path | None:
+    """Return the mounted persistent root when present (Railway ``/data``)."""
+    data_root = Path("/data")
+    return data_root if data_root.is_dir() else None
+
+
 def resolve_profile_avatar_dir() -> Path:
+    """Directory for avatar/logo bytes on disk.
+
+    Prefer ``EZA_PROFILE_AVATAR_DIR`` when set. Otherwise, when Railway (or any
+    host) mounts persistent storage at ``/data``, write under
+    ``/data/profile_avatars`` so brand logos and user avatars survive restarts.
+    Fall back to the legacy in-image path only when ``/data`` is unavailable.
+    """
     settings = get_settings()
     configured = (getattr(settings, "EZA_PROFILE_AVATAR_DIR", None) or "").strip()
     if configured:
         return Path(configured)
-    backend_dir = Path(__file__).resolve().parents[1]
-    return backend_dir / "data" / "profile_avatars"
+    data_root = _persistent_data_root()
+    if data_root is not None:
+        return data_root / "profile_avatars"
+    return _legacy_profile_avatar_dir()
 
 
 def user_id_from_avatar_filename(filename: str) -> str | None:
@@ -103,10 +124,19 @@ def resolve_profile_avatar_path(filename: str) -> Path | None:
     safe_name = Path(filename).name
     if not _AVATAR_FILENAME_RE.match(safe_name):
         return None
-    path = resolve_profile_avatar_dir() / safe_name
-    if not path.is_file():
+    primary = resolve_profile_avatar_dir() / safe_name
+    if primary.is_file():
+        return primary
+    # Read fallback for files written before the /data default (same filename).
+    legacy = _legacy_profile_avatar_dir() / safe_name
+    if not legacy.is_file():
         return None
-    return path
+    try:
+        if primary.exists() and legacy.resolve() == primary.resolve():
+            return None
+    except OSError:
+        pass
+    return legacy
 
 
 def profile_avatar_response_headers(media_type: str, *, etag: str | None = None) -> dict[str, str]:
@@ -184,8 +214,13 @@ def save_profile_avatar_bytes(image_bytes: bytes, user_id: str) -> tuple[str, by
     target = asset_dir / filename
     try:
         target.write_bytes(normalized_bytes)
-    except OSError:
+    except OSError as exc:
         logger.warning("profile_avatar_disk_write_failed user_id=%s", uid)
+        # Never persist a public URL when bytes did not land on disk.
+        raise ValueError("avatar_storage_unavailable") from exc
+
+    if not target.is_file() or target.stat().st_size <= 0:
+        raise ValueError("avatar_storage_unavailable")
 
     public_url = build_profile_avatar_public_url(filename)
     logger.info(

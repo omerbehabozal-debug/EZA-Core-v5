@@ -62,10 +62,22 @@ function BrandMark({
 }) {
   const cls = size === 'hero' ? 'biz-overview-logo' : 'biz-brand-mark';
   const src = logoUrl ? buildProfileAvatarDisplaySrc(logoUrl, cacheBust ?? undefined) : '';
-  if (src) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const showImage = Boolean(src) && !imageFailed;
+  // Reset when the logo locator or cache-bust changes (new upload / reload).
+  useEffect(() => {
+    setImageFailed(false);
+  }, [src]);
+  if (showImage) {
     return (
       <div className={cls} aria-hidden data-testid={testId}>
-        <img src={src} alt="" />
+        <img
+          src={src}
+          alt=""
+          onError={() => {
+            setImageFailed(true);
+          }}
+        />
       </div>
     );
   }
