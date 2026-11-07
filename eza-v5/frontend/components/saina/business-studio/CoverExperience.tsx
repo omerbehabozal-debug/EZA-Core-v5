@@ -379,17 +379,20 @@ export function CoverExperience({
         });
         videoUploadRef.current = { key, asset: saved };
       }
+      // Reassignment after linking widens `saved` back to BrandAsset | null; keep a definite asset.
+      if (!saved) throw new Error('Video yüklenemedi.');
+      let asset: BrandAsset = saved;
       if (linkVersionIds.length) {
-        const linked = await businessRequest<BrandAsset>(`/${businessId}/assets/${saved.id}/links`, 'POST', {
+        const linked = await businessRequest<BrandAsset>(`/${businessId}/assets/${asset.id}/links`, 'POST', {
           knowledgeVersionIds: linkVersionIds,
-          revision: saved.revision,
+          revision: asset.revision,
         });
-        saved = linked?.id ? { ...saved, ...linked } : saved;
-        videoUploadRef.current = { key, asset: saved };
-        setLinkedVideoIds((current) => (current.includes(saved.id) ? current : [...current, saved.id]));
+        asset = linked?.id ? { ...asset, ...linked } : asset;
+        videoUploadRef.current = { key, asset };
+        setLinkedVideoIds((current) => (current.includes(asset.id) ? current : [...current, asset.id]));
       }
-      setLocalVideos((current) => [saved, ...current.filter((item) => item.id !== saved.id)]);
-      setSourceId(saved.id);
+      setLocalVideos((current) => [asset, ...current.filter((item) => item.id !== asset.id)]);
+      setSourceId(asset.id);
       requestSerial.current += 1;
       setConfirmedJobId(null);
       remember(null);
