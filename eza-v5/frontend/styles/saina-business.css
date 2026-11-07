@@ -2812,10 +2812,50 @@
   }
 }
 
+.biz-asset-dropzone {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  margin-bottom: 16px;
+  padding: 20px;
+  border: 1px dashed var(--biz-border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.biz-asset-dropzone--active {
+  border-color: rgba(212, 175, 55, 0.7);
+  background: rgba(212, 175, 55, 0.08);
+}
+
+.biz-asset-upload-grid,
 .biz-asset-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 12px;
+}
+
+.biz-asset-upload-grid {
+  margin-bottom: 16px;
+}
+
+.biz-asset-progress {
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.biz-asset-progress > span {
+  display: block;
+  height: 100%;
+  background: rgba(212, 175, 55, 0.85);
+}
+
+.biz-asset-meta-panel {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
 }
 
 .biz-asset-card {

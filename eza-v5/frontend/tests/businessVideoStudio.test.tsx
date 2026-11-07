@@ -112,7 +112,7 @@ describe('business studio video experience', () => {
         onChanged={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: '+ Yeni içerik' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Video / konum / bağlantı' }));
     fireEvent.change(screen.getByLabelText('İçerik türü'), { target: { value: 'video' } });
     fireEvent.change(screen.getByLabelText('İçerik başlığı'), { target: { value: 'Atolye filmi' } });
     const file = new File([new Uint8Array(8)], 'atolye.mp4', { type: 'video/mp4' });

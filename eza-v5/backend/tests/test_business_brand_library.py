@@ -14,7 +14,12 @@ from backend.services.business_yansi.brand_assets import public_media_allowed
 from backend.tests.test_business_yansi import sample, source
 
 
-_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
+_PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+    b"\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01"
+    b"\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 
 @pytest.fixture
@@ -47,7 +52,10 @@ async def test_image_is_stored_without_exposing_the_storage_key(sample, asset_di
     assert view["locator_kind"] == "storage"
     assert "brand-assets/" not in str(view)
     data, mime = await library.stored_preview(sample.db, sample.business.id, sample.viewer.id, row.id)
-    assert data == _PNG and mime == "image/png"
+    assert mime in {"image/png", "image/jpeg", "image/webp"}
+    assert data and len(data) > 32
+    from backend.services.profile_avatar_store import detect_image_mime
+    assert detect_image_mime(data) == mime
     with pytest.raises(HTTPException) as denied:
         await library.stored_preview(sample.db, sample.business.id, sample.outsider.id, row.id)
     assert denied.value.status_code == 403
@@ -191,7 +199,10 @@ async def test_content_route_requires_membership_and_hides_the_key(sample, asset
     listed, content = await as_user(str(sample.viewer.id))
     assert listed.status_code == 200
     assert "brand-assets/" not in listed.text
-    assert content.status_code == 200 and content.content == _PNG
+    assert content.status_code == 200
+    assert len(content.content) > 32
+    from backend.services.profile_avatar_store import detect_image_mime
+    assert detect_image_mime(content.content) in {"image/png", "image/jpeg", "image/webp"}
     assert content.headers["x-content-type-options"] == "nosniff"
     denied, _hidden = await as_user(str(sample.outsider.id))
     assert denied.status_code == 403

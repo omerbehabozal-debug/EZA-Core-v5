@@ -23,11 +23,17 @@ from backend.services.business_yansi import service as svc
 from backend.services.business_yansi import studio_media as media
 from backend.services.business_yansi.publication import export_editorial_conversation, publish_draft
 from backend.tests.test_business_publish_knowledge_auth import _approved_exportable, _patch_lock_after
+from backend.tests.brand_library_image_fixtures import distinct_library_png
 from backend.tests.test_business_studio_media import _approve, _asset, _steps
 from backend.tests.test_business_video_cover_policy import asset_dir, sample
 from backend.tests.test_business_yansi import source
 
-_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
+_PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+    b"\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01"
+    b"\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 _BACKEND = Path(__file__).resolve().parents[1]
 _DIRTY_TITLE = "DirtyPendingDraftTitle"
 
@@ -88,7 +94,7 @@ async def test_b_rejected_publish_wrong_revision_preserves_dirty_title(sample, a
 async def test_c_existing_conversation_export_preserves_dirty_title(sample, asset_dir, monkeypatch):
     knowledge = await source(sample, content="Yayin yetkisi kaydi icin yeterince aciktir.")
     await _asset(
-        sample, knowledge, asset_type="image", title="Kapak", caption="", public_allowed=True, image_bytes=_PNG + b"2b1a-c",
+        sample, knowledge, asset_type="image", title="Kapak", caption="", public_allowed=True, image_bytes=distinct_library_png(b"2b1a-c"),
     )
     steps = _steps(knowledge, question="Yayin nedir?")
     draft = await svc.create_draft(
@@ -372,7 +378,7 @@ async def test_draft_decision_ignores_unflushed_dirty_revision(sample, asset_dir
 async def test_d_flush_failure_after_park_restores_dirty_history(sample, asset_dir, monkeypatch):
     knowledge = await source(sample, content="Flush hatasi icin yeterince aciktir.")
     await _asset(
-        sample, knowledge, asset_type="image", title="Kapak", caption="", public_allowed=True, image_bytes=_PNG + b"flush",
+        sample, knowledge, asset_type="image", title="Kapak", caption="", public_allowed=True, image_bytes=distinct_library_png(b"flush"),
     )
     steps = _steps(knowledge, question="Flush?")
     draft = await svc.create_draft(sample.db, sample.business.id, sample.editor.id, "Yayin", "Yayin", steps)

@@ -22,9 +22,15 @@ from backend.services.business_yansi import service as svc
 from backend.services.business_yansi import studio_media as media
 from backend.services.business_yansi.media_observations import content_sha_from_locator
 from backend.tests.test_business_video_cover_policy import _confirm, asset_dir, sample
+from backend.tests.brand_library_image_fixtures import distinct_library_png
 from backend.tests.test_business_yansi import source
 
-_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
+_PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+    b"\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01"
+    b"\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 _BACKEND = Path(__file__).resolve().parents[1]
 
 
@@ -45,7 +51,7 @@ async def _image(sample, knowledge, title: str, payload: bytes):
     row = await library.create_asset(
         sample.db, sample.business.id, sample.editor.id,
         {"asset_type": "image", "title": title, "caption": "", "public_allowed": True},
-        image_bytes=_PNG + payload,
+        image_bytes=distinct_library_png(payload),
     )
     return await _confirm(sample, knowledge, row)
 
@@ -151,7 +157,7 @@ async def test_flag_on_valid_inherited_observation_can_reorder(sample, asset_dir
     monkeypatch.setenv("BILIGN_BUSINESS_COVER_OBS_RANKING_ENABLED", "true")
     knowledge = await source(sample, content="Kayit metni secimi icin yeterince aciktir.")
     lexical = await _image(sample, knowledge, "Zeytinyagi", b"on-inh-lex")
-    payload = _PNG + b"on-inh-shared"
+    payload = distinct_library_png(b"on-inh-shared")
     # Source stays off the eligible cover pool (not knowledge-linked).
     original = await library.create_asset(
         sample.db, sample.business.id, sample.editor.id,
@@ -233,7 +239,7 @@ async def test_flag_on_stale_and_wrong_tenant_observation_gives_no_bonus(sample,
     foreign = await library.create_asset(
         sample.db, other.id, sample.outsider.id,
         {"asset_type": "image", "title": "Atolye", "caption": "", "public_allowed": True},
-        image_bytes=_PNG + b"foreign-obs",
+        image_bytes=distinct_library_png(b"foreign-obs"),
     )
     # Observation for local studio with foreign business id must not boost.
     sample.db.add(_ready_obs(
@@ -257,7 +263,7 @@ async def test_flag_on_ineligible_observed_asset_never_selected(sample, asset_di
     orphan = await library.create_asset(
         sample.db, sample.business.id, sample.editor.id,
         {"asset_type": "image", "title": "Atolye", "caption": "", "public_allowed": True},
-        image_bytes=_PNG + b"orphan-obs",
+        image_bytes=distinct_library_png(b"orphan-obs"),
     )
     sample.db.add(_ready_obs(
         sample, orphan,

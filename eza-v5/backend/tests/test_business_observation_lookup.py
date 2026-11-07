@@ -20,10 +20,10 @@ from backend.services.business_yansi import media_observations as observe
 from backend.services.business_yansi import observation_lookup as lookup
 from backend.services.business_yansi import studio_media as media
 from backend.services.business_yansi.media_observations import content_sha_from_locator
+from backend.tests.brand_library_image_fixtures import distinct_library_png
 from backend.tests.test_business_video_cover_policy import _confirm, asset_dir, sample
 from backend.tests.test_business_yansi import source
 
-_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
 _BACKEND = Path(__file__).resolve().parents[1]
 
 
@@ -42,7 +42,7 @@ async def _image(sample, title: str, payload: bytes):
     row = await library.create_asset(
         sample.db, sample.business.id, sample.editor.id,
         {"asset_type": "image", "title": title, "caption": "", "public_allowed": True},
-        image_bytes=_PNG + payload,
+        image_bytes=distinct_library_png(payload),
     )
     return await _confirm(sample, knowledge, row)
 
@@ -288,7 +288,8 @@ async def test_stale_direct_asset_object_after_locator_change(sample, asset_dir)
     assert found.content_sha256 == new_digest
     assert found.summary == "yeni gozlem"
     assert found.content_sha256 != old_digest
-    assert stale.locator.endswith(f"{old_digest}.png")
+    assert stale.locator.rsplit(".", 1)[-1] in {"png", "jpg", "webp"}
+    assert old_digest in stale.locator
 
 
 async def test_stale_derivative_object_after_locator_change(sample, asset_dir):
@@ -330,7 +331,8 @@ async def test_stale_derivative_object_after_locator_change(sample, asset_dir):
         await writer.commit()
 
     assert await lookup.ready_observation_for_asset(sample.db, sample.business.id, stale) is None
-    assert stale.locator.endswith(f"{digest}.png")
+    assert stale.locator.rsplit(".", 1)[-1] in {"png", "jpg", "webp"}
+    assert digest in stale.locator
 
 
 async def test_multiple_ready_observations_different_hashes_pick_current(sample, asset_dir):

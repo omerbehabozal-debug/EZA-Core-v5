@@ -25,10 +25,16 @@ from backend.services.business_yansi import service as svc
 from backend.services.business_yansi import studio_media as media
 from backend.services.business_yansi.publication import export_editorial_conversation, publish_draft
 from backend.tests.test_business_video_cover_policy import _confirm, asset_dir, sample
+from backend.tests.brand_library_image_fixtures import distinct_library_png
 from backend.tests.test_business_yansi import source
 from backend.worker.media_observe import serve
 
-_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
+_PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+    b"\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01"
+    b"\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 _BACKEND = Path(__file__).resolve().parents[1]
 
 
@@ -93,7 +99,7 @@ async def test_feature_disabled_leaves_upload_and_drafts_alone(sample, asset_dir
     knowledge = await source(sample, content="Kayit metni secimi icin yeterince aciktir.")
     image = await library.create_asset(sample.db, sample.business.id, sample.editor.id, {
         "asset_type": "image", "title": "Zeytinyagi hasadi", "caption": "", "public_allowed": True,
-    }, image_bytes=_PNG + b"disabled")
+    }, image_bytes=distinct_library_png(b"disabled"))
     image = await _confirm(sample, knowledge, image)
     draft = await svc.create_draft(
         sample.db, sample.business.id, sample.editor.id,
@@ -111,11 +117,11 @@ async def test_duplicate_bytes_stay_inside_one_brand(sample, asset_dir, monkeypa
     monkeypatch.setenv("BILIGN_BUSINESS_MEDIA_OBSERVATIONS_ENABLED", "true")
     first = await library.create_asset(sample.db, sample.business.id, sample.editor.id, {
         "asset_type": "image", "title": "Ilk dosya", "caption": "", "public_allowed": True,
-    }, image_bytes=_PNG + b"same")
+    }, image_bytes=distinct_library_png(b"same"))
     again = await observe.ensure_observation(sample.db, first, sample.editor.id)
     second = await library.create_asset(sample.db, sample.business.id, sample.editor.id, {
         "asset_type": "image", "title": "Ayni bayt", "caption": "", "public_allowed": True,
-    }, image_bytes=_PNG + b"same")
+    }, image_bytes=distinct_library_png(b"same"))
     assert again.id == (await observe.ensure_observation(sample.db, second, sample.editor.id)).id
     assert await observe.observation_count(sample.db, sample.business.id) == 1
     assert again.summary is None and again.visible_text is None and again.tags is None
@@ -125,7 +131,7 @@ async def test_duplicate_bytes_stay_inside_one_brand(sample, asset_dir, monkeypa
     })
     foreign = await library.create_asset(sample.db, other.id, sample.outsider.id, {
         "asset_type": "image", "title": "Ilk dosya", "caption": "", "public_allowed": True,
-    }, image_bytes=_PNG + b"same")
+    }, image_bytes=distinct_library_png(b"same"))
     foreign_job = await observe.ensure_observation(sample.db, foreign, sample.outsider.id)
     assert foreign_job.id != again.id
     assert foreign_job.business_id == other.id
@@ -280,10 +286,10 @@ async def test_ready_observation_does_not_change_cover_selection_or_seals(sample
     knowledge = await source(sample, content="Kayit metni secimi icin yeterince aciktir.")
     olive = await library.create_asset(sample.db, sample.business.id, sample.editor.id, {
         "asset_type": "image", "title": "Zeytinyagi hasadi", "caption": "", "public_allowed": True,
-    }, image_bytes=_PNG + b"olive")
+    }, image_bytes=distinct_library_png(b"olive"))
     other = await library.create_asset(sample.db, sample.business.id, sample.editor.id, {
         "asset_type": "image", "title": "Sessiz orman", "caption": "", "public_allowed": True,
-    }, image_bytes=_PNG + b"forest")
+    }, image_bytes=distinct_library_png(b"forest"))
     olive = await _confirm(sample, knowledge, olive)
     other = await _confirm(sample, knowledge, other)
     steps = _steps(knowledge, "Zeytinyagi hasadi")

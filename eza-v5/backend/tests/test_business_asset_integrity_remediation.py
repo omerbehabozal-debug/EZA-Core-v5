@@ -24,9 +24,15 @@ from backend.services.business_yansi import service as svc
 from backend.services.business_yansi import studio_media as media
 from backend.services.business_yansi.video_authority import assign_member_role
 from backend.tests.test_business_video_cover_policy import asset_dir, sample
+from backend.tests.brand_library_image_fixtures import distinct_library_png
 from backend.tests.test_business_yansi import source
 
-_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
+_PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+    b"\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01"
+    b"\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 
 def _patch_lock_after(monkeypatch, side_effect):
@@ -44,8 +50,13 @@ def _patch_lock_after(monkeypatch, side_effect):
 
 
 def _image_path(business_id, payload: bytes) -> Path:
-    digest = hashlib.sha256(payload).hexdigest()
-    return library.asset_root() / str(business_id) / f"{digest}.png"
+    stored = library.prepare_brand_library_image(payload)
+    digest = hashlib.sha256(stored).hexdigest()
+    from backend.services.profile_avatar_store import detect_image_mime
+
+    mime = detect_image_mime(stored) or "image/png"
+    ext = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}.get(mime, "png")
+    return library.asset_root() / str(business_id) / f"{digest}.{ext}"
 
 
 # --- A: stale Knowledge / set_links ---
@@ -182,7 +193,7 @@ async def test_dirty_asset_title_preserved_after_revision_conflict(sample, asset
     asset = await library.create_asset(
         sample.db, sample.business.id, sample.editor.id,
         {"asset_type": "image", "title": "Atolye", "caption": "", "public_allowed": True},
-        image_bytes=_PNG + b"dirty-title",
+        image_bytes=distinct_library_png(b"dirty-title"),
     )
     asset.title = "DirtyPendingTitle"
     with pytest.raises(HTTPException) as raised:
@@ -250,7 +261,7 @@ async def test_successful_update_bumps_authoritative_revision(sample, asset_dir)
 
 
 async def test_upload_rejected_after_demotion_does_not_store_file(sample, asset_dir, monkeypatch):
-    payload = _PNG + b"orphan-reject"
+    payload = distinct_library_png(b"orphan-reject")
     target = _image_path(sample.business.id, payload)
     assert not target.exists()
     stores: list[bytes] = []
@@ -280,7 +291,7 @@ async def test_upload_rejected_after_demotion_does_not_store_file(sample, asset_
 
 
 async def test_shared_hash_file_remains_intact_on_rejected_upload(sample, asset_dir, monkeypatch):
-    payload = _PNG + b"shared-hash"
+    payload = distinct_library_png(b"shared-hash")
     first = await library.create_asset(
         sample.db, sample.business.id, sample.owner.id,
         {"asset_type": "image", "title": "Ilk", "caption": "", "public_allowed": True},
@@ -303,12 +314,12 @@ async def test_shared_hash_file_remains_intact_on_rejected_upload(sample, asset_
     assert target.is_file()
     assert target.read_bytes() == before
     await sample.db.refresh(first)
-    assert first.locator.endswith(".png")
+    assert first.locator.rsplit(".", 1)[-1] in {"png", "jpg", "webp"}
 
 
 async def test_cleanup_failure_cannot_remove_referenced_content(sample, asset_dir, monkeypatch):
     """No delete-on-auth-failure path: shared content must survive even if unlink would fail."""
-    payload = _PNG + b"no-cleanup"
+    payload = distinct_library_png(b"no-cleanup")
     await library.create_asset(
         sample.db, sample.business.id, sample.owner.id,
         {"asset_type": "image", "title": "Paylasilan", "caption": "", "public_allowed": True},
@@ -342,4 +353,4 @@ async def test_cleanup_failure_cannot_remove_referenced_content(sample, asset_di
             image_bytes=payload,
         )
     assert target.is_file()
-    assert target.read_bytes() == payload
+    assert target.read_bytes() == library.prepare_brand_library_image(payload)

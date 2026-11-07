@@ -20,11 +20,17 @@ from backend.models.standalone_conversations import StandaloneConversation
 from backend.services.business_yansi import service as svc
 from backend.services.business_yansi.publication import export_editorial_conversation, publish_draft
 from backend.tests.test_business_publish_knowledge_auth import _approved_exportable
+from backend.tests.brand_library_image_fixtures import distinct_library_png
 from backend.tests.test_business_studio_media import _approve, _asset, _steps
 from backend.tests.test_business_video_cover_policy import asset_dir, sample
 from backend.tests.test_business_yansi import source
 
-_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
+_PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+    b"\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01"
+    b"\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 _BACKEND = Path(__file__).resolve().parents[1]
 _DIRTY_TITLE = "DirtyPendingCancelTitle"
 
@@ -38,7 +44,7 @@ async def _editable(sample, asset_dir):
     knowledge = await source(sample, content="Writer identity icin yeterince aciktir.")
     await _asset(
         sample, knowledge, asset_type="image", title="Kapak", caption="", public_allowed=True,
-        image_bytes=_PNG + b"2b1d",
+        image_bytes=distinct_library_png(b"2b1d"),
     )
     draft = await svc.create_draft(
         sample.db, sample.business.id, sample.editor.id, "Writer", "Writer", _steps(knowledge),
@@ -159,7 +165,7 @@ async def test_f_dirty_business_id_rejected_on_new_export(sample, asset_dir):
     knowledge = await source(sample, content="Export business identity icin yeterince aciktir.")
     await _asset(
         sample, knowledge, asset_type="image", title="Kapak", caption="", public_allowed=True,
-        image_bytes=_PNG + b"exidb",
+        image_bytes=distinct_library_png(b"exidb"),
     )
     draft = await svc.create_draft(
         sample.db, sample.business.id, sample.editor.id, "Export", "Export", _steps(knowledge),
@@ -182,7 +188,7 @@ async def test_g_dirty_created_by_rejected_on_new_export(sample, asset_dir):
     knowledge = await source(sample, content="Export creator identity icin yeterince aciktir.")
     await _asset(
         sample, knowledge, asset_type="image", title="Kapak", caption="", public_allowed=True,
-        image_bytes=_PNG + b"exidc",
+        image_bytes=distinct_library_png(b"exidc"),
     )
     draft = await svc.create_draft(
         sample.db, sample.business.id, sample.editor.id, "Export", "Export", _steps(knowledge),
@@ -244,7 +250,7 @@ async def test_l_m_n_o_cancellation_after_unapproval_commit_restores_pending(sam
     knowledge = await source(sample, content="Cancel restore icin yeterince aciktir.")
     await _asset(
         sample, knowledge, asset_type="image", title="Kapak", caption="", public_allowed=True,
-        image_bytes=_PNG + b"canc",
+        image_bytes=distinct_library_png(b"canc"),
     )
     draft = await svc.create_draft(
         sample.db, sample.business.id, sample.editor.id, "Cancel", "Cancel", _steps(knowledge),
@@ -285,7 +291,7 @@ async def test_p_q_restore_failure_does_not_mask_cancellation(sample, asset_dir,
     knowledge = await source(sample, content="Restore mask icin yeterince aciktir.")
     await _asset(
         sample, knowledge, asset_type="image", title="Kapak", caption="", public_allowed=True,
-        image_bytes=_PNG + b"mask",
+        image_bytes=distinct_library_png(b"mask"),
     )
     draft = await svc.create_draft(
         sample.db, sample.business.id, sample.editor.id, "Mask", "Mask", _steps(knowledge),

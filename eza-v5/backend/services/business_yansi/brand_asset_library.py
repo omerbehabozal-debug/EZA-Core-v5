@@ -14,8 +14,15 @@ from backend.models.business_brand_assets import BusinessBrandAsset as Asset, Bu
 from backend.models.business_yansi import BusinessKnowledgeVersion as Knowledge
 from backend.services.business_yansi.brand_assets import normalize_asset, public_media_allowed
 from backend.services.business_yansi.service import access, fail, uid
-from backend.services.profile_avatar_store import MAX_PROFILE_AVATAR_BYTES, detect_image_mime
+from backend.services.profile_avatar_store import detect_image_mime
 
+
+# Content-library upload ceiling (raw bytes before normalize). Profile avatars stay on
+# MAX_PROFILE_AVATAR_BYTES and must not import this constant.
+MAX_BRAND_LIBRARY_IMAGE_BYTES = 15 * 1024 * 1024
+_MAX_LIBRARY_EDGE = 4096
+_MAX_LIBRARY_PIXELS = 36_000_000
+_LIBRARY_JPEG_QUALITY = 85
 
 _MIME_EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
 
@@ -31,11 +38,61 @@ def _locator_for(business_id, digest: str, extension: str) -> str:
     return f"brand-assets/{business_id}/{digest}.{extension}"
 
 
+def prepare_brand_library_image(image_bytes: bytes) -> bytes:
+    """Validate, strip EXIF, bound dimensions, and re-encode for durable library storage.
+
+    Accepts up to ``MAX_BRAND_LIBRARY_IMAGE_BYTES`` of raw input. Returned bytes are
+    what content-addressed storage hashes; the original upload is not retained.
+    Does not touch the profile-avatar pipeline.
+    """
+    from io import BytesIO
+
+    from PIL import Image, ImageOps, UnidentifiedImageError
+    from PIL.Image import DecompressionBombError
+
+    if not image_bytes:
+        fail("asset_file_empty", 400)
+    if len(image_bytes) > MAX_BRAND_LIBRARY_IMAGE_BYTES:
+        fail("asset_file_too_large", 400)
+    mime = detect_image_mime(image_bytes)
+    if mime not in _MIME_EXT:
+        fail("asset_file_rejected", 400)
+    try:
+        with Image.open(BytesIO(image_bytes)) as raw:
+            width, height = raw.size
+            if width < 1 or height < 1 or width * height > _MAX_LIBRARY_PIXELS:
+                fail("asset_file_rejected", 400)
+            raw.load()
+            image = ImageOps.exif_transpose(raw)
+            if image.mode not in ("RGB", "RGBA"):
+                has_alpha = image.mode in ("RGBA", "LA") or (
+                    image.mode == "P" and "transparency" in image.info
+                )
+                image = image.convert("RGBA" if has_alpha else "RGB")
+            if max(image.size) > _MAX_LIBRARY_EDGE:
+                image.thumbnail((_MAX_LIBRARY_EDGE, _MAX_LIBRARY_EDGE), Image.Resampling.LANCZOS)
+            out = BytesIO()
+            if image.mode == "RGBA":
+                image.save(out, format="PNG", optimize=True)
+            else:
+                if image.mode != "RGB":
+                    image = image.convert("RGB")
+                image.save(out, format="JPEG", quality=_LIBRARY_JPEG_QUALITY, optimize=True)
+            prepared = out.getvalue()
+    except (UnidentifiedImageError, DecompressionBombError, OSError, ValueError):
+        fail("asset_file_rejected", 400)
+    if not prepared or len(prepared) > MAX_BRAND_LIBRARY_IMAGE_BYTES:
+        fail("asset_file_too_large", 400)
+    if detect_image_mime(prepared) not in _MIME_EXT:
+        fail("asset_file_rejected", 400)
+    return prepared
+
+
 def image_locator(business_id, image_bytes: bytes) -> str:
     """Validate image bytes and return the storage key. Does not write the file."""
     if not image_bytes:
         fail("asset_file_empty", 400)
-    if len(image_bytes) > MAX_PROFILE_AVATAR_BYTES:
+    if len(image_bytes) > MAX_BRAND_LIBRARY_IMAGE_BYTES:
         fail("asset_file_too_large", 400)
     mime = detect_image_mime(image_bytes)
     if mime not in _MIME_EXT:
@@ -91,7 +148,7 @@ def _verify_hash_file(target: Path, expected_digest: str) -> bytes:
         payload = target.read_bytes()
     except OSError:
         fail("asset_file_unavailable", 404)
-    if not payload or len(payload) > MAX_PROFILE_AVATAR_BYTES:
+    if not payload or len(payload) > MAX_BRAND_LIBRARY_IMAGE_BYTES:
         fail("asset_file_corrupt", 409)
     if _content_digest(payload) != expected_digest:
         fail("asset_file_corrupt", 409)
@@ -494,9 +551,9 @@ async def create_asset(db, business_id, user_id, data, *, image_bytes=None):
     asset_type = data["asset_type"]
     pending_image = None
     if asset_type == "image":
-        # Validate only; durable store happens after post-lock authorization.
-        locator = image_locator(business_id, image_bytes or b"")
-        pending_image = image_bytes or b""
+        # Normalize before hashing so durable keys match served bytes.
+        pending_image = prepare_brand_library_image(image_bytes or b"")
+        locator = image_locator(business_id, pending_image)
         fields = normalize_asset(
             business_id=business_id,
             asset_type="image",
@@ -569,9 +626,9 @@ async def update_asset(db, business_id, user_id, asset_id, data, *, image_bytes=
         kind = snap.locator_kind
         pending_image = None
         if snap.asset_type == "image" and image_bytes:
-            locator = image_locator(business_id, image_bytes)
+            pending_image = prepare_brand_library_image(image_bytes)
+            locator = image_locator(business_id, pending_image)
             kind = "storage"
-            pending_image = image_bytes
         elif snap.asset_type in {"video", "link"} and data.get("locator"):
             locator = data["locator"]
             kind = "https"

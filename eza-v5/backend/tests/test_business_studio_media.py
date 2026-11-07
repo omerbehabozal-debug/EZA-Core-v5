@@ -17,7 +17,17 @@ from backend.services.business_yansi.publication import export_editorial_convers
 from backend.tests.test_business_yansi import sample, source
 
 
-_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
+from io import BytesIO
+from PIL import Image
+
+def _png_color(rgb: tuple[int, int, int]) -> bytes:
+    buf = BytesIO()
+    Image.new("RGB", (8, 8), color=rgb).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+_PNG = _png_color((40, 120, 80))
+_PNG_OTHER = _png_color((200, 40, 40))
 
 
 def _steps(knowledge, question="Seramik nedir bu adimda?"):
@@ -182,7 +192,7 @@ async def test_approval_seals_media_and_publish_refuses_a_different_asset(sample
 async def test_revoked_media_drops_out_of_public_view_without_a_substitute(sample, asset_dir):
     knowledge = await source(sample, title="Seramik", content="Seramik kaplama su gecirmez.")
     image = await _asset(sample, knowledge, asset_type="image", title="Seramik kapak", caption="", public_allowed=True, image_bytes=_PNG)
-    other = await _asset(sample, knowledge, asset_type="image", title="Baska gorsel", caption="", public_allowed=True, image_bytes=_PNG + b"x")
+    other = await _asset(sample, knowledge, asset_type="image", title="Baska gorsel", caption="", public_allowed=True, image_bytes=_PNG_OTHER)
     draft = await svc.create_draft(sample.db, sample.business.id, sample.editor.id, "Seramik kapak", "Seramik", _steps(knowledge))
     assert draft.media_plan["coverAssetId"] == str(image.id)
     assert str(other.id) not in str(draft.media_plan)
@@ -472,12 +482,12 @@ async def test_sealed_image_link_and_place_content_stay_fixed(sample, asset_dir,
         await library.update_asset(
             sample.db, sample.business.id, sample.editor.id, image.id,
             {"title": image.title, "public_allowed": True, "revision": image.revision},
-            image_bytes=_PNG + b"x",
+            image_bytes=_PNG_OTHER,
         )
     assert image_blocked.value.detail["code"] == "sealed_media_immutable"
     assert writes == []
     await sample.db.refresh(image)
-    assert image.locator.endswith(".png")
+    assert image.locator.rsplit(".", 1)[-1] in {"png", "jpg", "webp"}
     renamed = await library.update_asset(sample.db, sample.business.id, sample.editor.id, image.id, {
         "title": "Atolye gorseli notu", "caption": "ayni dosya", "public_allowed": True, "revision": image.revision,
     })

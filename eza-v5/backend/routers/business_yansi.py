@@ -21,7 +21,7 @@ from backend.services.business_yansi import applications as apps
 from backend.services.business_yansi import platform_admin as padmin
 from backend.services.business_yansi.publication import enabled, publisher, export_editorial_conversation, publish_draft
 from backend.services.business_yansi import brand_asset_library as assets
-from backend.services.profile_avatar_store import MAX_PROFILE_AVATAR_BYTES
+from backend.services.business_yansi.brand_asset_library import MAX_BRAND_LIBRARY_IMAGE_BYTES
 from backend.security.rate_limit import rate_limit_business_application
 
 async def available():
@@ -300,8 +300,8 @@ async def member(business_id:uuid.UUID,body:Member,db=Depends(get_db),claims=Dep
 def _asset_payload(body):
     return {'asset_type':body.assetType,'title':body.title,'caption':body.caption,'public_allowed':body.publicAllowed,'locator':body.locator,'latitude':body.latitude,'longitude':body.longitude,'revision':getattr(body,'revision',None)}
 async def _read_image(upload:UploadFile):
-    data=await upload.read(MAX_PROFILE_AVATAR_BYTES+1)
-    if len(data)>MAX_PROFILE_AVATAR_BYTES: svc.fail('asset_file_too_large',400)
+    data=await upload.read(MAX_BRAND_LIBRARY_IMAGE_BYTES+1)
+    if len(data)>MAX_BRAND_LIBRARY_IMAGE_BYTES: svc.fail('asset_file_too_large',400)
     return data
 @router.get('/{business_id}/assets')
 async def brand_library(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
@@ -313,7 +313,7 @@ async def add_brand_asset(business_id:uuid.UUID,body:AssetWrite,db=Depends(get_d
     row=await assets.create_asset(db,business_id,user.id,_asset_payload(body))
     return await _asset_view(db,business_id,row.id)
 @router.post('/{business_id}/assets/image')
-async def add_brand_image(business_id:uuid.UUID,file:UploadFile=File(...),title:str=Form(...),caption:str=Form(''),publicAllowed:str=Form('false'),db=Depends(get_db),claims=Depends(get_current_user)):
+async def add_brand_image(business_id:uuid.UUID,file:UploadFile=File(...),title:str=Form(''),caption:str=Form(''),publicAllowed:str=Form('false'),db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims)
     row=await assets.create_asset(db,business_id,user.id,{'asset_type':'image','title':title,'caption':caption,'public_allowed':publicAllowed.lower() in {'1','true','on','yes'}},image_bytes=await _read_image(file))
     return await _asset_view(db,business_id,row.id)
@@ -366,7 +366,7 @@ async def edit_brand_asset(business_id:uuid.UUID,asset_id:uuid.UUID,body:AssetUp
     row=await assets.update_asset(db,business_id,user.id,asset_id,_asset_payload(body))
     return await _asset_view(db,business_id,row.id)
 @router.post('/{business_id}/assets/{asset_id}/image')
-async def replace_brand_image(business_id:uuid.UUID,asset_id:uuid.UUID,file:UploadFile=File(...),title:str=Form(...),caption:str=Form(''),publicAllowed:str=Form('false'),revision:int=Form(...),db=Depends(get_db),claims=Depends(get_current_user)):
+async def replace_brand_image(business_id:uuid.UUID,asset_id:uuid.UUID,file:UploadFile=File(...),title:str=Form(''),caption:str=Form(''),publicAllowed:str=Form('false'),revision:int=Form(...),db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims)
     row=await assets.update_asset(db,business_id,user.id,asset_id,{'asset_type':'image','title':title,'caption':caption,'public_allowed':publicAllowed.lower() in {'1','true','on','yes'},'revision':revision},image_bytes=await _read_image(file))
     return await _asset_view(db,business_id,row.id)

@@ -22,12 +22,33 @@ from backend.tests.test_business_studio_media import _approve, _steps
 from backend.tests.test_business_video_cover_policy import asset_dir, sample
 from backend.tests.test_business_yansi import source
 
-_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
+from io import BytesIO
+from PIL import Image
+
+from backend.services.profile_avatar_store import detect_image_mime
+
+
+def _png_color(rgb: tuple[int, int, int]) -> bytes:
+    buf = BytesIO()
+    Image.new("RGB", (8, 8), color=rgb).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+_PNG = _png_color((40, 120, 80))
 
 
 def _path_for(business_id, payload: bytes) -> Path:
+    """Path for bytes passed straight to store_image (no prepare)."""
     digest = hashlib.sha256(payload).hexdigest()
-    return library.asset_root() / str(business_id) / f"{digest}.png"
+    mime = detect_image_mime(payload) or "image/png"
+    ext = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}.get(mime, "png")
+    return library.asset_root() / str(business_id) / f"{digest}.{ext}"
+
+
+def _path_for_prepared(business_id, raw: bytes) -> Path:
+    """Path for bytes that flow through create_asset prepare_brand_library_image."""
+    stored = library.prepare_brand_library_image(raw)
+    return _path_for(business_id, stored)
 
 
 # --- Path equivalence (unit; no disk I/O beyond Path construction) ---
@@ -267,11 +288,12 @@ async def test_sealed_draft_image_survives_repeated_upload_and_injected_write_fa
     sample, asset_dir, monkeypatch,
 ):
     knowledge = await source(sample, content="Atolye gorseli kaydi burada durur.")
-    payload = _PNG + b"sealed-intact"
+    raw = _PNG
+    stored = library.prepare_brand_library_image(raw)
     image = await library.create_asset(
         sample.db, sample.business.id, sample.editor.id,
         {"asset_type": "image", "title": "Atolye gorseli", "caption": "", "public_allowed": True},
-        image_bytes=payload,
+        image_bytes=raw,
     )
     image = await library.set_links(
         sample.db, sample.business.id, sample.editor.id, image.id, [knowledge.id], image.revision,
@@ -283,7 +305,7 @@ async def test_sealed_draft_image_survives_repeated_upload_and_injected_write_fa
     )
     draft = await _approve(sample, draft)
     sealed = draft.media_plan["seal"]
-    target = _path_for(sample.business.id, payload)
+    target = _path_for(sample.business.id, stored)
     original = target.read_bytes()
 
     real_open = os.open
@@ -296,13 +318,13 @@ async def test_sealed_draft_image_survives_repeated_upload_and_injected_write_fa
         return real_open(path, flags, *args, **kwargs)
 
     monkeypatch.setattr(os, "open", forbid_target_write)
-    again = library.store_image(sample.business.id, payload)
+    again = library.store_image(sample.business.id, stored)
     assert again == image.locator
     assert target.read_bytes() == original
     twin = await library.create_asset(
         sample.db, sample.business.id, sample.editor.id,
         {"asset_type": "image", "title": "Kopya", "caption": "", "public_allowed": True},
-        image_bytes=payload,
+        image_bytes=raw,
     )
     assert twin.locator == image.locator
     assert target.read_bytes() == original
@@ -316,8 +338,9 @@ async def test_sealed_draft_image_survives_repeated_upload_and_injected_write_fa
 async def test_authorization_rejection_before_storage(sample, asset_dir, monkeypatch):
     from contextlib import asynccontextmanager
 
-    payload = _PNG + b"auth-reject-store"
-    target = _path_for(sample.business.id, payload)
+    raw = _png_color((10, 10, 200))
+    stored = library.prepare_brand_library_image(raw)
+    target = _path_for(sample.business.id, stored)
     stores: list[bytes] = []
     real_store = library.store_image
 
@@ -341,7 +364,7 @@ async def test_authorization_rejection_before_storage(sample, asset_dir, monkeyp
         await library.create_asset(
             sample.db, sample.business.id, sample.editor.id,
             {"asset_type": "image", "title": "Red", "caption": "", "public_allowed": True},
-            image_bytes=payload,
+            image_bytes=raw,
         )
     assert raised.value.status_code == 403
     assert stores == []
@@ -350,13 +373,14 @@ async def test_authorization_rejection_before_storage(sample, asset_dir, monkeyp
 
 @pytest.mark.asyncio
 async def test_db_rollback_after_store_does_not_delete_shared_hash(sample, asset_dir, monkeypatch):
-    payload = _PNG + b"rollback-keep"
+    raw = _PNG
+    stored = library.prepare_brand_library_image(raw)
     first = await library.create_asset(
         sample.db, sample.business.id, sample.owner.id,
         {"asset_type": "image", "title": "Ilk", "caption": "", "public_allowed": True},
-        image_bytes=payload,
+        image_bytes=raw,
     )
-    target = _path_for(sample.business.id, payload)
+    target = _path_for(sample.business.id, stored)
     assert target.is_file()
     real_commit = sample.db.commit
 
@@ -368,11 +392,11 @@ async def test_db_rollback_after_store_does_not_delete_shared_hash(sample, asset
         await library.create_asset(
             sample.db, sample.business.id, sample.editor.id,
             {"asset_type": "image", "title": "Ikinci", "caption": "", "public_allowed": True},
-            image_bytes=payload,
+            image_bytes=raw,
         )
     monkeypatch.setattr(sample.db, "commit", real_commit)
     await sample.db.rollback()
     assert target.is_file()
-    assert target.read_bytes() == payload
+    assert target.read_bytes() == stored
     await sample.db.refresh(first)
-    assert first.locator.endswith(".png")
+    assert first.locator.rsplit(".", 1)[-1] in {"png", "jpg", "webp"}

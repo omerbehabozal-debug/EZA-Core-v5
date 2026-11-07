@@ -21,9 +21,15 @@ from backend.services.business_yansi.video_authority import (
     sorted_authority_user_ids,
 )
 from backend.tests.test_business_video_cover_policy import _confirm, asset_dir, sample
+from backend.tests.brand_library_image_fixtures import distinct_library_png
 from backend.tests.test_business_yansi import source
 
-_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
+_PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+    b"\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01"
+    b"\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 
 def _patch_lock_after(monkeypatch, side_effect):
@@ -44,7 +50,7 @@ async def _image(sample, knowledge, title: str, payload: bytes):
     row = await library.create_asset(
         sample.db, sample.business.id, sample.editor.id,
         {"asset_type": "image", "title": title, "caption": "", "public_allowed": True},
-        image_bytes=_PNG + payload,
+        image_bytes=distinct_library_png(payload),
     )
     return await _confirm(sample, knowledge, row)
 
@@ -186,7 +192,7 @@ async def test_editor_demoted_before_create_asset(sample, asset_dir, monkeypatch
         await library.create_asset(
             sample.db, sample.business.id, sample.editor.id,
             {"asset_type": "image", "title": "X", "caption": "", "public_allowed": True},
-            image_bytes=_PNG + b"demote-create",
+            image_bytes=distinct_library_png(b"demote-create"),
         )
     assert raised.value.status_code == 403
 
@@ -227,7 +233,7 @@ async def test_editor_demoted_before_set_links(sample, asset_dir, monkeypatch):
     asset = await library.create_asset(
         sample.db, sample.business.id, sample.editor.id,
         {"asset_type": "image", "title": "Atolye", "caption": "", "public_allowed": True},
-        image_bytes=_PNG + b"demote-links",
+        image_bytes=distinct_library_png(b"demote-links"),
     )
 
     async def demote(db):
@@ -348,6 +354,6 @@ async def test_successful_assign_and_create_still_work(sample, asset_dir):
     row = await library.create_asset(
         sample.db, sample.business.id, sample.viewer.id,
         {"asset_type": "image", "title": "Ok", "caption": "", "public_allowed": True},
-        image_bytes=_PNG + b"ok-create",
+        image_bytes=distinct_library_png(b"ok-create"),
     )
     assert row.created_by == sample.viewer.id

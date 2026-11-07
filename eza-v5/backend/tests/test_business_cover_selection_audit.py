@@ -16,10 +16,16 @@ from backend.services.business_yansi.publication import export_editorial_convers
 from backend.services.business_yansi.video_ingest import ingest_upload
 from backend.services.business_yansi.video_storage import MemoryVideoStore
 from backend.tests.test_business_video_cover_policy import _confirm, asset_dir, sample
+from backend.tests.brand_library_image_fixtures import distinct_library_png
 from backend.tests.test_business_video_storage import Upload, VideoQuotaRedis, _mp4
 from backend.tests.test_business_yansi import source
 
-_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
+_PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+    b"\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01"
+    b"\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 
 
 class _Asset:
@@ -72,7 +78,7 @@ def _phrase_steps(knowledge, phrase):
 async def _image(sample, knowledge, title):
     row = await library.create_asset(sample.db, sample.business.id, sample.editor.id, {
         "asset_type": "image", "title": title, "caption": "", "public_allowed": True,
-    }, image_bytes=_PNG + title.encode())
+    }, image_bytes=distinct_library_png(title.encode()))
     return await _confirm(sample, knowledge, row)
 
 
@@ -112,7 +118,7 @@ async def test_context_ranks_covers_and_a_finished_job_does_not_replace_one(samp
     })
     foreign = await library.create_asset(sample.db, other.id, sample.outsider.id, {
         "asset_type": "image", "title": "Zeytinyagi hasadi", "caption": "", "public_allowed": True,
-    }, image_bytes=_PNG + b"foreign")
+    }, image_bytes=distinct_library_png(b"foreign"))
     images = [
         await _image(sample, knowledge, title)
         for title in (

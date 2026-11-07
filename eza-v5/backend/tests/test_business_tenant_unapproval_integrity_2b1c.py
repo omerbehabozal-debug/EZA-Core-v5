@@ -17,10 +17,16 @@ from backend.models.business_yansi import BusinessYansiDraft as Draft
 from backend.services.business_yansi import service as svc
 from backend.services.business_yansi import studio_media as media
 from backend.tests.test_business_studio_media import _approve, _asset, _steps
+from backend.tests.brand_library_image_fixtures import distinct_library_png
 from backend.tests.test_business_video_cover_policy import asset_dir, sample
 from backend.tests.test_business_yansi import source
 
-_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24
+_PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+    b"\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+    b"\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01"
+    b"\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
 _BACKEND = Path(__file__).resolve().parents[1]
 _DIRTY_TITLE = "DirtyPendingUnapproveTitle"
 
@@ -29,7 +35,7 @@ async def _reviewable(sample, asset_dir):
     knowledge = await source(sample, content="Tenant kimlik freeze icin yeterince aciktir.")
     await _asset(
         sample, knowledge, asset_type="image", title="Kapak", caption="", public_allowed=True,
-        image_bytes=_PNG + b"2b1c",
+        image_bytes=distinct_library_png(b"2b1c"),
     )
     draft = await svc.create_draft(
         sample.db, sample.business.id, sample.editor.id, "Tenant", "Tenant", _steps(knowledge),
@@ -114,7 +120,7 @@ async def test_c_dirty_tenant_identity_rejected_on_review(sample, asset_dir):
     knowledge = await source(sample, content="Review tenant freeze icin yeterince aciktir.")
     await _asset(
         sample, knowledge, asset_type="image", title="Kapak", caption="", public_allowed=True,
-        image_bytes=_PNG + b"revc",
+        image_bytes=distinct_library_png(b"revc"),
     )
     draft = await svc.create_draft(
         sample.db, sample.business.id, sample.editor.id, "Review", "Review", _steps(knowledge),
@@ -195,7 +201,7 @@ async def test_h_i_j_unapproval_refresh_failure_restores_pending_title(sample, a
     knowledge = await source(sample, content="Unapprove restore icin yeterince aciktir.")
     await _asset(
         sample, knowledge, asset_type="image", title="Kapak", caption="", public_allowed=True,
-        image_bytes=_PNG + b"unap",
+        image_bytes=distinct_library_png(b"unap"),
     )
     draft = await svc.create_draft(
         sample.db, sample.business.id, sample.editor.id, "Unapprove", "Unapprove", _steps(knowledge),
@@ -240,7 +246,7 @@ async def test_unapproval_commit_failure_restores_pending_without_lifecycle_writ
     knowledge = await source(sample, content="Unapprove commit fail icin yeterince aciktir.")
     await _asset(
         sample, knowledge, asset_type="image", title="Kapak", caption="", public_allowed=True,
-        image_bytes=_PNG + b"ucf",
+        image_bytes=distinct_library_png(b"ucf"),
     )
     draft = await svc.create_draft(
         sample.db, sample.business.id, sample.editor.id, "Unapprove", "Unapprove", _steps(knowledge),

@@ -295,32 +295,82 @@ async function sendBrandForm<T>(path: string, body: FormData): Promise<T> {
   return response.json();
 }
 
-export async function uploadBrandImage(
+/** Raw upload ceiling before server-side library normalization (must match backend). */
+export const BRAND_LIBRARY_IMAGE_MAX_BYTES = 15 * 1024 * 1024;
+
+export function uploadBrandImage(
   businessId: string,
   file: File,
-  fields: { title: string; caption: string; publicAllowed: boolean },
+  fields: { title?: string; caption?: string; publicAllowed?: boolean } = {},
+  onProgress?: (ratio: number) => void,
 ): Promise<BrandAsset> {
+  const token = getAuthToken();
+  if (!token) return Promise.reject(new Error('Business yönetimi için giriş yapmalısın.'));
   const body = new FormData();
   body.append('file', file);
-  body.append('title', fields.title);
-  body.append('caption', fields.caption);
+  body.append('title', fields.title ?? '');
+  body.append('caption', fields.caption ?? '');
   body.append('publicAllowed', fields.publicAllowed ? 'true' : 'false');
-  return sendBrandForm(`/${businessId}/assets/image`, body);
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', getApiUrl().replace(/\/$/, '') + `/api/business-yansi/${businessId}/assets/image`);
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0 && onProgress) onProgress(event.loaded / event.total);
+    };
+    xhr.onload = () => {
+      let data: { detail?: unknown } | null = null;
+      try {
+        data = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        data = null;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data as BrandAsset);
+      else reject(new BusinessApiError(xhr.status, data?.detail ?? null));
+    };
+    xhr.onerror = () => reject(new BusinessApiError(0, 'network_error'));
+    xhr.send(body);
+  });
 }
 
-export async function replaceBrandImage(
+export function replaceBrandImage(
   businessId: string,
   assetId: string,
   file: File,
-  fields: { title: string; caption: string; publicAllowed: boolean; revision: number },
+  fields: { title?: string; caption?: string; publicAllowed?: boolean; revision: number },
+  onProgress?: (ratio: number) => void,
 ): Promise<BrandAsset> {
+  const token = getAuthToken();
+  if (!token) return Promise.reject(new Error('Business yönetimi için giriş yapmalısın.'));
   const body = new FormData();
   body.append('file', file);
-  body.append('title', fields.title);
-  body.append('caption', fields.caption);
+  body.append('title', fields.title ?? '');
+  body.append('caption', fields.caption ?? '');
   body.append('publicAllowed', fields.publicAllowed ? 'true' : 'false');
   body.append('revision', String(fields.revision));
-  return sendBrandForm(`/${businessId}/assets/${assetId}/image`, body);
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(
+      'POST',
+      getApiUrl().replace(/\/$/, '') + `/api/business-yansi/${businessId}/assets/${assetId}/image`,
+    );
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0 && onProgress) onProgress(event.loaded / event.total);
+    };
+    xhr.onload = () => {
+      let data: { detail?: unknown } | null = null;
+      try {
+        data = xhr.responseText ? JSON.parse(xhr.responseText) : null;
+      } catch {
+        data = null;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data as BrandAsset);
+      else reject(new BusinessApiError(xhr.status, data?.detail ?? null));
+    };
+    xhr.onerror = () => reject(new BusinessApiError(0, 'network_error'));
+    xhr.send(body);
+  });
 }
 
 export const STORED_VIDEO_MAX_BYTES = 40 * 1024 * 1024;
