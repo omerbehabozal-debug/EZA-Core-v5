@@ -82,6 +82,9 @@ def test_configured_limits_match_the_ingestion_code():
     assert ingest.VIDEO_BRAND_WINDOW == 3600
     assert ingest.VIDEO_BRAND_INFLIGHT == 2
     assert ingest.VIDEO_LEASE_SECONDS == 90
+    # Cold Railway Redis connect was measured ~0.7s; budgets must stay above that floor.
+    assert ingest.REDIS_CLIENT_BUDGET_SECONDS >= 2.0
+    assert ingest.REDIS_EVAL_BUDGET_SECONDS >= 2.0
 
 
 async def test_brand_concurrency_is_two_and_brands_are_independent(redis_client):

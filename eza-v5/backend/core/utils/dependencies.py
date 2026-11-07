@@ -10,6 +10,7 @@ from sqlalchemy.orm import declarative_base
 from sqlalchemy import select
 from typing import List, Optional
 from datetime import datetime
+import asyncio
 import redis.asyncio as redis
 
 # Config import - load_dotenv() is called ONLY in config.py
@@ -376,9 +377,20 @@ async def init_db():
 
 
 async def init_redis():
-    """Initialize Redis connection"""
+    """Initialize Redis and warm the first connection (fail soft at startup)."""
     global redis_client
-    redis_client = await redis.from_url(REDIS_URL, decode_responses=True)
+    client = redis.from_url(
+        REDIS_URL,
+        decode_responses=True,
+        socket_connect_timeout=2.0,
+        socket_timeout=2.0,
+    )
+    try:
+        await asyncio.wait_for(client.ping(), 2.0)
+    except Exception:
+        await client.aclose()
+        raise
+    redis_client = client
 
 
 async def get_redis():

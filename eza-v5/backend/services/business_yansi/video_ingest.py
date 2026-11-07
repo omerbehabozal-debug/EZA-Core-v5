@@ -48,6 +48,9 @@ VIDEO_BRAND_WINDOW = 3600
 VIDEO_BRAND_INFLIGHT = 2
 VIDEO_DEADLINE_SECONDS = 90
 VIDEO_LEASE_SECONDS = VIDEO_DEADLINE_SECONDS
+# Railway internal Redis cold connect can exceed 0.5s; keep fail-closed but allow a warm path.
+REDIS_CLIENT_BUDGET_SECONDS = 2.0
+REDIS_EVAL_BUDGET_SECONDS = 2.0
 _RATE_SCRIPT = """-- video-rate
 local key = KEYS[1]
 local now = tonumber(ARGV[1])
@@ -159,7 +162,7 @@ async def _guarded(db, business_id, user_id, **work):
 async def _redis():
     from backend.core.utils.dependencies import get_redis
     try:
-        return await asyncio.wait_for(get_redis(), 0.3)
+        return await asyncio.wait_for(get_redis(), REDIS_CLIENT_BUDGET_SECONDS)
     except Exception:
         return None
 
@@ -169,11 +172,17 @@ async def _eval(script: str, keys: list[str], args: list):
     if redis is None:
         fail("video_quota_unavailable", 503)
     try:
-        return await asyncio.wait_for(redis.eval(script, len(keys), *keys, *args), 0.5)
+        return await asyncio.wait_for(
+            redis.eval(script, len(keys), *keys, *args),
+            REDIS_EVAL_BUDGET_SECONDS,
+        )
     except Exception as exc:
         from fastapi import HTTPException
         if isinstance(exc, HTTPException):
             raise
+        import logging
+
+        logging.warning("video_quota_eval_unavailable reason=%s", type(exc).__name__)
         fail("video_quota_unavailable", 503)
 
 
@@ -215,7 +224,7 @@ async def _release_lease(business_id, token: str) -> None:
             return
         await asyncio.wait_for(
             redis.eval(_LEASE_RELEASE_SCRIPT, 1, f"business_video_lease:{uid(business_id)}", token),
-            0.5,
+            REDIS_EVAL_BUDGET_SECONDS,
         )
     except Exception:
         return
