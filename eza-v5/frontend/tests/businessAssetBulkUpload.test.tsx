@@ -330,6 +330,48 @@ describe('Business asset bulk media upload', () => {
     expect(body.publicAllowed).toBe(false);
   });
 
+  it('opens the inline metadata editor from + without a Düzenle button', async () => {
+    const asset = makeAsset('meta-1', { title: 'Atölye', caption: 'Giriş', revision: 2 });
+    const knowledgeRow = { ...knowledge, id: 'kb-meta', title: 'Menü' };
+    mocks.businessRequest
+      .mockResolvedValueOnce({ ...asset, title: 'Yeni başlık', caption: 'Yeni açıklama', revision: 3 })
+      .mockResolvedValueOnce({ ...asset, title: 'Yeni başlık', caption: 'Yeni açıklama', revision: 4 });
+    const onChanged = vi.fn(async () => undefined);
+    render(
+      <BusinessAssetLibrary
+        businessId="biz-1"
+        assets={[asset]}
+        knowledge={[knowledgeRow]}
+        canEdit
+        busy={false}
+        onChanged={onChanged}
+      />,
+    );
+    expect(screen.queryByRole('button', { name: 'Düzenle' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('biz-asset-plus-meta-1'));
+    expect(screen.getByTestId('biz-asset-meta-panel-meta-1')).toBeInTheDocument();
+    expect(screen.getByLabelText('Kayıtlı içerik başlığı')).toHaveValue('Atölye');
+    expect(screen.getByLabelText('Kayıtlı içerik açıklaması')).toHaveValue('Giriş');
+    fireEvent.change(screen.getByLabelText('Kayıtlı içerik başlığı'), { target: { value: 'Yeni başlık' } });
+    fireEvent.change(screen.getByLabelText('Kayıtlı içerik açıklaması'), { target: { value: 'Yeni açıklama' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Menü' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+    await waitFor(() => {
+      expect(mocks.businessRequest).toHaveBeenCalledWith('/biz-1/assets/meta-1', 'PATCH', expect.objectContaining({
+        title: 'Yeni başlık',
+        caption: 'Yeni açıklama',
+        revision: 2,
+      }));
+    });
+    await waitFor(() => {
+      expect(mocks.businessRequest).toHaveBeenCalledWith('/biz-1/assets/meta-1/links', 'POST', {
+        knowledgeVersionIds: ['kb-meta'],
+        revision: 3,
+      });
+    });
+    expect(onChanged).toHaveBeenCalled();
+  });
+
   it('asks for archive confirmation before calling the archive API', async () => {
     const asset = makeAsset('arch-1', { title: 'Atölye', revision: 3 });
     mocks.businessRequest.mockResolvedValue({ ...asset, status: 'archived', revision: 4 });
@@ -361,6 +403,62 @@ describe('Business asset bulk media upload', () => {
       expect(mocks.businessRequest).toHaveBeenCalledWith('/biz-1/assets/arch-1/archive', 'POST', { revision: 3 });
     });
     expect(onChanged).toHaveBeenCalled();
+  });
+
+  it('confirms permanent deletion and blocks duplicate requests while saving', async () => {
+    const asset = makeAsset('del-1', { title: 'Film', asset_type: 'video', revision: 1 });
+    let release!: () => void;
+    mocks.businessRequest.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve({ id: asset.id, deleted: true });
+        }),
+    );
+    const onChanged = vi.fn(async () => undefined);
+    render(
+      <BusinessAssetLibrary
+        businessId="biz-1"
+        assets={[asset]}
+        knowledge={[]}
+        canEdit
+        busy={false}
+        onChanged={onChanged}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('biz-asset-delete-del-1'));
+    expect(screen.getByTestId('biz-asset-delete-confirm-del-1')).toHaveTextContent(/kalıcı olarak silinecek/i);
+    expect(mocks.businessRequest).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId('biz-asset-delete-confirm-submit-del-1'));
+    fireEvent.click(screen.getByTestId('biz-asset-delete-confirm-submit-del-1'));
+    await waitFor(() => expect(mocks.businessRequest).toHaveBeenCalledTimes(1));
+    expect(mocks.businessRequest).toHaveBeenCalledWith('/biz-1/assets/del-1', 'DELETE', { revision: 1 });
+    await act(async () => {
+      release();
+    });
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+  });
+
+  it('shows a Turkish message when deletion is blocked by Yansı usage', async () => {
+    const asset = makeAsset('del-2', { title: 'Kapak', revision: 2 });
+    mocks.businessRequest.mockRejectedValue(
+      Object.assign(new Error('asset_in_use'), { code: 'asset_in_use', status: 409 }),
+    );
+    render(
+      <BusinessAssetLibrary
+        businessId="biz-1"
+        assets={[asset]}
+        knowledge={[]}
+        canEdit
+        busy={false}
+        onChanged={async () => undefined}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('biz-asset-delete-del-2'));
+    fireEvent.click(screen.getByTestId('biz-asset-delete-confirm-submit-del-2'));
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/Yansı taslağında veya yayımlanmış Yansıda kullanılıyor/);
+    });
+    expect(screen.getByTestId('biz-asset-delete-confirm-del-2')).toBeInTheDocument();
   });
 
   it('creates a link with only an HTTPS URL and shows hostname fallback', async () => {

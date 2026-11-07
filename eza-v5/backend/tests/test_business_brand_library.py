@@ -206,3 +206,425 @@ async def test_content_route_requires_membership_and_hides_the_key(sample, asset
     assert content.headers["x-content-type-options"] == "nosniff"
     denied, _hidden = await as_user(str(sample.outsider.id))
     assert denied.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_cover_derivatives_are_hidden_from_library_but_kept_internally(sample, asset_dir):
+    await _tables(sample.db)
+    original = await library.create_asset(
+        sample.db,
+        sample.business.id,
+        sample.editor.id,
+        {
+            "asset_type": "video",
+            "title": "Atölye turu",
+            "caption": "Orijinal",
+            "locator": "https://cdn.bilign.example/atolye.mp4",
+            "public_allowed": True,
+        },
+    )
+    image = await library.create_asset(
+        sample.db,
+        sample.business.id,
+        sample.editor.id,
+        {"asset_type": "image", "title": "Vitrin", "caption": "", "public_allowed": True},
+        image_bytes=_PNG,
+    )
+    digest = "ab" * 32
+    derivative = BusinessBrandAsset(
+        id=uuid.uuid4(),
+        business_id=sample.business.id,
+        asset_type="video",
+        title=original.title,
+        caption="Kapak türevi",
+        locator_kind="storage",
+        locator=f"brand-videos/{sample.business.id}/{digest}.mp4",
+        public_allowed=True,
+        status="published",
+        created_by=sample.editor.id,
+        revision=1,
+        source_asset_id=original.id,
+        verified_duration=20_000,
+        verified_timescale=1000,
+        verified_size_bytes=1200,
+        verified_has_audio=False,
+    )
+    sample.db.add(derivative)
+    await sample.db.commit()
+
+    listed = await library.list_assets(sample.db, sample.business.id, sample.viewer.id)
+    listed_ids = {item["id"] for item in listed}
+    assert str(original.id) in listed_ids
+    assert str(image.id) in listed_ids
+    assert str(derivative.id) not in listed_ids
+    assert all(item["business_id"] == str(sample.business.id) for item in listed)
+
+    # Existing DB rows stay; only the library list hides them (no migration).
+    stored = await sample.db.get(BusinessBrandAsset, derivative.id)
+    assert stored is not None and stored.source_asset_id == original.id and stored.status == "published"
+
+    # Internal ID resolution still sees the derivative for cover / preview workflows.
+    resolved = await library._asset_row(sample.db, sample.business.id, derivative.id)
+    assert resolved.id == derivative.id
+    assert resolved.source_asset_id == original.id
+
+    archived = await library.archive_asset(
+        sample.db, sample.business.id, sample.editor.id, original.id, original.revision,
+    )
+    assert archived.status == "archived" and archived.public_allowed is False
+    still = await sample.db.get(BusinessBrandAsset, derivative.id)
+    assert still is not None and still.status == "published" and still.source_asset_id == original.id
+
+    with pytest.raises(HTTPException) as foreign:
+        await library._asset_row(sample.db, sample.other.id, derivative.id)
+    assert foreign.value.status_code == 404
+
+
+def _draft_steps(knowledge_id):
+    return [
+        {"question": f"Soru {index}?", "answer": f"Cevap {index}.", "sources": [str(knowledge_id)]}
+        for index in range(1, 9)
+    ]
+
+
+async def _attach_draft_cover(sample, asset_id, knowledge_id):
+    from backend.models.business_yansi import BusinessYansiDraft
+
+    row = BusinessYansiDraft(
+        business_id=sample.business.id,
+        title="Taslak Yansı",
+        summary="Özet",
+        steps=_draft_steps(knowledge_id),
+        knowledge_snapshot=[str(knowledge_id)],
+        media_plan={
+            "coverAssetId": str(asset_id),
+            "blocks": [[] for _ in range(8)],
+            "seal": None,
+            "coverMode": "explicit",
+        },
+        source_hash="a" * 64,
+        created_by=sample.editor.id,
+        status="draft",
+        revision=1,
+    )
+    sample.db.add(row)
+    await sample.db.commit()
+    return row
+
+
+@pytest.mark.asyncio
+async def test_unused_asset_can_be_deleted_permanently(sample, asset_dir):
+    await _tables(sample.db)
+    image = await library.create_asset(
+        sample.db,
+        sample.business.id,
+        sample.editor.id,
+        {"asset_type": "image", "title": "Silinecek", "caption": "", "public_allowed": False},
+        image_bytes=_PNG,
+    )
+    path = library.asset_root() / str(sample.business.id) / image.locator.rsplit("/", 1)[-1]
+    assert path.is_file()
+    result = await library.delete_asset(
+        sample.db, sample.business.id, sample.editor.id, image.id, image.revision,
+    )
+    assert result == {"id": str(image.id), "deleted": True}
+    assert await sample.db.get(BusinessBrandAsset, image.id) is None
+    assert not path.exists()
+    listed = await library.list_assets(sample.db, sample.business.id, sample.viewer.id)
+    assert all(item["id"] != str(image.id) for item in listed)
+
+
+@pytest.mark.asyncio
+async def test_delete_rejects_assets_used_by_draft_or_foreign_business(sample, asset_dir):
+    await _tables(sample.db)
+    knowledge = await source(sample, content="Atölye kapak seçimi için yeterince açık bir cümledir.")
+    image = await library.create_asset(
+        sample.db,
+        sample.business.id,
+        sample.editor.id,
+        {"asset_type": "image", "title": "Kapak", "caption": "", "public_allowed": True},
+        image_bytes=_PNG,
+    )
+    await _attach_draft_cover(sample, image.id, knowledge.id)
+    with pytest.raises(HTTPException) as blocked:
+        await library.delete_asset(sample.db, sample.business.id, sample.editor.id, image.id, image.revision)
+    assert blocked.value.status_code == 409
+    assert blocked.value.detail["code"] == "asset_in_use"
+    assert await sample.db.get(BusinessBrandAsset, image.id) is not None
+
+    with pytest.raises(HTTPException) as foreign:
+        await library.delete_asset(sample.db, sample.other.id, sample.editor.id, image.id, image.revision)
+    assert foreign.value.status_code in {403, 404}
+
+
+@pytest.mark.asyncio
+async def test_delete_keeps_shared_storage_and_removes_unused_derivatives(sample, asset_dir, monkeypatch):
+    await _tables(sample.db)
+    first = await library.create_asset(
+        sample.db,
+        sample.business.id,
+        sample.editor.id,
+        {"asset_type": "image", "title": "Bir", "caption": "", "public_allowed": False},
+        image_bytes=_PNG,
+    )
+    second = await library.create_asset(
+        sample.db,
+        sample.business.id,
+        sample.editor.id,
+        {"asset_type": "image", "title": "İki", "caption": "", "public_allowed": False},
+        image_bytes=_PNG,
+    )
+    assert first.locator == second.locator
+    path = library.asset_root() / str(sample.business.id) / first.locator.rsplit("/", 1)[-1]
+    assert path.is_file()
+
+    await library.delete_asset(sample.db, sample.business.id, sample.editor.id, first.id, first.revision)
+    assert path.is_file()
+    assert await sample.db.get(BusinessBrandAsset, second.id) is not None
+
+    original = await library.create_asset(
+        sample.db,
+        sample.business.id,
+        sample.editor.id,
+        {
+            "asset_type": "video",
+            "title": "Tur",
+            "caption": "",
+            "locator": "https://cdn.bilign.example/tur.mp4",
+            "public_allowed": True,
+        },
+    )
+    derivative = BusinessBrandAsset(
+        id=uuid.uuid4(),
+        business_id=sample.business.id,
+        asset_type="video",
+        title=original.title,
+        caption="Türev",
+        locator_kind="storage",
+        locator=f"brand-videos/{sample.business.id}/{'cd' * 32}.mp4",
+        public_allowed=True,
+        status="published",
+        created_by=sample.editor.id,
+        revision=1,
+        source_asset_id=original.id,
+        verified_duration=10_000,
+        verified_timescale=1000,
+        verified_size_bytes=800,
+        verified_has_audio=False,
+    )
+    sample.db.add(derivative)
+    await sample.db.commit()
+    knowledge = await source(sample, title="Türev koruma", content="Kapak türevi referansı korunmalıdır.")
+    await _attach_draft_cover(sample, derivative.id, knowledge.id)
+    with pytest.raises(HTTPException) as blocked:
+        await library.delete_asset(
+            sample.db, sample.business.id, sample.editor.id, original.id, original.revision,
+        )
+    assert blocked.value.status_code == 409
+    assert blocked.value.detail["code"] == "asset_in_use"
+    assert await sample.db.get(BusinessBrandAsset, original.id) is not None
+    assert await sample.db.get(BusinessBrandAsset, derivative.id) is not None
+
+    # Drop the draft reference, then deleting the original clears the unused derivative too.
+    from backend.models.business_yansi import BusinessYansiDraft
+    from backend.services.business_yansi.video_storage import MemoryVideoStore
+    from sqlalchemy import delete as sql_delete
+
+    await sample.db.execute(sql_delete(BusinessYansiDraft).where(BusinessYansiDraft.business_id == sample.business.id))
+    await sample.db.commit()
+    await sample.db.refresh(original)
+    store = MemoryVideoStore()
+    store.objects[derivative.locator] = (b"cover", "cd" * 32)
+
+    class _ReadyStore:
+        def __init__(self, inner):
+            self.inner = inner
+
+        async def delete(self, key: str) -> None:
+            await self.inner.delete(key)
+
+        async def aclose(self) -> None:
+            return None
+
+    # Local test double: production still requires configured R2 before unique video purge.
+    monkeypatch.setattr(library, "_video_store_ready", lambda: _ReadyStore(store))
+    await library.delete_asset(
+        sample.db, sample.business.id, sample.editor.id, original.id, original.revision,
+    )
+    assert await sample.db.get(BusinessBrandAsset, original.id) is None
+    assert await sample.db.get(BusinessBrandAsset, derivative.id) is None
+    assert derivative.locator not in store.objects
+    listed = await library.listed_assets(sample.db, sample.business.id)
+    assert all(item["id"] not in {str(original.id), str(derivative.id)} for item in listed)
+
+
+@pytest.mark.asyncio
+async def test_present_asset_by_id_includes_hidden_cover_derivatives(sample, asset_dir):
+    await _tables(sample.db)
+    original = await library.create_asset(
+        sample.db,
+        sample.business.id,
+        sample.editor.id,
+        {
+            "asset_type": "video",
+            "title": "Kaynak",
+            "caption": "",
+            "locator": "https://cdn.bilign.example/kaynak.mp4",
+            "public_allowed": True,
+        },
+    )
+    derivative = BusinessBrandAsset(
+        id=uuid.uuid4(),
+        business_id=sample.business.id,
+        asset_type="video",
+        title=original.title,
+        caption="Kapak",
+        locator_kind="storage",
+        locator=f"brand-videos/{sample.business.id}/{'ef' * 32}.mp4",
+        public_allowed=True,
+        status="published",
+        created_by=sample.editor.id,
+        revision=1,
+        source_asset_id=original.id,
+        verified_duration=12_000,
+        verified_timescale=1000,
+        verified_size_bytes=900,
+        verified_has_audio=False,
+    )
+    sample.db.add(derivative)
+    await sample.db.commit()
+
+    listed_ids = {item["id"] for item in await library.listed_assets(sample.db, sample.business.id)}
+    assert str(original.id) in listed_ids
+    assert str(derivative.id) not in listed_ids
+
+    view = await library.present_asset_by_id(sample.db, sample.business.id, derivative.id)
+    assert view["id"] == str(derivative.id)
+    assert view["locator"] is None
+    assert view["locator_kind"] == "storage"
+    assert view["business_id"] == str(sample.business.id)
+
+    with pytest.raises(HTTPException) as foreign:
+        await library.present_asset_by_id(sample.db, sample.other.id, derivative.id)
+    assert foreign.value.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_delete_refuses_unique_video_when_storage_unconfigured(sample, asset_dir, monkeypatch):
+    await _tables(sample.db)
+    original = await library.create_asset(
+        sample.db,
+        sample.business.id,
+        sample.editor.id,
+        {
+            "asset_type": "video",
+            "title": "Depo",
+            "caption": "",
+            "locator": "https://cdn.bilign.example/remote.mp4",
+            "public_allowed": False,
+        },
+    )
+    derivative = BusinessBrandAsset(
+        id=uuid.uuid4(),
+        business_id=sample.business.id,
+        asset_type="video",
+        title=original.title,
+        caption="Türev",
+        locator_kind="storage",
+        locator=f"brand-videos/{sample.business.id}/{'11' * 32}.mp4",
+        public_allowed=False,
+        status="published",
+        created_by=sample.editor.id,
+        revision=1,
+        source_asset_id=original.id,
+        verified_duration=9_000,
+        verified_timescale=1000,
+        verified_size_bytes=700,
+        verified_has_audio=False,
+    )
+    sample.db.add(derivative)
+    await sample.db.commit()
+
+    monkeypatch.setattr(library, "_video_store_ready", lambda: None)
+    with pytest.raises(HTTPException) as blocked:
+        await library.delete_asset(
+            sample.db, sample.business.id, sample.editor.id, original.id, original.revision,
+        )
+    assert blocked.value.status_code == 503
+    assert blocked.value.detail["code"] == "video_storage_unconfigured"
+    assert await sample.db.get(BusinessBrandAsset, original.id) is not None
+    assert await sample.db.get(BusinessBrandAsset, derivative.id) is not None
+
+
+@pytest.mark.asyncio
+async def test_delete_reports_pending_cleanup_when_image_unlink_fails(sample, asset_dir, monkeypatch):
+    await _tables(sample.db)
+    image = await library.create_asset(
+        sample.db,
+        sample.business.id,
+        sample.editor.id,
+        {"asset_type": "image", "title": "Temizlik", "caption": "", "public_allowed": False},
+        image_bytes=_PNG,
+    )
+    path = library.asset_root() / str(sample.business.id) / image.locator.rsplit("/", 1)[-1]
+    assert path.is_file()
+
+    class BrokenPath:
+        def __init__(self, real):
+            self._real = real
+
+        def is_file(self):
+            return True
+
+        def unlink(self):
+            raise OSError("locked")
+
+    monkeypatch.setattr(library, "_image_path_for_locator", lambda *_args, **_kwargs: BrokenPath(path))
+    result = await library.delete_asset(
+        sample.db, sample.business.id, sample.editor.id, image.id, image.revision,
+    )
+    assert result["deleted"] is True
+    assert result["id"] == str(image.id)
+    assert result["storageCleanupPending"] == [image.locator]
+    assert await sample.db.get(BusinessBrandAsset, image.id) is None
+    assert path.is_file()
+
+
+@pytest.mark.asyncio
+async def test_historical_confirmed_asset_id_does_not_block_unused_delete(sample, asset_dir):
+    """Proposal JSON may keep confirmedAssetId; only live media_plan references block delete."""
+    await _tables(sample.db)
+    from backend.models.business_cover_ai import BusinessCoverAiProposal as Proposal
+
+    image = await library.create_asset(
+        sample.db,
+        sample.business.id,
+        sample.editor.id,
+        {"asset_type": "image", "title": "AI kapak", "caption": "", "public_allowed": True},
+        image_bytes=_PNG,
+    )
+    sample.db.add(
+        Proposal(
+            business_id=sample.business.id,
+            actor_id=sample.editor.id,
+            idempotency_key="history-confirm-1",
+            request_hash="b" * 64,
+            kind="image_cover",
+            status="succeeded",
+            request_payload={"draftId": str(uuid.uuid4()), "draftRevision": 1},
+            result_payload={"confirmedAssetId": str(image.id)},
+            reserved_cost_usd="0.01",
+            cost_usd="0.01",
+            cost_known=True,
+            cost_limit_usd="1.00",
+            quota_day=__import__("datetime").date.today(),
+            attempts=1,
+            max_attempts=1,
+        )
+    )
+    await sample.db.commit()
+    result = await library.delete_asset(
+        sample.db, sample.business.id, sample.editor.id, image.id, image.revision,
+    )
+    assert result["deleted"] is True
+    assert await sample.db.get(BusinessBrandAsset, image.id) is None

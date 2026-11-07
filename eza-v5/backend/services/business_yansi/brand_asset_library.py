@@ -2,19 +2,23 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import os
 import uuid
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
 
-from sqlalchemy import select
+from fastapi import HTTPException
+from sqlalchemy import delete, func, or_, select
 
 from backend.models.business_brand_assets import BusinessBrandAsset as Asset, BusinessKnowledgeAssetLink as Link
 from backend.models.business_yansi import BusinessKnowledgeVersion as Knowledge
 from backend.services.business_yansi.brand_assets import normalize_asset, public_media_allowed
 from backend.services.business_yansi.service import access, fail, uid
 from backend.services.profile_avatar_store import detect_image_mime
+
+logger = logging.getLogger(__name__)
 
 
 # Content-library upload ceiling (raw bytes before normalize). Profile avatars stay on
@@ -511,14 +515,30 @@ async def list_assets(db, business_id, user_id):
     return await listed_assets(db, business_id)
 
 
-async def listed_assets(db, business_id):
+async def _link_views_by_asset(db, business_id, asset_ids):
+    """Knowledge-link payloads for the named assets. Empty ids yield an empty map."""
     business = uid(business_id)
-    assets = list((await db.scalars(select(Asset).where(Asset.business_id == business).order_by(Asset.created_at.desc()))).all())
-    links = list((await db.scalars(select(Link).where(Link.business_id == business))).all())
+    wanted = {uid(asset_id) for asset_id in asset_ids}
+    grouped = {asset_id: [] for asset_id in wanted}
+    if not wanted:
+        return grouped
+    links = list(
+        (
+            await db.scalars(
+                select(Link).where(Link.business_id == business, Link.asset_id.in_(list(wanted)))
+            )
+        ).all()
+    )
     item_ids = {row.item_id for row in links}
     versions = []
     if item_ids:
-        versions = list((await db.scalars(select(Knowledge).where(Knowledge.business_id == business, Knowledge.item_id.in_(item_ids)))).all())
+        versions = list(
+            (
+                await db.scalars(
+                    select(Knowledge).where(Knowledge.business_id == business, Knowledge.item_id.in_(item_ids))
+                )
+            ).all()
+        )
     by_id = {row.id: row for row in versions}
     current = {}
     for row in versions:
@@ -527,7 +547,6 @@ async def listed_assets(db, business_id):
         previous = current.get(row.item_id)
         if previous is None or row.version > previous.version:
             current[row.item_id] = row
-    grouped = {asset.id: [] for asset in assets}
     for link in links:
         confirmed = by_id.get(link.confirmed_version_id)
         live = current.get(link.item_id)
@@ -543,7 +562,31 @@ async def listed_assets(db, business_id):
                 link.status == "active" and live is not None and live.id == link.confirmed_version_id
             ),
         })
+    return grouped
+
+
+async def listed_assets(db, business_id):
+    """Content Library cards only. Cover derivatives keep source_asset_id and stay hidden here."""
+    business = uid(business_id)
+    assets = list((await db.scalars(
+        select(Asset)
+        .where(Asset.business_id == business, Asset.source_asset_id.is_(None))
+        .order_by(Asset.created_at.desc())
+    )).all())
+    grouped = await _link_views_by_asset(db, business_id, [asset.id for asset in assets])
     return [present_asset(asset, grouped.get(asset.id, [])) for asset in assets]
+
+
+async def present_asset_by_id(db, business_id, asset_id):
+    """One authorized management view by id, including technical cover derivatives."""
+    business = uid(business_id)
+    asset = await db.scalar(
+        select(Asset).where(Asset.id == uid(asset_id), Asset.business_id == business)
+    )
+    if asset is None:
+        fail("asset_not_found", 404)
+    grouped = await _link_views_by_asset(db, business_id, [asset.id])
+    return present_asset(asset, grouped.get(asset.id, []))
 
 
 async def create_asset(db, business_id, user_id, data, *, image_bytes=None):
@@ -683,6 +726,278 @@ async def archive_asset(db, business_id, user_id, asset_id, revision):
         await db.commit()
         await db.refresh(row)
         return row
+
+
+_BUSY_COVER = ("queued", "running", "awaiting_encode")
+
+
+def _image_path_for_locator(business_id, locator: str) -> Path | None:
+    try:
+        normalized = normalize_asset(
+            business_id=business_id,
+            asset_type="image",
+            title="Sil",
+            locator_kind="storage",
+            locator=locator,
+        )
+    except Exception:
+        return None
+    name = normalized["locator"].rsplit("/", 1)[-1]
+    root = asset_root().resolve()
+    target = (root / str(uid(business_id)) / name).resolve()
+    if root != target and root not in target.parents:
+        return None
+    return target
+
+
+async def _storage_still_referenced(db, business_id, locator: str) -> bool:
+    count = await db.scalar(
+        select(func.count())
+        .select_from(Asset)
+        .where(
+            Asset.business_id == uid(business_id),
+            Asset.locator_kind == "storage",
+            Asset.locator == locator,
+        )
+    )
+    return int(count or 0) > 0
+
+
+def _video_store_ready():
+    """Return a configured video store, or None when R2 is unavailable."""
+    from backend.services.business_yansi.video_storage import video_store_from_env
+
+    try:
+        return video_store_from_env()
+    except HTTPException as exc:
+        detail = getattr(exc, "detail", None)
+        code = detail.get("code") if isinstance(detail, dict) else detail
+        if code == "video_storage_unconfigured" or exc.status_code == 503:
+            return None
+        raise
+
+
+async def _purge_storage_keys(business_id, keys: list[tuple[str, str]], *, store=None) -> list[str]:
+    """Delete unreferenced objects after DB rows are gone. Returns keys that still need cleanup."""
+    pending: list[str] = []
+    video_keys = [key for kind, key in keys if kind == "video" and key]
+    image_keys = [key for kind, key in keys if kind == "image" and key]
+    for locator in image_keys:
+        path = _image_path_for_locator(business_id, locator)
+        if path is None or not path.is_file():
+            continue
+        try:
+            path.unlink()
+        except OSError as exc:
+            logger.warning(
+                "brand_asset_image_cleanup_failed business_id=%s locator=%s error=%s",
+                uid(business_id),
+                locator,
+                exc.__class__.__name__,
+            )
+            pending.append(locator)
+    if not video_keys:
+        return pending
+    owned_store = store is None
+    if store is None:
+        store = _video_store_ready()
+    if store is None:
+        logger.warning(
+            "brand_asset_video_cleanup_skipped business_id=%s keys=%s reason=video_storage_unconfigured",
+            uid(business_id),
+            len(video_keys),
+        )
+        pending.extend(video_keys)
+        return pending
+    try:
+        for key in video_keys:
+            try:
+                await store.delete(key)
+            except Exception as exc:
+                logger.warning(
+                    "brand_asset_video_cleanup_failed business_id=%s locator=%s error=%s",
+                    uid(business_id),
+                    key,
+                    exc.__class__.__name__,
+                )
+                pending.append(key)
+    finally:
+        if owned_store:
+            try:
+                await store.aclose()
+            except Exception:
+                pass
+    return pending
+
+
+async def delete_asset(db, business_id, user_id, asset_id, revision):
+    """Permanently remove one library asset when no Yansı still references it.
+
+    Cover derivatives of an original are removed with that original when unused.
+    Shared content-addressed objects are kept while another asset still points at them.
+    Storage objects are removed only after the DB commit and a fresh reference check.
+    """
+    await access(db, business_id, user_id, "editor")
+    from backend.models.business_media_observations import BusinessMediaObservation as Observation
+    from backend.models.business_media_observations import BusinessMediaObservationFrame as Frame
+    from backend.models.business_video_cover_jobs import BusinessVideoCoverJob as Job
+    from backend.services.business_yansi.studio_media import any_media_plan_uses_asset, business_media_lock
+    from backend.services.business_yansi.video_authority import require_locked_actor
+
+    pending_storage: list[tuple[str, str]] = []
+    deleted_id = None
+    video_store = None
+
+    async with business_media_lock(db, business_id):
+        await require_locked_actor(db, business_id, user_id, "editor")
+        snap = await _asset_decision(db, business_id, asset_id, lock=True)
+        if snap.revision != revision:
+            fail("revision_conflict", 409)
+        root = await db.get(Asset, snap.id)
+        if root is None:
+            fail("asset_not_found", 404)
+
+        business = uid(business_id)
+        if root.source_asset_id is None:
+            derivatives = list(
+                (
+                    await db.scalars(
+                        select(Asset).where(Asset.business_id == business, Asset.source_asset_id == root.id)
+                    )
+                ).all()
+            )
+            family = [root, *derivatives]
+        else:
+            family = [root]
+
+        family_ids = [row.id for row in family]
+        for row in family:
+            if await any_media_plan_uses_asset(db, business_id, row.id):
+                fail("asset_in_use", 409)
+
+        busy = await db.scalar(
+            select(func.count())
+            .select_from(Job)
+            .where(
+                Job.business_id == business,
+                Job.status.in_(_BUSY_COVER),
+                or_(Job.source_asset_id.in_(family_ids), Job.result_asset_id.in_(family_ids)),
+            )
+        )
+        if int(busy or 0) > 0:
+            fail("cover_job_busy", 409)
+
+        for row in family:
+            if row.locator_kind == "storage" and row.locator:
+                kind = "video" if row.asset_type == "video" else "image" if row.asset_type == "image" else ""
+                if kind:
+                    pending_storage.append((kind, row.locator))
+
+        # Decide which storage keys would become unreferenced after this family is removed.
+        unique_before: list[tuple[str, str]] = []
+        seen = set()
+        for kind, locator in pending_storage:
+            token = (kind, locator)
+            if token in seen:
+                continue
+            seen.add(token)
+            others = await db.scalar(
+                select(func.count())
+                .select_from(Asset)
+                .where(
+                    Asset.business_id == business,
+                    Asset.locator_kind == "storage",
+                    Asset.locator == locator,
+                    Asset.id.notin_(family_ids),
+                )
+            )
+            if int(others or 0) == 0:
+                unique_before.append(token)
+
+        video_unique = [locator for kind, locator in unique_before if kind == "video"]
+        if video_unique:
+            # Refuse DB deletion when unique video objects cannot be cleaned up later.
+            video_store = _video_store_ready()
+            if video_store is None:
+                fail("video_storage_unconfigured", 503)
+
+        try:
+            await db.execute(
+                delete(Job).where(
+                    Job.business_id == business,
+                    or_(Job.source_asset_id.in_(family_ids), Job.result_asset_id.in_(family_ids)),
+                )
+            )
+
+            observation_ids = list(
+                (
+                    await db.scalars(
+                        select(Observation.id).where(
+                            Observation.business_id == business,
+                            Observation.asset_id.in_(family_ids),
+                        )
+                    )
+                ).all()
+            )
+            if observation_ids:
+                await db.execute(
+                    delete(Frame).where(Frame.business_id == business, Frame.observation_id.in_(observation_ids))
+                )
+                await db.execute(
+                    delete(Observation).where(Observation.business_id == business, Observation.id.in_(observation_ids))
+                )
+
+            await db.execute(delete(Link).where(Link.business_id == business, Link.asset_id.in_(family_ids)))
+
+            # Children first: derivatives reference the original via source_asset_id.
+            child_ids = [row.id for row in family if row.source_asset_id is not None]
+            if child_ids:
+                await db.execute(delete(Asset).where(Asset.business_id == business, Asset.id.in_(child_ids)))
+            await db.execute(delete(Asset).where(Asset.business_id == business, Asset.id == root.id))
+            deleted_id = root.id
+            await db.commit()
+        except Exception:
+            if video_store is not None:
+                try:
+                    await video_store.aclose()
+                except Exception:
+                    pass
+                video_store = None
+            raise
+
+    unique_keys: list[tuple[str, str]] = []
+    seen_after = set()
+    for kind, locator in pending_storage:
+        token = (kind, locator)
+        if token in seen_after:
+            continue
+        seen_after.add(token)
+        # Fresh post-commit check — never delete an object another valid row still names.
+        if await _storage_still_referenced(db, business_id, locator):
+            continue
+        unique_keys.append(token)
+
+    cleanup_pending: list[str] = []
+    try:
+        if unique_keys:
+            cleanup_pending = await _purge_storage_keys(business_id, unique_keys, store=video_store)
+    finally:
+        if video_store is not None:
+            try:
+                await video_store.aclose()
+            except Exception:
+                pass
+
+    payload = {"id": str(deleted_id), "deleted": True}
+    if cleanup_pending:
+        payload["storageCleanupPending"] = cleanup_pending
+        logger.warning(
+            "brand_asset_storage_cleanup_pending business_id=%s asset_id=%s count=%s",
+            uid(business_id),
+            deleted_id,
+            len(cleanup_pending),
+        )
+    return payload
 
 
 async def set_links(db, business_id, user_id, asset_id, version_ids, revision):

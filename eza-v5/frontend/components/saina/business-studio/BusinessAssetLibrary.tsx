@@ -51,6 +51,8 @@ const COPY: Record<string, string> = {
   revision_conflict: 'Bu kayıt başka bir kayıtla değişti. Listeyi yenileyip tekrar deneyin.',
   published_knowledge_required: 'Yalnızca güncel bilgi kaydı seçilebilir.',
   archived_asset: 'Arşivlenmiş içerik düzenlenemez.',
+  asset_in_use: 'Bu içerik bir Yansı taslağında veya yayımlanmış Yansıda kullanılıyor. Önce o Yansıdan kaldırın.',
+  cover_job_busy: 'Bu içerik için kapak hazırlığı sürüyor. Biraz sonra tekrar deneyin.',
   video_too_large: 'Video 40 MB sınırını aşıyor.',
   video_too_long: 'Video 60 saniyeden uzun olamaz.',
   video_file_rejected: 'Video MP4 olmalı.',
@@ -206,7 +208,9 @@ export default function BusinessAssetLibrary({
   const [dragOver, setDragOver] = useState(false);
   const [metaAssetId, setMetaAssetId] = useState<string | null>(null);
   const [archiveTarget, setArchiveTarget] = useState<BrandAsset | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<BrandAsset | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const deleteInFlightRef = useRef(false);
   const uploadsRef = useRef(uploads);
   uploadsRef.current = uploads;
 
@@ -414,15 +418,6 @@ export default function BusinessAssetLibrary({
     setError('');
   }
 
-  function openEdit(asset: BrandAsset) {
-    setEditing(asset);
-    setAssetType(asset.asset_type === 'link' ? 'link' : asset.asset_type === 'place' ? 'place' : 'place');
-    setFormOpen(true);
-    setDirty(false);
-    setError('');
-    setMetaAssetId(null);
-  }
-
   function closeForm() {
     if (dirty && !window.confirm('Kaydedilmemiş değişiklikler var. Çıkmak istiyor musunuz?')) return;
     setFormOpen(false);
@@ -527,6 +522,24 @@ export default function BusinessAssetLibrary({
     } catch (err) {
       setError(messageOf(err));
     } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget || saving || busy || deleteInFlightRef.current) return;
+    const asset = deleteTarget;
+    deleteInFlightRef.current = true;
+    setSaving(true);
+    setError('');
+    try {
+      await businessRequest(`/${businessId}/assets/${asset.id}`, 'DELETE', { revision: asset.revision });
+      setDeleteTarget(null);
+      await onChanged();
+    } catch (err) {
+      setError(messageOf(err));
+    } finally {
+      deleteInFlightRef.current = false;
       setSaving(false);
     }
   }
@@ -923,11 +936,30 @@ export default function BusinessAssetLibrary({
               {stale ? <p className="biz-form-error">Bilgi yeni sürüme geçti. İlişkiyi yeniden onaylayın.</p> : null}
               {canEdit && asset.status !== 'archived' ? (
                 <div className="biz-actions">
-                  <button type="button" className="biz-btn-ghost" data-testid={`biz-asset-plus-${asset.id}`} onClick={() => setMetaAssetId(metaOpen ? null : asset.id)}>
+                  <button
+                    type="button"
+                    className="biz-btn-ghost"
+                    data-testid={`biz-asset-plus-${asset.id}`}
+                    onClick={() => {
+                      setArchiveTarget(null);
+                      setDeleteTarget(null);
+                      setMetaAssetId(metaOpen ? null : asset.id);
+                    }}
+                  >
                     +
                   </button>
-                  <button type="button" className="biz-btn-ghost" onClick={() => openEdit(asset)}>
-                    Düzenle
+                  <button
+                    type="button"
+                    className="biz-btn-ghost"
+                    data-testid={`biz-asset-delete-${asset.id}`}
+                    disabled={saving || busy}
+                    onClick={() => {
+                      setMetaAssetId(null);
+                      setArchiveTarget(null);
+                      setDeleteTarget(asset);
+                    }}
+                  >
+                    Sil
                   </button>
                   <button
                     type="button"
@@ -936,11 +968,46 @@ export default function BusinessAssetLibrary({
                     disabled={saving || busy}
                     onClick={() => {
                       setMetaAssetId(null);
+                      setDeleteTarget(null);
                       setArchiveTarget(asset);
                     }}
                   >
                     Arşive Kaldır
                   </button>
+                </div>
+              ) : null}
+              {deleteTarget?.id === asset.id ? (
+                <div
+                  className="biz-asset-archive-confirm"
+                  role="alertdialog"
+                  aria-modal="true"
+                  aria-labelledby={`biz-delete-title-${asset.id}`}
+                  data-testid={`biz-asset-delete-confirm-${asset.id}`}
+                >
+                  <p id={`biz-delete-title-${asset.id}`}>Bu içerik kalıcı olarak silinecek. Bu işlem geri alınamaz.</p>
+                  <p className="biz-card-meta">
+                    Yansı taslağında veya yayımlanmış Yansıda kullanılan içerikler silinmez. Kütüphaneden çıkarmak ama saklamak için Arşive Kaldır kullanın.
+                  </p>
+                  <div className="biz-actions">
+                    <button
+                      type="button"
+                      className="biz-btn-ghost"
+                      data-testid={`biz-asset-delete-dismiss-${asset.id}`}
+                      disabled={saving}
+                      onClick={() => setDeleteTarget(null)}
+                    >
+                      İptal
+                    </button>
+                    <button
+                      type="button"
+                      className="biz-btn-primary"
+                      data-testid={`biz-asset-delete-confirm-submit-${asset.id}`}
+                      disabled={saving || busy}
+                      onClick={() => void confirmDelete()}
+                    >
+                      Kalıcı Sil
+                    </button>
+                  </div>
                 </div>
               ) : null}
               {archiveTarget?.id === asset.id ? (

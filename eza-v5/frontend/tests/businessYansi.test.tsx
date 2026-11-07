@@ -797,9 +797,11 @@ describe('Business public identity', () => {
     expect(screen.queryByRole('option', { name: 'Görsel' })).not.toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'Video' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Vazgeç' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Düzenle' }));
-    expect(screen.getByLabelText('Enlem')).toHaveValue('41.025000');
+    expect(screen.queryByRole('button', { name: 'Düzenle' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('biz-asset-plus-asset-1'));
+    expect(screen.getByTestId('biz-asset-meta-panel-asset-1')).toBeInTheDocument();
+    expect(screen.getByLabelText('Kayıtlı içerik başlığı')).toHaveValue('Atölye');
     expect(screen.getByRole('checkbox', { name: /Saatler/ })).not.toBeChecked();
-    expect(screen.getByText('Yeni sürüm için yeniden onay gerekir.')).toBeInTheDocument();
+    expect(screen.getByText('Bilgi yeni sürüme geçti. İlişkiyi yeniden onaylayın.')).toBeInTheDocument();
   });
 });

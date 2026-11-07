@@ -75,6 +75,8 @@ class AssetLinks(Body):
     revision: int=Field(ge=1)
 class AssetArchive(Body):
     revision: int=Field(ge=1)
+class AssetDelete(Body):
+    revision: int=Field(ge=1)
 class CoverSegment(Body):
     startSeconds: float=Field(ge=0)
     endSeconds: float=Field(gt=0)
@@ -498,15 +500,19 @@ async def archive_brand_asset(business_id:uuid.UUID,asset_id:uuid.UUID,body:Asse
     user=await svc.actor(db,claims)
     row=await assets.archive_asset(db,business_id,user.id,asset_id,body.revision)
     return await _asset_view(db,business_id,row.id)
+@router.delete('/{business_id}/assets/{asset_id}')
+async def delete_brand_asset(business_id:uuid.UUID,asset_id:uuid.UUID,body:AssetDelete,db=Depends(get_db),claims=Depends(get_current_user)):
+    """Permanently delete one unused library asset. Referenced Yansı media returns 409."""
+    user=await svc.actor(db,claims)
+    return await assets.delete_asset(db,business_id,user.id,asset_id,body.revision)
 @router.get('/{business_id}/assets/{asset_id}/content')
 async def brand_asset_content(business_id:uuid.UUID,asset_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims)
     data,mime=await assets.stored_preview(db,business_id,user.id,asset_id)
     return Response(content=data,media_type=mime,headers={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'})
 async def _asset_view(db,business_id,asset_id):
-    for item in await assets.listed_assets(db,business_id):
-        if item['id']==str(asset_id): return item
-    svc.fail('asset_not_found',404)
+    """Management payload by id. Includes cover derivatives hidden from library lists."""
+    return await assets.present_asset_by_id(db,business_id,asset_id)
 @router.get('/{business_id}/knowledge')
 async def knowledge(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
     await manager(db,claims,business_id);return {'items':[record(row) for row in await svc.list_knowledge(db,business_id)]}

@@ -170,7 +170,9 @@ describe('business studio video experience', () => {
       await vi.advanceTimersByTimeAsync(0);
     });
     expect(screen.getByTestId(`biz-asset-${film.id}`).querySelectorAll('video')).toHaveLength(1);
-    expect(screen.getByRole('button', { name: 'Düzenle' })).toBeInTheDocument();
+    expect(screen.getByTestId(`biz-asset-plus-${film.id}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`biz-asset-delete-${film.id}`)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Düzenle' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId(`biz-asset-archive-${film.id}`));
     fireEvent.click(screen.getByTestId(`biz-asset-archive-confirm-submit-${film.id}`));
     await act(async () => {

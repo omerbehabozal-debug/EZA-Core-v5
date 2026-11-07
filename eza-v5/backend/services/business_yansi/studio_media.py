@@ -375,6 +375,27 @@ async def sealed_content_uses_asset(db, business_id, asset_id):
     return False
 
 
+async def any_media_plan_uses_asset(db, business_id, asset_id):
+    """True when any draft or publication media plan still names this asset.
+
+    Soft drafts count: deleting mid-edit must not break an unsaved cover choice.
+    """
+    from backend.models.business_yansi import BusinessPublication
+    from backend.models.business_yansi import BusinessYansiDraft
+
+    token = str(asset_id)
+    business = uid(business_id)
+    draft_plans = await db.scalars(select(BusinessYansiDraft.media_plan).where(BusinessYansiDraft.business_id == business))
+    for plan in draft_plans:
+        if isinstance(plan, dict) and _plan_uses_asset(plan, token):
+            return True
+    published = await db.scalars(select(BusinessPublication.media_plan).where(BusinessPublication.business_id == business))
+    for plan in published:
+        if _plan_uses_asset(plan, token):
+            return True
+    return False
+
+
 @dataclass(frozen=True, slots=True)
 class BusinessLockSnapshot:
     """Authoritative Business columns captured while the row lock is held.
