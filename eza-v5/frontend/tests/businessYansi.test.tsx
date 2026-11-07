@@ -6,6 +6,7 @@ import { BusinessApiError } from '@/lib/eza/businessYansi';
 import { parsePublicFrozenJourneyArtifact } from '@/lib/eza/mirror/journey/publicFrozenTypes';
 
 const api = vi.hoisted(() => vi.fn());
+const uploadBusinessLogo = vi.hoisted(() => vi.fn());
 const auth = vi.hoisted(() => ({
   isAuthenticated: true,
   isAuthReady: true,
@@ -15,7 +16,7 @@ const auth = vi.hoisted(() => ({
 
 vi.mock('@/lib/eza/businessYansi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/eza/businessYansi')>();
-  return { ...actual, businessRequest: api };
+  return { ...actual, businessRequest: api, uploadBusinessLogo };
 });
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => auth }));
 vi.mock('next/navigation', () => ({
@@ -36,6 +37,7 @@ const business = {
 
 beforeEach(() => {
   api.mockReset();
+  uploadBusinessLogo.mockReset();
   auth.isAuthenticated = true;
   auth.isAuthReady = true;
   auth.user = { email: 'owner@example.test', user_id: 'u1', role: 'user' };
@@ -573,6 +575,74 @@ describe('Business public identity', () => {
       'src',
       expect.stringContaining('11111111-1111-4111-8111-111111111111.png')
     );
+  });
+
+  it('updates header and overview logos immediately after a logo upload save', async () => {
+    const brandLogo = '/api/public/profile-avatars/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png';
+    let profile = {
+      ...business,
+      logo_url: brandLogo,
+      updated_at: '2026-10-01T00:00:00Z',
+    };
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      writable: true,
+      value: vi.fn(() => 'blob:brand-preview'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      writable: true,
+      value: vi.fn(),
+    });
+    uploadBusinessLogo.mockImplementation(async () => {
+      profile = { ...profile, updated_at: '2026-10-04T12:00:00Z' };
+      return profile;
+    });
+    api.mockImplementation(async (path = '', method = 'GET', body?: unknown) => {
+      if (path === '') return { items: [profile], canProvision: false };
+      if (path === '/applications/mine') return { items: [] };
+      if (String(path).endsWith('/overview')) return { business: profile, role: 'owner', publications: [] };
+      if (String(path).endsWith('/members')) return { items: [] };
+      if (String(path).endsWith('/settings') && method === 'PATCH') {
+        const payload = body as { name?: string; description?: string };
+        profile = {
+          ...profile,
+          name: String(payload.name || profile.name),
+          description: String(payload.description ?? profile.description),
+          updated_at: '2026-10-04T12:00:01Z',
+        };
+        return profile;
+      }
+      return { items: [] };
+    });
+    render(<SainaBusinessManager />);
+    await waitFor(() => {
+      expect(screen.getByTestId('biz-panel-brand').querySelector('img')).not.toBeNull();
+    });
+    expect(screen.getByTestId('biz-panel-brand').querySelector('img')).toHaveAttribute(
+      'src',
+      expect.stringContaining('v=2026-10-01')
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ayarlar' }));
+    const file = new File([new Uint8Array([1, 2, 3])], 'brand.png', { type: 'image/png' });
+    fireEvent.change(screen.getByLabelText('Marka avatarı'), { target: { files: [file] } });
+    fireEvent.click(screen.getByTestId('biz-brand-save'));
+
+    await waitFor(() => {
+      expect(uploadBusinessLogo).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      const header = screen.getByTestId('biz-panel-brand').querySelector('img');
+      expect(header).toHaveAttribute('src', expect.stringContaining('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.png'));
+      expect(header).toHaveAttribute('src', expect.stringContaining('v=2026-10-04'));
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Genel Bakış' }));
+    await waitFor(() => {
+      const overview = screen.getByTestId('biz-overview-brand-logo').querySelector('img');
+      expect(overview).not.toBeNull();
+      expect(overview).toHaveAttribute('src', expect.stringContaining('v=2026-10-04'));
+    });
   });
 
   it('falls back to the brand initial when the logo image fails to load', async () => {

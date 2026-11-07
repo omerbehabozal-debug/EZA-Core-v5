@@ -4,6 +4,7 @@ import json
 import re
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from fastapi import HTTPException
 from sqlalchemy import select, func
 from backend.models.production import User, Organization
@@ -126,7 +127,10 @@ async def set_brand_logo(db, business_id, user_id, image_bytes: bytes):
             business = await db.get(BusinessProfile, uid(business_id))
             if business is None:
                 fail("business_not_found", 404)
+            # Filename is stable per business id; always bump updated_at so clients
+            # can cache-bust same-URL replacements without changing logo_url.
             business.logo_url = public_url
+            business.updated_at = datetime.now(timezone.utc)
         await db.commit()
         await db.refresh(business)
         return business

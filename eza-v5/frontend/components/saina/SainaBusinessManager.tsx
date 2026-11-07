@@ -72,6 +72,7 @@ function BrandMark({
     return (
       <div className={cls} aria-hidden data-testid={testId}>
         <img
+          key={src}
           src={src}
           alt=""
           onError={() => {
@@ -568,7 +569,13 @@ export default function SainaBusinessManager() {
                   <p className="biz-section-lead">Doğrulanmış marka bilgileri ve editoryal yayınlar</p>
                   <article className="biz-card">
                     <div className="biz-overview-hero">
-                      <BrandMark name={business.name} logoUrl={business.logo_url} cacheBust={business.updated_at} size="hero" />
+                      <BrandMark
+                        name={business.name}
+                        logoUrl={business.logo_url}
+                        cacheBust={business.updated_at}
+                        size="hero"
+                        testId="biz-overview-brand-logo"
+                      />
                       <div>
                         <h2>{business.name}</h2>
                         <p className="biz-overview-desc">{business.description || 'Açıklama henüz eklenmedi.'}</p>
@@ -865,13 +872,22 @@ export default function SainaBusinessManager() {
                       <form
                         className="biz-form"
                         onSubmit={submit(async (data) => {
-                          if (logoFile) await uploadBusinessLogo(selected, logoFile);
-                          await api(`${base}/settings`, 'PATCH', {
+                          // Apply confirmed server profiles immediately so header/overview
+                          // BrandMarks refresh without waiting for the post-action reload.
+                          if (logoFile) {
+                            const withLogo = await uploadBusinessLogo(selected, logoFile);
+                            setBusiness(withLogo);
+                          }
+                          const saved = await api<Business>(`${base}/settings`, 'PATCH', {
                             name: data.name,
                             description: data.description,
                           });
+                          setBusiness(saved);
                           setLogoFile(null);
-                          setLogoPreview(null);
+                          setLogoPreview((current) => {
+                            if (current) URL.revokeObjectURL(current);
+                            return null;
+                          });
                           setNotice('Marka kimliği kaydedildi.');
                         })}
                       >

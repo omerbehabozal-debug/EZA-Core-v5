@@ -264,6 +264,20 @@ async def test_logo_owner_success(sample, tmp_path, monkeypatch):
     assert remote.logo_url == row.logo_url
 
 
+async def test_logo_replace_bumps_updated_at_with_stable_url(sample, tmp_path, monkeypatch):
+    """Same business UUID filename must still get a fresh cache-bust token."""
+    monkeypatch.setattr(
+        "backend.services.profile_avatar_store.resolve_profile_avatar_dir",
+        lambda: tmp_path,
+    )
+    first = await svc.set_brand_logo(sample.db, sample.business.id, sample.owner.id, _PNG)
+    first_updated = first.updated_at
+    second = await svc.set_brand_logo(sample.db, sample.business.id, sample.owner.id, _PNG)
+    assert second.logo_url == first.logo_url
+    assert second.updated_at is not None and first_updated is not None
+    assert second.updated_at > first_updated
+
+
 async def test_logo_revoked_owner_writes_no_file(sample, tmp_path, monkeypatch):
     monkeypatch.setattr(
         "backend.services.profile_avatar_store.resolve_profile_avatar_dir",
