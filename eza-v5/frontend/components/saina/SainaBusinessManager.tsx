@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, type FormEvent } from 'react';
 import {
   businessRequest as api,
+  fetchCoverAiAvailability,
   uploadBusinessLogo,
   isBusinessApiError,
   type Business,
@@ -81,6 +82,7 @@ export default function SainaBusinessManager() {
   const [items, setItems] = useState<Business[]>([]);
   const [applications, setApplications] = useState<BrandApplication[]>([]);
   const [selected, setSelected] = useState('');
+  const [coverAiEnabled, setCoverAiEnabled] = useState(false);
   const [picked, setPicked] = useState(false);
   const [business, setBusiness] = useState<Business | null>(null);
   const [role, setRole] = useState('viewer');
@@ -226,6 +228,24 @@ export default function SainaBusinessManager() {
     setEditDraft(null);
     setTab('Genel Bakış');
     if (selected) load(selected).catch((e) => setError(e.message));
+  }, [selected]);
+
+  useEffect(() => {
+    if (!selected) {
+      setCoverAiEnabled(false);
+      return;
+    }
+    let active = true;
+    fetchCoverAiAvailability(selected)
+      .then((enabled) => {
+        if (active) setCoverAiEnabled(enabled);
+      })
+      .catch(() => {
+        if (active) setCoverAiEnabled(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [selected]);
 
   function goToTab(next: (typeof tabs)[number]) {
@@ -633,6 +653,7 @@ export default function SainaBusinessManager() {
                       official: business.official,
                     }}
                     assets={assets}
+                    coverAiEnabled={coverAiEnabled}
                     onOpenKnowledgePool={() => goToTab('Bilgi Havuzu')}
                     onDraftSaved={async () => {
                       setEditDraft(null);

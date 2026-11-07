@@ -78,6 +78,12 @@ class AssetArchive(Body):
 class CoverSegment(Body):
     startSeconds: float=Field(ge=0)
     endSeconds: float=Field(gt=0)
+class CoverSuggestion(Body):
+    idempotencyKey: str=Field(min_length=8,max_length=128)
+class CoverImageSuggestion(Body):
+    idempotencyKey: str=Field(min_length=8,max_length=128)
+class CoverImageConfirm(Body):
+    knowledgeVersionIds: list[uuid.UUID]=Field(default_factory=list,max_length=32)
 class KnowledgeCreate(Body):
     itemId: uuid.UUID|None=None
     title: str=Field(min_length=1,max_length=160)
@@ -255,6 +261,13 @@ async def verification(business_id:uuid.UUID,body:Verify,db=Depends(get_db),clai
     await svc.platform_admin(db,claims)
     row=await update_brand_verification(db,business_id,verified=body.verified,official=body.official,status=body.status)
     return await recorded(db,row)
+@router.get('/{business_id}/cover-ai')
+async def cover_ai_availability(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
+    """Whether interval suggestions can be requested. This does not call a provider."""
+    from backend.services.business_yansi.cover_ai import enabled as cover_ai_enabled
+    user=await svc.actor(db,claims)
+    await svc.access(db,business_id,user.id,'viewer')
+    return {'enabled':cover_ai_enabled()}
 @router.get('/{business_id}/overview')
 async def overview(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
     user,business=await manager(db,claims,business_id)
@@ -395,6 +408,54 @@ async def cover_job_retry(business_id:uuid.UUID,asset_id:uuid.UUID,job_id:uuid.U
     source=await db.get(BusinessBrandAsset,asset_id)
     scale=source.verified_timescale if source is not None and source.business_id==business_id else None
     return present_job(job, scale if type(scale) is int else None)
+@router.post('/{business_id}/assets/{asset_id}/cover-suggestions')
+async def create_cover_suggestion(business_id:uuid.UUID,asset_id:uuid.UUID,body:CoverSuggestion,db=Depends(get_db),claims=Depends(get_current_user)):
+    """Suggest intervals from the stored video. Confirmation is a separate cover-segment request."""
+    from backend.services.business_yansi.brand_asset_library import _asset_row
+    from backend.services.business_yansi.cover_video_suggestions import present_suggestion, source_matches, suggest_video_intervals
+    user=await svc.actor(db,claims)
+    row=await suggest_video_intervals(db,business_id,user.id,asset_id,body.idempotencyKey)
+    try:
+        asset=await _asset_row(db,business_id,asset_id)
+        current=source_matches(row,asset)
+    except Exception:
+        current=False
+    return present_suggestion(row,asset_id,source_current=current)
+@router.get('/{business_id}/assets/{asset_id}/cover-suggestions/{proposal_id}')
+async def cover_suggestion(business_id:uuid.UUID,asset_id:uuid.UUID,proposal_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
+    from backend.services.business_yansi.cover_video_suggestions import read_cover_suggestion
+    user=await svc.actor(db,claims)
+    return await read_cover_suggestion(db,business_id,user.id,asset_id,proposal_id)
+@router.post('/{business_id}/drafts/{draft_id}/cover-image-suggestions')
+async def create_cover_image_suggestion(business_id:uuid.UUID,draft_id:uuid.UUID,body:CoverImageSuggestion,db=Depends(get_db),claims=Depends(get_current_user)):
+    """Generate a private AI cover-image proposal. Confirmation is a separate step."""
+    from backend.services.business_yansi.cover_image_suggestions import current_draft_matches, present_image_suggestion, suggest_image_cover
+    user=await svc.actor(db,claims)
+    row=await suggest_image_cover(db,business_id,user.id,draft_id,body.idempotencyKey)
+    current=await current_draft_matches(db,row,business_id,draft_id)
+    return present_image_suggestion(row,draft_id,source_current=current)
+@router.get('/{business_id}/drafts/{draft_id}/cover-image-suggestions/{proposal_id}')
+async def cover_image_suggestion(business_id:uuid.UUID,draft_id:uuid.UUID,proposal_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
+    from backend.services.business_yansi.cover_image_suggestions import read_image_suggestion
+    user=await svc.actor(db,claims)
+    return await read_image_suggestion(db,business_id,user.id,draft_id,proposal_id)
+@router.get('/{business_id}/drafts/{draft_id}/cover-image-suggestions/{proposal_id}/preview')
+async def cover_image_suggestion_preview(business_id:uuid.UUID,draft_id:uuid.UUID,proposal_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
+    """Private preview bytes for the authorized business member. Not a public asset URL."""
+    from backend.services.business_yansi.cover_image_suggestions import read_image_preview
+    user=await svc.actor(db,claims)
+    blob,mime=await read_image_preview(db,business_id,user.id,draft_id,proposal_id)
+    return Response(content=blob,media_type=mime,headers={'Cache-Control':'private, no-store'})
+@router.post('/{business_id}/drafts/{draft_id}/cover-image-suggestions/{proposal_id}/confirm')
+async def confirm_cover_image_suggestion(business_id:uuid.UUID,draft_id:uuid.UUID,proposal_id:uuid.UUID,body:CoverImageConfirm,db=Depends(get_db),claims=Depends(get_current_user)):
+    """Promote a private AI preview into the brand asset library. Does not publish the Yansı."""
+    from backend.services.business_yansi.cover_image_suggestions import confirm_image_suggestion
+    user=await svc.actor(db,claims)
+    asset=await confirm_image_suggestion(
+        db,business_id,user.id,draft_id,proposal_id,
+        link_version_ids=body.knowledgeVersionIds or None,
+    )
+    return await _asset_view(db,business_id,asset.id)
 @router.post('/{business_id}/assets/{asset_id}/cover-segment')
 async def cover_segment(business_id:uuid.UUID,asset_id:uuid.UUID,body:CoverSegment,db=Depends(get_db),claims=Depends(get_current_user)):
     """Ask for a different cover window. The uploaded video stays intact."""

@@ -359,6 +359,91 @@ export async function requestCoverSegment(
   return businessRequest(`/${businessId}/assets/${assetId}/cover-segment`, 'POST', { startSeconds, endSeconds });
 }
 
+export type CoverInterval = { startSeconds: number; endSeconds: number };
+
+export type CoverSuggestion = {
+  proposalId: string;
+  status: string;
+  assetId: string;
+  assetRevision?: number | null;
+  sourceCurrent?: boolean;
+  intervals: CoverInterval[];
+  errorCode: string | null;
+  costKnown?: boolean;
+  costUsd?: string | null;
+};
+
+export type CoverImageSuggestion = {
+  proposalId: string;
+  status: string;
+  draftId: string;
+  draftRevision?: number | null;
+  sourceCurrent?: boolean;
+  previewReady?: boolean;
+  confirmedAssetId?: string | null;
+  expiresAt?: string | null;
+  errorCode: string | null;
+  costKnown?: boolean;
+  costUsd?: string | null;
+};
+
+export async function fetchCoverAiAvailability(businessId: string): Promise<boolean> {
+  const body = await businessRequest<{ enabled?: boolean }>(`/${businessId}/cover-ai`);
+  return body?.enabled === true;
+}
+
+export async function requestCoverSuggestions(
+  businessId: string,
+  assetId: string,
+  idempotencyKey: string,
+): Promise<CoverSuggestion> {
+  return businessRequest(`/${businessId}/assets/${assetId}/cover-suggestions`, 'POST', { idempotencyKey });
+}
+
+export async function fetchCoverSuggestion(
+  businessId: string,
+  assetId: string,
+  proposalId: string,
+): Promise<CoverSuggestion> {
+  return businessRequest(`/${businessId}/assets/${assetId}/cover-suggestions/${proposalId}`);
+}
+
+export async function requestCoverImageSuggestions(
+  businessId: string,
+  draftId: string,
+  idempotencyKey: string,
+): Promise<CoverImageSuggestion> {
+  return businessRequest(`/${businessId}/drafts/${draftId}/cover-image-suggestions`, 'POST', { idempotencyKey });
+}
+
+export async function fetchCoverImageSuggestion(
+  businessId: string,
+  draftId: string,
+  proposalId: string,
+): Promise<CoverImageSuggestion> {
+  return businessRequest(`/${businessId}/drafts/${draftId}/cover-image-suggestions/${proposalId}`);
+}
+
+export async function confirmCoverImageSuggestion(
+  businessId: string,
+  draftId: string,
+  proposalId: string,
+  knowledgeVersionIds: string[] = [],
+): Promise<BrandAsset> {
+  return businessRequest(`/${businessId}/drafts/${draftId}/cover-image-suggestions/${proposalId}/confirm`, 'POST', {
+    knowledgeVersionIds,
+  });
+}
+
+export function coverImageSuggestionPreviewUrl(
+  businessId: string,
+  draftId: string,
+  proposalId: string,
+): string {
+  return getApiUrl().replace(/\/$/, '')
+    + `/api/business-yansi/${businessId}/drafts/${draftId}/cover-image-suggestions/${proposalId}/preview`;
+}
+
 export function uploadBrandVideo(
   businessId: string,
   file: File,

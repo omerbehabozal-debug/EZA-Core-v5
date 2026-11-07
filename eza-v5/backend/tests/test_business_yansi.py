@@ -21,6 +21,7 @@ from backend.models.mirror_network import MirrorNetworkNode
 from backend.models.business_yansi import BusinessProfile,BusinessMember,BusinessKnowledgeVersion,BusinessYansiDraft,BusinessPublication,BusinessBrandApplication,BusinessApplicationEvent
 from backend.models.business_brand_assets import BusinessBrandAsset,BusinessKnowledgeAssetLink
 from backend.models.business_video_cover_jobs import BusinessVideoCoverJob
+from backend.models.business_cover_ai import BusinessCoverAiProposal, BusinessCoverAiUsage
 from backend.models.business_media_observations import BusinessMediaObservation, BusinessMediaObservationFrame
 from backend.services.business_yansi import service as svc
 from backend.services.business_yansi import applications as apps
@@ -34,7 +35,7 @@ async def sample(monkeypatch):
     monkeypatch.setenv('BILIGN_BUSINESS_ENABLED','true')
     monkeypatch.setenv('BILIGN_BUSINESS_RAG_ENABLED','false')
     engine=create_async_engine('sqlite+aiosqlite:///:memory:')
-    tables=[User.__table__,UserCapability.__table__,Organization.__table__,OrganizationUser.__table__,StandaloneConversation.__table__,StandaloneConversationMessage.__table__,MirrorNetworkNode.__table__,BusinessProfile.__table__,BusinessMember.__table__,BusinessKnowledgeVersion.__table__,BusinessBrandAsset.__table__,BusinessKnowledgeAssetLink.__table__,BusinessVideoCoverJob.__table__,BusinessMediaObservation.__table__,BusinessMediaObservationFrame.__table__,BusinessYansiDraft.__table__,BusinessPublication.__table__,BusinessBrandApplication.__table__,BusinessApplicationEvent.__table__]
+    tables=[User.__table__,UserCapability.__table__,Organization.__table__,OrganizationUser.__table__,StandaloneConversation.__table__,StandaloneConversationMessage.__table__,MirrorNetworkNode.__table__,BusinessProfile.__table__,BusinessMember.__table__,BusinessKnowledgeVersion.__table__,BusinessBrandAsset.__table__,BusinessKnowledgeAssetLink.__table__,BusinessVideoCoverJob.__table__,BusinessMediaObservation.__table__,BusinessMediaObservationFrame.__table__,BusinessYansiDraft.__table__,BusinessPublication.__table__,BusinessBrandApplication.__table__,BusinessApplicationEvent.__table__,BusinessCoverAiProposal.__table__,BusinessCoverAiUsage.__table__]
     async with engine.begin() as connection:await connection.run_sync(lambda c:Base.metadata.create_all(c,tables=tables))
     async with async_sessionmaker(engine,expire_on_commit=False)() as db:
         owner=User(id=uuid.uuid4(),email='owner@example.test',role='user',is_active=True)

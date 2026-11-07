@@ -35,6 +35,7 @@ type Props = {
   onOpenKnowledgePool?: () => void;
   brand?: StudioBrand | null;
   assets?: BrandAsset[];
+  coverAiEnabled?: boolean;
 };
 
 type FlowPhase = 'sources' | 'topics' | 'chat' | 'preview';
@@ -65,6 +66,7 @@ export default function BusinessYansiStudio({
   onOpenKnowledgePool,
   brand = null,
   assets = [],
+  coverAiEnabled = false,
 }: Props) {
   const published = useMemo(() => publishedSources(knowledge), [knowledge]);
   const sourceTitles = useMemo(
@@ -437,6 +439,9 @@ export default function BusinessYansiStudio({
       confirmedId={coverAssetId}
       linkVersionIds={Array.from(new Set(steps.flatMap((step) => step.sources)))}
       busy={busy}
+      aiEnabled={coverAiEnabled}
+      draftId={editDraft?.id || draftJob?.draftId || ''}
+      draftRevision={editDraft?.revision || 1}
       onKind={(next) => {
         setCoverKind(next);
       }}

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CoverExperience } from '@/components/saina/business-studio/CoverExperience';
-import type { BrandAsset } from '@/lib/eza/businessYansi';
+import { BusinessApiError, type BrandAsset } from '@/lib/eza/businessYansi';
 
 const mocks = vi.hoisted(() => ({
   fetchCoverJob: vi.fn(),
@@ -13,6 +13,11 @@ const mocks = vi.hoisted(() => ({
   uploadBrandVideo: vi.fn(),
   businessRequest: vi.fn(),
   fetchBrandVideoPreview: vi.fn(async () => 'blob:stored-video'),
+  requestCoverSuggestions: vi.fn(),
+  fetchCoverSuggestion: vi.fn(),
+  requestCoverImageSuggestions: vi.fn(),
+  fetchCoverImageSuggestion: vi.fn(),
+  confirmCoverImageSuggestion: vi.fn(),
 }));
 
 vi.mock('@/lib/eza/businessYansi', async () => {
@@ -37,6 +42,7 @@ const film: BrandAsset = {
 };
 
 beforeEach(() => {
+  sessionStorage.clear();
   mocks.fetchCoverJob.mockReset();
   mocks.fetchCoverJobById.mockReset();
   mocks.requestCoverSegment.mockReset();
@@ -45,8 +51,17 @@ beforeEach(() => {
   mocks.uploadBrandImage.mockReset();
   mocks.uploadBrandVideo.mockReset();
   mocks.businessRequest.mockReset();
+  mocks.requestCoverSuggestions.mockReset();
+  mocks.fetchCoverSuggestion.mockReset();
+  mocks.requestCoverImageSuggestions.mockReset();
+  mocks.fetchCoverImageSuggestion.mockReset();
+  mocks.confirmCoverImageSuggestion.mockReset();
   mocks.fetchCoverJob.mockRejectedValue(new Error('cover_job_not_found'));
   mocks.fetchCoverJobById.mockRejectedValue(new Error('cover_job_not_found'));
+});
+
+afterEach(() => {
+  sessionStorage.clear();
 });
 
 function coverJob(status: string, resultAssetId: string | null = null, jobId = 'job-1') {
@@ -406,5 +421,237 @@ describe('cover job polling', () => {
     expect(screen.getByTestId(`biz-cover-status-${film.id}`)).toHaveTextContent('Kapak hazırlanıyor');
     expect(screen.queryByRole('button', { name: 'Bu kapağı kullan' })).not.toBeInTheDocument();
     expect(mocks.fetchCoverJob).not.toHaveBeenCalled();
+  });
+});
+
+describe('video cover suggestions', () => {
+  it('keeps the action disabled until the feature is available', () => {
+    render(
+      <CoverExperience businessId="biz-1" assets={[film]} kind="video" confirmedId="" onKind={vi.fn()} onConfirm={vi.fn()} />,
+    );
+    const upcoming = screen.getByRole('button', { name: 'Yakında' });
+    expect(upcoming).toBeDisabled();
+    fireEvent.click(upcoming);
+    expect(mocks.requestCoverSuggestions).not.toHaveBeenCalled();
+    expect(mocks.requestCoverSegment).not.toHaveBeenCalled();
+  });
+
+  it('requests intervals only after the explicit click and confirms the chosen one', async () => {
+    const onConfirm = vi.fn();
+    mocks.requestCoverSuggestions.mockResolvedValue({
+      proposalId: 'prop-1',
+      status: 'succeeded',
+      assetId: film.id,
+      assetRevision: film.revision,
+      sourceCurrent: true,
+      intervals: [{ startSeconds: 1, endSeconds: 6 }],
+      errorCode: null,
+    });
+    render(
+      <CoverExperience
+        businessId="biz-1"
+        assets={[film]}
+        kind="video"
+        confirmedId=""
+        aiEnabled
+        onKind={vi.fn()}
+        onConfirm={onConfirm}
+      />,
+    );
+    expect(mocks.requestCoverSuggestions).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Öneri kapak videosu oluştur' }));
+    await waitFor(() => expect(mocks.requestCoverSuggestions).toHaveBeenCalledTimes(1));
+    const firstKey = mocks.requestCoverSuggestions.mock.calls[0][2] as string;
+    expect(firstKey).toMatch(new RegExp(`^cover-video-${film.id}-r${film.revision}-a`));
+    expect(firstKey).not.toMatch(/-a1$/);
+    expect(mocks.requestCoverSegment).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Önerilen kesit 1–6 sn' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Kesiti önizle' }));
+    expect(mocks.requestCoverSegment).not.toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
+    mocks.requestCoverSegment.mockResolvedValue(coverJob('awaiting_encode', null, 'job-window'));
+    mocks.fetchCoverJobById.mockResolvedValue(coverJob('awaiting_encode', null, 'job-window'));
+    fireEvent.click(screen.getByRole('button', { name: 'Kesiti onayla' }));
+    await waitFor(() => expect(mocks.requestCoverSegment).toHaveBeenCalledWith('biz-1', film.id, 1, 6));
+    expect(onConfirm).not.toHaveBeenCalled();
+  });
+
+  it('treats a running proposal as pending and shows a safe budget error', async () => {
+    mocks.requestCoverSuggestions.mockResolvedValueOnce({
+      proposalId: 'prop-running',
+      status: 'running',
+      assetId: film.id,
+      intervals: [{ startSeconds: 1, endSeconds: 6 }],
+      errorCode: null,
+    });
+    const view = render(
+      <CoverExperience
+        businessId="biz-1"
+        assets={[film]}
+        kind="video"
+        confirmedId=""
+        aiEnabled
+        onKind={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Öneri kapak videosu oluştur' }));
+    expect(await screen.findByTestId('biz-cover-suggestion-pending')).toHaveTextContent('Öneriler hazırlanıyor.');
+    expect(screen.queryByRole('button', { name: /Önerilen kesit/ })).not.toBeInTheDocument();
+    expect(mocks.requestCoverSegment).not.toHaveBeenCalled();
+    view.unmount();
+
+    mocks.requestCoverSuggestions.mockRejectedValueOnce(new BusinessApiError(429, { code: 'cover_ai_daily_budget' }));
+    render(
+      <CoverExperience
+        businessId="biz-1"
+        assets={[film]}
+        kind="video"
+        confirmedId=""
+        aiEnabled
+        onKind={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Öneri kapak videosu oluştur' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Günlük öneri sınırı doldu.');
+    expect(mocks.requestCoverSegment).not.toHaveBeenCalled();
+  });
+
+  it('remount retries the same attempt and confirmed regen mints a new one', async () => {
+    mocks.requestCoverSuggestions.mockResolvedValue({
+      proposalId: 'prop-1',
+      status: 'succeeded',
+      assetId: film.id,
+      assetRevision: film.revision,
+      sourceCurrent: true,
+      intervals: [{ startSeconds: 1, endSeconds: 6 }],
+      errorCode: null,
+    });
+    const first = render(
+      <CoverExperience
+        businessId="biz-1"
+        assets={[film]}
+        kind="video"
+        confirmedId=""
+        aiEnabled
+        onKind={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Öneri kapak videosu oluştur' }));
+    await waitFor(() => expect(mocks.requestCoverSuggestions).toHaveBeenCalledTimes(1));
+    const firstKey = mocks.requestCoverSuggestions.mock.calls[0][2] as string;
+    first.unmount();
+
+    render(
+      <CoverExperience
+        businessId="biz-1"
+        assets={[film]}
+        kind="video"
+        confirmedId=""
+        aiEnabled
+        onKind={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Öneri kapak videosu oluştur' }));
+    await waitFor(() => expect(mocks.requestCoverSuggestions).toHaveBeenCalledTimes(2));
+    expect(mocks.requestCoverSuggestions.mock.calls[1][2]).toBe(firstKey);
+
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Yeni öneri iste' }));
+    await waitFor(() => expect(mocks.requestCoverSuggestions).toHaveBeenCalledTimes(3));
+    const regenKey = mocks.requestCoverSuggestions.mock.calls[2][2] as string;
+    expect(regenKey).not.toBe(firstKey);
+    expect(confirm).toHaveBeenCalled();
+    confirm.mockRestore();
+  });
+
+  it('does not call the provider automatically on mount or source switch', async () => {
+    const other: BrandAsset = { ...film, id: '33333333-3333-4333-8333-333333333333', title: 'Diger film' };
+    render(
+      <CoverExperience
+        businessId="biz-1"
+        assets={[film, other]}
+        kind="video"
+        confirmedId=""
+        aiEnabled
+        onKind={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+    expect(mocks.requestCoverSuggestions).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: other.title }));
+    expect(mocks.requestCoverSuggestions).not.toHaveBeenCalled();
+  });
+});
+
+describe('image cover AI suggestions', () => {
+  it('shows yakında when AI is disabled and never auto-requests', () => {
+    render(
+      <CoverExperience
+        businessId="biz-1"
+        assets={[]}
+        kind="image"
+        confirmedId=""
+        draftId="draft-1"
+        draftRevision={1}
+        onKind={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('biz-cover-image-suggest')).toBeDisabled();
+    expect(screen.getByTestId('biz-cover-image-suggest')).toHaveTextContent('Yakında');
+    expect(mocks.requestCoverImageSuggestions).not.toHaveBeenCalled();
+  });
+
+  it('requests an image proposal only after the explicit click', async () => {
+    const onConfirm = vi.fn();
+    mocks.requestCoverImageSuggestions.mockResolvedValue({
+      proposalId: 'img-prop-1',
+      status: 'succeeded',
+      draftId: 'draft-1',
+      draftRevision: 1,
+      sourceCurrent: true,
+      previewReady: true,
+      confirmedAssetId: null,
+      errorCode: null,
+    });
+    mocks.confirmCoverImageSuggestion.mockResolvedValue({
+      ...film,
+      id: 'img-asset-1',
+      asset_type: 'image',
+      title: 'AI kapak',
+    });
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      blob: async () => new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }),
+    } as Response);
+
+    render(
+      <CoverExperience
+        businessId="biz-1"
+        assets={[]}
+        kind="image"
+        confirmedId=""
+        aiEnabled
+        draftId="draft-1"
+        draftRevision={2}
+        onKind={vi.fn()}
+        onConfirm={onConfirm}
+      />,
+    );
+    expect(mocks.requestCoverImageSuggestions).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Öneri kapak görseli oluştur' }));
+    await waitFor(() => expect(mocks.requestCoverImageSuggestions).toHaveBeenCalledTimes(1));
+    const key = mocks.requestCoverImageSuggestions.mock.calls[0][2] as string;
+    expect(key).toMatch(/^cover-image-draft-1-r2-a/);
+    expect(onConfirm).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByTestId('biz-cover-image-ai-confirm')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('biz-cover-image-ai-confirm'));
+    await waitFor(() => expect(mocks.confirmCoverImageSuggestion).toHaveBeenCalledWith('biz-1', 'draft-1', 'img-prop-1', []));
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledWith('image', 'img-asset-1'));
+    fetchSpy.mockRestore();
   });
 });
