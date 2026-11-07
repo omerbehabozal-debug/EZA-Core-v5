@@ -139,7 +139,7 @@ describe('Business asset bulk media upload', () => {
     expect(screen.queryByTestId('biz-asset-upload-grid')).not.toBeInTheDocument();
   });
 
-  it('uploads multiple videos privately and keeps cover preparation on the library card', async () => {
+  it('uploads multiple videos privately without cover preparation UI on library cards', async () => {
     render(<LibraryHarness />);
     const files = [
       new File([new Uint8Array([1])], 'one.mp4', { type: 'video/mp4' }),
@@ -158,9 +158,10 @@ describe('Business asset bulk media upload', () => {
     });
     expect(screen.queryByTestId('biz-asset-upload-grid')).not.toBeInTheDocument();
     expect(screen.getAllByText('Başlıksız video')).toHaveLength(2);
-    await waitFor(() => {
-      expect(mocks.fetchCoverJob).toHaveBeenCalled();
-    });
+    expect(mocks.fetchCoverJob).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('biz-cover-prep-vid-one.mp4')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Kapak hazır/)).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText('Yüklenen video')).toHaveLength(2);
   });
 
   it('rejects oversized images before calling the API', async () => {

@@ -127,10 +127,8 @@ describe('business studio video experience', () => {
     });
   });
 
-  it('moves from preparing to a ready cover without a confirmation button', async () => {
-    mocks.fetchCoverJob
-      .mockResolvedValueOnce(job('awaiting_encode'))
-      .mockResolvedValueOnce(job('ready', '33333333-3333-4333-8333-333333333333'));
+  it('shows one library video preview without cover preparation controls', async () => {
+    mocks.fetchCoverJob.mockResolvedValue(job('ready', '33333333-3333-4333-8333-333333333333'));
     render(
       <BusinessAssetLibrary
         businessId="biz-1"
@@ -144,23 +142,20 @@ describe('business studio video experience', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(screen.getByTestId(`biz-cover-status-${film.id}`)).toHaveTextContent('Kapak hazırlanıyor');
-    expect(screen.queryByRole('button', { name: /hazırlanan kapağı kullan/i })).not.toBeInTheDocument();
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(2000);
-    });
-    expect(screen.getByTestId(`biz-cover-status-${film.id}`)).toHaveTextContent('Kapak hazır');
-    expect(screen.getByLabelText('Hazır kapak')).toBeInTheDocument();
     expect(screen.getByLabelText('Yüklenen video')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Hazır kapak')).not.toBeInTheDocument();
+    expect(screen.queryByTestId(`biz-cover-prep-${film.id}`)).not.toBeInTheDocument();
+    expect(screen.queryByTestId(`biz-cover-status-${film.id}`)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Kesiti değiştirmek isterseniz' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Kesiti güncelle' })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Kapak hazır/)).not.toBeInTheDocument();
+    expect(mocks.fetchCoverJob).not.toHaveBeenCalled();
     expect(document.body.innerHTML).not.toContain('brand-videos');
-    expect(mocks.businessRequest).not.toHaveBeenCalled();
   });
 
-  it('retries a failed cover and sends a segment without saving a draft', async () => {
-    mocks.fetchCoverJob.mockResolvedValue(job('failed'));
-    mocks.retryCoverJob.mockResolvedValue(job('queued'));
-    mocks.requestCoverSegment.mockResolvedValue(job('awaiting_encode'));
+  it('keeps library archive and metadata actions without cover UI', async () => {
     const onChanged = vi.fn();
+    mocks.businessRequest.mockResolvedValue({ ...film, status: 'archived' });
     render(
       <BusinessAssetLibrary
         businessId="biz-1"
@@ -174,22 +169,16 @@ describe('business studio video experience', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(screen.getByTestId(`biz-cover-status-${film.id}`)).toHaveTextContent('Kapak hazırlanamadı');
-    fireEvent.click(screen.getByRole('button', { name: 'Yeniden dene' }));
+    expect(screen.getByTestId(`biz-asset-${film.id}`).querySelectorAll('video')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Düzenle' })).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId(`biz-asset-archive-${film.id}`));
+    fireEvent.click(screen.getByTestId(`biz-asset-archive-confirm-submit-${film.id}`));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(mocks.retryCoverJob).toHaveBeenCalledWith('biz-1', film.id);
-    fireEvent.click(screen.getByRole('button', { name: 'Kesiti değiştirmek isterseniz' }));
-    fireEvent.change(screen.getByLabelText('Kapak başlangıcı'), { target: { value: '5' } });
-    fireEvent.change(screen.getByLabelText('Kapak bitişi'), { target: { value: '15' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Kesiti güncelle' }));
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(0);
-    });
-    expect(mocks.requestCoverSegment).toHaveBeenCalledWith('biz-1', film.id, 5, 15);
-    expect(onChanged).not.toHaveBeenCalled();
-    expect(mocks.businessRequest).not.toHaveBeenCalled();
+    expect(mocks.businessRequest).toHaveBeenCalled();
+    expect(onChanged).toHaveBeenCalled();
+    expect(screen.queryByTestId(`biz-cover-prep-${film.id}`)).not.toBeInTheDocument();
   });
 
   it('keeps an explicit cover and still saves an automatic draft as null', async () => {

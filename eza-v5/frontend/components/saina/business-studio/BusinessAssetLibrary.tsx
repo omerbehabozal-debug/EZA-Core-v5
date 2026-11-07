@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react';
-import { AuthorizedVideo, CoverPreparation } from './CoverPreparation';
+import { AuthorizedVideo } from './CoverPreparation';
 import {
   BRAND_LIBRARY_IMAGE_MAX_BYTES,
   STORED_VIDEO_MAX_BYTES,
@@ -846,7 +846,7 @@ export default function BusinessAssetLibrary({
             </label>
           ) : null}
           {editing?.asset_type === 'video' && editing.locator_kind === 'storage' ? (
-            <p className="biz-card-meta">Yüklenen video duruyor. Kapak kendiliğinden hazırlanır.</p>
+            <p className="biz-card-meta">Yüklenen video kütüphanede duruyor.</p>
           ) : null}
           <fieldset className="biz-asset-links">
             <legend>Bilgi kayıtları</legend>
@@ -892,9 +892,6 @@ export default function BusinessAssetLibrary({
           return (
             <article className="biz-asset-card" key={asset.id} data-testid={`biz-asset-${asset.id}`}>
               <AssetPreview businessId={businessId} asset={asset} />
-              {asset.asset_type === 'video' && asset.locator_kind === 'storage' && asset.status !== 'archived' ? (
-                <CoverPreparation businessId={businessId} assetId={asset.id} />
-              ) : null}
               <div className="biz-card-head">
                 <h3>{displayTitle(asset)}</h3>
                 <span className={`biz-status biz-status--${asset.status === 'archived' ? 'archived' : asset.public_allowed ? 'published' : 'draft'}`}>
