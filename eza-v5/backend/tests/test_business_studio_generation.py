@@ -110,6 +110,83 @@ async def test_invalid_output_retry_bound(ready,failure):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(('failure', 'subreason', 'finish'), [
+    ('json', 'malformed_json', 'stop'),
+    ('truncated', 'truncated_output', 'length'),
+    ('passage', 'studio_repeated_answer', 'stop'),
+    ('question', 'studio_duplicate_question', 'stop'),
+    ('short', 'studio_question_too_short', 'stop'),
+    ('foreign', 'studio_invalid_passage', 'stop'),
+])
+async def test_draft_invalid_output_records_safe_reason_and_repairs(ready, caplog, failure, subreason, finish):
+    parent, _ = await topics(ready)
+    job = await draft_job(ready, parent)
+    value = draft_output(parent)
+    private_marker = 'private-sentinel-do-not-log'
+    if failure == 'passage':
+        value['steps'][1]['passageId'] = value['steps'][0]['passageId']
+    elif failure == 'question':
+        value['steps'][1]['question'] = value['steps'][0]['question']
+    elif failure == 'short':
+        value['steps'][1]['question'] = 'Neden böyle?'
+    elif failure == 'foreign':
+        value['steps'][1]['passageId'] = private_marker
+
+    bad = reply(value)
+    bad['finish_reason'] = finish
+    if failure in {'json', 'truncated'}:
+        bad['output'] = private_marker
+    provider = fake(bad, bad)
+    row = await execution.execute(ready.db, job, router=provider)
+
+    assert row.status == 'failed' and row.attempts == 2 and row.draft_id is None
+    assert row.error_code == 'studio_invalid_model_output'
+    assert await ready.db.scalar(select(func.count(BusinessYansiDraft.id))) == 0
+    attempts = (await ready.db.scalars(select(Usage).where(Usage.generation_id == row.id).order_by(Usage.attempt))).all()
+    assert [entry.attempt for entry in attempts] == [1, 2]
+    first, second = [call.kwargs for call in provider.generate.await_args_list]
+    assert second['prompt'] == first['prompt'] + '\nCorrection for this attempt: ' + execution._REPAIR_INSTRUCTIONS[subreason]
+    assert {key: second[key] for key in ('json_schema', 'temperature', 'model_id', 'max_tokens')} == {
+        key: first[key] for key in ('json_schema', 'temperature', 'model_id', 'max_tokens')
+    }
+    assert row.execution['reserveIn'] == execution.input_token_count(row.model, second['prompt'], second['json_schema'])
+    diagnostic = [record.getMessage() for record in caplog.records if record.name == execution.__name__]
+    assert diagnostic == [
+        f'studio_invalid_model_output generation_id={row.id} attempt={n} subreason={subreason} finish_reason={finish}'
+        for n in (1, 2)
+    ]
+    assert private_marker not in caplog.text
+    assert ready.knowledge.content not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_retry_instruction_itself_must_fit_remaining_budget(ready, monkeypatch):
+    job = await studio.create_job(ready.db, ready.business.id, ready.owner.id, request(ready), 'topics')
+    monkeypatch.setattr(execution, 'input_token_count', lambda model, text, schema: (
+        1100 if 'Correction for this attempt:' in text else 1000
+    ))
+    bad = reply('invalid envelope')
+    bad['usage'] = {'prompt_tokens': 18950, 'completion_tokens': 100}
+    provider = fake(bad)
+    row = await execution.execute(ready.db, job, router=provider)
+    assert row.status == 'failed' and row.attempts == 1 and row.execution['reserveIn'] == 1000
+    assert provider.generate.await_count == 1
+    assert row.reserved_input_tokens - row.input_tokens == 1050
+
+
+@pytest.mark.asyncio
+async def test_unrecognized_finish_reason_is_redacted_and_not_retried(ready, caplog):
+    job = await studio.create_job(ready.db, ready.business.id, ready.owner.id, request(ready), 'topics')
+    bad = reply('irrelevant')
+    bad['finish_reason'] = 'private-provider-reason'
+    provider = fake(bad)
+    row = await execution.execute(ready.db, job, router=provider)
+    assert row.status == 'failed' and row.attempts == 1 and provider.generate.await_count == 1
+    assert 'subreason=unexpected_finish finish_reason=other' in caplog.text
+    assert 'private-provider-reason' not in caplog.text
+
+
+@pytest.mark.asyncio
 async def test_invalid_then_valid(ready):
     s=ready;job=await studio.create_job(s.db,s.business.id,s.owner.id,request(s),'topics')
     row=await execution.execute(s.db,job,router=fake(reply('bad'),reply(topics_output(generation.catalog(job.source_snapshot)))))
@@ -393,7 +470,7 @@ async def test_source_revocation_prevents_even_repair_retry(ready):
     s=ready;job=await studio.create_job(s.db,s.business.id,s.owner.id,request(s),'topics');provider=fake()
     async def generate(**kw):
         s.knowledge.public_allowed=False;await s.db.commit()
-        return reply('invalid model result')
+        return {**reply('invalid model result'), 'output': 'not JSON'}
     provider.generate.side_effect=generate
     row=await execution.execute(s.db,job,router=provider)
     assert row.status=='failed' and row.attempts==1 and row.error_code=='studio_snapshot_stale'

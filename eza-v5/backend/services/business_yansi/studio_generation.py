@@ -138,8 +138,10 @@ def validate_draft(value, passages, topic, job):
     metadata = [passage(passages, output.titlePassageId, 200), passage(passages, output.summaryPassageId, 500)]
     steps = []
     for step in output.steps:
-        if step.passageId not in topic['answerPassageIds'] or len(normalized(step.question).split()) < 3:
-            fail('studio_unsupported_question', 422)
+        if step.passageId not in topic['answerPassageIds']:
+            fail('studio_invalid_passage', 422)
+        if len(normalized(step.question).split()) < 3:
+            fail('studio_question_too_short', 422)
         evidence = passage(passages, step.passageId)
         steps.append({'question': step.question, 'answer': evidence['text'].strip(), 'evidence': evidence})
     if len({s['evidence']['passageHash'] for s in steps}) != 8:

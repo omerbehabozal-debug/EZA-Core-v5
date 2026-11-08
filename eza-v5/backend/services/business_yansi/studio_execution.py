@@ -1,6 +1,7 @@
 """Bounded in-request execution, not a worker. Never holds a transaction over AI I/O."""
 import asyncio
 import json
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal, ROUND_UP
@@ -12,6 +13,55 @@ from backend.models.business_studio import BusinessStudioGeneration as Job, Busi
 from backend.core.utils.model_router import ModelRouter
 from . import studio, studio_generation as generation, service as business
 from .studio_validation import canonical_hash
+
+
+logger = logging.getLogger(__name__)
+
+_REPAIR_INSTRUCTIONS = {
+    'malformed_json': 'Return one complete JSON object matching the schema, without markdown.',
+    'truncated_output': 'Use concise questions and return the complete JSON object within the output limit.',
+    'schema_mismatch': 'Follow all required fields, field types, and length and count limits in the schema.',
+    'invalid_envelope': 'Return either insufficientSources=false with a result or insufficientSources=true with result=null.',
+    'studio_invalid_passage': 'Use only allowed passage IDs from the supplied catalog and schema.',
+    'studio_topic_mismatch': 'Use the exact title and summary passage IDs fixed by the selected topic.',
+    'studio_question_too_short': 'Use at least three words in each question.',
+    'studio_repeated_answer': 'Use eight distinct answer passages, with different text for each step.',
+    'studio_duplicate_question': 'Write eight distinct questions; punctuation or casing alone is not a difference.',
+    'studio_insufficient_topics': 'Select distinct supported topics with different titles of at least two words.',
+    'studio_insufficient_topic_sources': 'Support each topic with at least eight distinct eligible answer passages.',
+}
+_NON_RETRYABLE_VALIDATION = frozenset({
+    'studio_invalid_snapshot', 'studio_invalid_candidate', 'studio_unsafe_content',
+    'studio_invalid_evidence', 'studio_incomplete_passage', 'studio_unsupported_metadata',
+    'studio_unsupported_answer',
+})
+_SAFE_FINISH_REASONS = frozenset({'stop', 'length', 'content_filter', 'tool_calls', 'function_call'})
+
+
+def finish_classification(result):
+    value = result.get('finish_reason')
+    if value is None:
+        return 'missing'
+    return value if isinstance(value, str) and value in _SAFE_FINISH_REASONS else 'other'
+
+
+class InvalidOutput(ValueError):
+    pass
+
+
+def parse_output(result, finish, job, passages, topic):
+    if finish != 'stop':
+        raise InvalidOutput('truncated_output' if finish == 'length' else 'unexpected_finish')
+    try:
+        value = json.loads(result['output'])
+    except (ValueError, KeyError, TypeError):
+        raise InvalidOutput('malformed_json') from None
+    value = generation.unwrap(job.kind, value)
+    if value is None:
+        return None
+    if job.kind == 'topics':
+        return generation.validate_topics(value, passages)
+    return generation.validate_draft(value, passages, topic, job)
 
 
 def enabled():
@@ -157,7 +207,7 @@ def retry_fits(execution, job):
             and _money(execution['reserveCost']) <= _money(job.cost_limit_usd) - _money(job.cost_usd))
 
 
-async def settle(db, snapshot, result, parsed, error, *, allow_retry=False):
+async def settle(db, snapshot, result, parsed, error, *, retry_input_tokens=None):
     """Usage and exactly one draft/result commit atomically. Failure still accounts AI usage."""
     # Consistent Business -> generation lock order, including timeout recovery.
     from backend.models.business_yansi import BusinessProfile
@@ -181,7 +231,7 @@ async def settle(db, snapshot, result, parsed, error, *, allow_retry=False):
     except HTTPException as failure:
         # Keep interruption/cancellation diagnostics while still forbidding retry.
         error = error if error in {'studio_execution_interrupted', 'studio_request_cancelled'} else failure.detail['code']
-        allow_retry = False
+        retry_input_tokens = None
     if not error and estimated:
         error = 'studio_usage_unknown'
     if not error and draft_data:
@@ -206,10 +256,16 @@ async def settle(db, snapshot, result, parsed, error, *, allow_retry=False):
     job.error_code = error
     # Only known-usage invalid model output gets an automatic repair attempt,
     # and only when the remainder can pay for another full reservation.
-    retry = bool(error and allow_retry and not estimated and job.attempts < job.max_attempts and retry_fits(execution, job))
+    retry = False
+    if error and retry_input_tokens is not None and not estimated and job.attempts < job.max_attempts:
+        retry_execution = dict(execution, reserveIn=retry_input_tokens, reserveCost=str(
+            cost(retry_input_tokens, execution['reserveOut'], execution['rates'])
+        ))
+        retry = retry_fits(retry_execution, job)
     deadline = job.deadline_at.replace(tzinfo=timezone.utc) if job.deadline_at.tzinfo is None else job.deadline_at
     retry = retry and datetime.now(timezone.utc) < deadline
     if retry:
+        execution = retry_execution
         job.attempts += 1
     else:
         job.status = 'failed' if error else 'succeeded'
@@ -241,13 +297,15 @@ async def execute(db, job, *, router=None, limits=studio.Limits()):
     if work is None:
         return job
     text, passages, topic = work
+    schema = generation.output_schema(job.kind, passages, topic)
     router = router or ModelRouter()
     # Router has a legacy fixed model list. Permit the explicitly configured OpenAI
     # model only when its existing provider credential is available; no fallback.
     if job.model not in router.available_models and router.openai_client.api_key:
         router.available_models.append(job.model)
     while job.status == 'running':
-        result, parsed, error, retry = None, None, None, False
+        result, parsed, error, subreason = None, None, None, None
+        finish = 'missing'
         try:
             deadline = job.deadline_at.replace(tzinfo=timezone.utc) if job.deadline_at.tzinfo is None else job.deadline_at
             remaining = (deadline - datetime.now(timezone.utc)).total_seconds()
@@ -255,27 +313,53 @@ async def execute(db, job, *, router=None, limits=studio.Limits()):
                 raise TimeoutError()
             result = await asyncio.wait_for(router.generate(prompt=text, model_id=job.model,
                 temperature=0, max_tokens=job.execution['reserveOut'], timeout=remaining,
-                retries=0, json_schema=generation.output_schema(job.kind, passages, topic)), timeout=remaining)
+                retries=0, json_schema=schema), timeout=remaining)
             if not result.get('ok'):
                 error = 'studio_provider_failed'
             else:
-                value = json.loads(result['output'])
-                if result.get('finish_reason') != 'stop':
-                    raise ValueError('incomplete output')
-                value = generation.unwrap(job.kind, value)
-                if value is None:
+                finish = finish_classification(result)
+                parsed = parse_output(result, finish, job, passages, topic)
+                if parsed is None:
                     error = 'studio_insufficient_sources'
-                else:
-                    parsed = generation.validate_topics(value, passages) if job.kind == 'topics' else generation.validate_draft(value, passages, topic, job)
         except asyncio.CancelledError:
             await asyncio.shield(settle(db, job, result, None, 'studio_request_cancelled'))
             raise
         except (TimeoutError, asyncio.TimeoutError):
             error = 'studio_provider_timeout'
-        except (ValueError, KeyError, TypeError, ValidationError, HTTPException):
-            error, retry = 'studio_invalid_model_output', True
+        except InvalidOutput as failure:
+            subreason = failure.args[0]
+        except ValidationError:
+            subreason = 'schema_mismatch'
+        except HTTPException as failure:
+            code = failure.detail.get('code') if isinstance(failure.detail, dict) else None
+            if code == 'studio_invalid_model_output':
+                subreason = 'invalid_envelope'
+            elif isinstance(code, str) and (code in _REPAIR_INSTRUCTIONS or code in _NON_RETRYABLE_VALIDATION):
+                subreason = code
+            else:
+                subreason = 'validation_rejected'
+        except (ValueError, KeyError, TypeError):
+            subreason = 'validation_rejected'
         except Exception:
             # Do not expose provider exception strings or credentials.
             error = 'studio_provider_failed'
-        job = await settle(db, job, result, parsed, error, allow_retry=retry)
+
+        retry_text, retry_input_tokens = None, None
+        if subreason:
+            error = 'studio_invalid_model_output'
+            logger.warning(
+                'studio_invalid_model_output generation_id=%s attempt=%d subreason=%s finish_reason=%s',
+                job.id, job.attempts, subreason, finish,
+            )
+            instruction = _REPAIR_INSTRUCTIONS.get(subreason)
+            if instruction and job.attempts < job.max_attempts:
+                retry_text = text + '\nCorrection for this attempt: ' + instruction
+                try:
+                    retry_input_tokens = input_token_count(job.model, retry_text, schema)
+                except HTTPException:
+                    # Fail closed if the changed request cannot be counted.
+                    pass
+        job = await settle(db, job, result, parsed, error, retry_input_tokens=retry_input_tokens)
+        if job.status == 'running' and retry_text is not None:
+            text = retry_text
     return job
