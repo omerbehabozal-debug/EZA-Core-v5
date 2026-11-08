@@ -179,10 +179,13 @@ function AssetPreview({ businessId, asset }: { businessId: string; asset: BrandA
   const archived = asset.status === 'archived';
   const wantsLazyImage =
     !archived && asset.asset_type === 'image' && asset.locator_kind === 'storage';
-  const { ref, visible } = useVisibleOnce(wantsLazyImage);
+  const wantsLazyVideoPoster =
+    !archived && asset.asset_type === 'video' && asset.locator_kind === 'storage';
+  const wantsLazyThumb = wantsLazyImage || wantsLazyVideoPoster;
+  const { ref, visible } = useVisibleOnce(wantsLazyThumb);
 
   useEffect(() => {
-    if (!wantsLazyImage || !visible) return;
+    if (!wantsLazyThumb || !visible) return;
     let url = '';
     let active = true;
     fetchBrandAssetPreview(businessId, asset.id, 'thumb')
@@ -198,7 +201,7 @@ function AssetPreview({ businessId, asset }: { businessId: string; asset: BrandA
       active = false;
       releasePreviewUrl(url);
     };
-  }, [asset.id, asset.revision, businessId, visible, wantsLazyImage]);
+  }, [asset.id, asset.revision, businessId, visible, wantsLazyThumb]);
 
   async function openImageLightbox() {
     if (archived || opening) return;
@@ -286,7 +289,7 @@ function AssetPreview({ businessId, asset }: { businessId: string; asset: BrandA
   if (asset.asset_type === 'video') {
     return (
       <>
-        <div className="biz-asset-video-shell">
+        <div className="biz-asset-video-shell" ref={ref}>
           {archived ? (
             <div className="biz-asset-placeholder">Arşiv videosu</div>
           ) : (
@@ -299,10 +302,16 @@ function AssetPreview({ businessId, asset }: { businessId: string; asset: BrandA
               onClick={() => void openVideoLightbox()}
             >
               <span className="biz-asset-preview biz-asset-preview--contain biz-asset-video-poster__frame" data-testid={`biz-video-poster-${asset.id}`}>
+                {thumbSrc ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="biz-asset-preview biz-asset-preview--contain" src={thumbSrc} alt="" />
+                ) : null}
                 <span className="biz-asset-video-poster__play" aria-hidden="true">
                   ▶
                 </span>
-                <span className="biz-asset-video-poster__label">Videoyu aç</span>
+                <span className="biz-asset-video-poster__label">
+                  {thumbSrc ? 'Videoyu aç' : visible ? 'Önizleme hazırlanıyor…' : 'Videoyu aç'}
+                </span>
               </span>
             </button>
           )}

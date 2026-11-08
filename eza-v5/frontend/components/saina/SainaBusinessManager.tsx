@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, type FormEvent } from 'react';
+import dynamic from 'next/dynamic';
 import {
   businessRequest as api,
   fetchCoverAiAvailability,
@@ -18,9 +19,6 @@ import SainaBusinessGate from '@/components/saina/SainaBusinessGate';
 import { resolveAuthUserDisplayName } from '@/lib/eza/sainaIdentity';
 import { SAINA_PLATFORM_ADMIN_ROUTE } from '@/lib/eza/sainaRoutes';
 import SainaAuthAccountMark from '@/components/saina/SainaAuthAccountMark';
-import BusinessYansiStudio from '@/components/saina/business-studio/BusinessYansiStudio';
-import BusinessKnowledgePool from '@/components/saina/business-studio/BusinessKnowledgePool';
-import BusinessAssetLibrary from '@/components/saina/business-studio/BusinessAssetLibrary';
 import BusinessMediaBlocks from '@/components/mirror-landing/BusinessMediaBlocks';
 import { parseBusinessMediaBlocks, type PublicBusinessBlock } from '@/lib/eza/mirror/journey/businessMedia';
 import Link from 'next/link';
@@ -31,6 +29,28 @@ const tabs = ['Genel Bakış', 'Bilgi Havuzu', 'İçerik Kütüphanesi', 'Yansı
 const LOGIN_MSG = 'Business yönetimi için giriş yapmalısın.';
 
 type CatalogState = 'idle' | 'loading' | 'ready' | 'unavailable' | 'blocked';
+type SectionKey = 'knowledge' | 'drafts' | 'assets' | 'members';
+
+function SectionLoading({ label = 'Bölüm yükleniyor…' }: { label?: string }) {
+  return (
+    <p className="biz-section-lead" data-testid="biz-section-loading" style={{ padding: '12px 0' }}>
+      {label}
+    </p>
+  );
+}
+
+const BusinessYansiStudio = dynamic(() => import('@/components/saina/business-studio/BusinessYansiStudio'), {
+  ssr: false,
+  loading: () => <SectionLoading label="Yansı Stüdyosu yükleniyor…" />,
+});
+const BusinessKnowledgePool = dynamic(() => import('@/components/saina/business-studio/BusinessKnowledgePool'), {
+  ssr: false,
+  loading: () => <SectionLoading label="Bilgi Havuzu yükleniyor…" />,
+});
+const BusinessAssetLibrary = dynamic(() => import('@/components/saina/business-studio/BusinessAssetLibrary'), {
+  ssr: false,
+  loading: () => <SectionLoading label="İçerik Kütüphanesi yükleniyor…" />,
+});
 
 function fields(form: HTMLFormElement) {
   return Object.fromEntries(new FormData(form).entries());
@@ -103,6 +123,10 @@ export default function SainaBusinessManager() {
   const [assets, setAssets] = useState<BrandAsset[]>([]);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [publications, setPublications] = useState<Publication[]>([]);
+  const [overviewStats, setOverviewStats] = useState({ draftCount: 0, usableKnowledgeCount: 0 });
+  const [brandLoading, setBrandLoading] = useState(false);
+  const [sectionLoading, setSectionLoading] = useState<Partial<Record<SectionKey, boolean>>>({});
+  const [loadedSections, setLoadedSections] = useState<Partial<Record<SectionKey, boolean>>>({});
   const [tab, setTab] = useState<(typeof tabs)[number]>('Genel Bakış');
   const [admin, setAdmin] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -124,9 +148,15 @@ export default function SainaBusinessManager() {
   const [menuOpen, setMenuOpen] = useState(false);
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
+  const loadedSectionsRef = useRef(loadedSections);
+  loadedSectionsRef.current = loadedSections;
+  const roleRef = useRef(role);
+  roleRef.current = role;
   const editor = role === 'editor' || role === 'owner';
   const publicCount = publications.filter((p) => p.visibility === 'public').length;
-  const draftCount = drafts.filter((d) => d.status !== 'published').length;
+  const draftCount = overviewStats.draftCount;
+  const usableKnowledgeCount = overviewStats.usableKnowledgeCount;
+  const headerBrand = business || items.find((row) => row.id === selected) || null;
 
   async function loadList() {
     const data = await api<{ items: Business[]; canProvision: boolean }>();
@@ -141,25 +171,74 @@ export default function SainaBusinessManager() {
     return data.items;
   }
 
-  async function load(id: string) {
-    const [overview, kb, studio, library] = await Promise.all([
-      api<{ business: Business; role: string; publications: Publication[] }>(`/${id}/overview`),
-      api<{ items: Knowledge[] }>(`/${id}/knowledge`),
-      api<{ items: Draft[] }>(`/${id}/drafts`),
-      api<{ items: BrandAsset[] }>(`/${id}/assets`),
-    ]);
-    const memberRows =
-      overview.role === 'owner'
-        ? (await api<{ items: { user_id: string; role: string }[] }>(`/${id}/members`)).items
-        : [];
-    if (selectedRef.current !== id) return;
+  async function loadOverview(id: string) {
+    const overview = await api<{
+      business: Business;
+      role: string;
+      publications: Publication[];
+      stats?: { draftCount?: number; usableKnowledgeCount?: number };
+    }>(`/${id}/overview`);
+    if (selectedRef.current !== id) return null;
     setBusiness(overview.business);
     setRole(overview.role);
     setPublications(overview.publications);
-    setKnowledge(kb.items);
-    setAssets(library.items);
-    setDrafts(studio.items);
-    setMembers(memberRows);
+    setOverviewStats({
+      draftCount: Number(overview.stats?.draftCount ?? 0),
+      usableKnowledgeCount: Number(overview.stats?.usableKnowledgeCount ?? 0),
+    });
+    return overview;
+  }
+
+  async function loadSection(id: string, section: SectionKey, { force = false }: { force?: boolean } = {}) {
+    if (!force && loadedSectionsRef.current[section]) return;
+    setSectionLoading((prev) => ({ ...prev, [section]: true }));
+    try {
+      if (section === 'knowledge') {
+        const kb = await api<{ items: Knowledge[] }>(`/${id}/knowledge`);
+        if (selectedRef.current !== id) return;
+        setKnowledge(kb.items);
+      } else if (section === 'drafts') {
+        const studio = await api<{ items: Draft[] }>(`/${id}/drafts`);
+        if (selectedRef.current !== id) return;
+        setDrafts(studio.items);
+        setOverviewStats((prev) => ({
+          ...prev,
+          draftCount: studio.items.filter((d) => d.status !== 'published').length,
+        }));
+      } else if (section === 'assets') {
+        const library = await api<{ items: BrandAsset[] }>(`/${id}/assets`);
+        if (selectedRef.current !== id) return;
+        setAssets(library.items);
+      } else if (section === 'members') {
+        if (roleRef.current !== 'owner') {
+          if (selectedRef.current !== id) return;
+          setMembers([]);
+        } else {
+          const memberRows = (await api<{ items: { user_id: string; role: string }[] }>(`/${id}/members`)).items;
+          if (selectedRef.current !== id) return;
+          setMembers(memberRows);
+        }
+      }
+      if (selectedRef.current !== id) return;
+      setLoadedSections((prev) => ({ ...prev, [section]: true }));
+    } finally {
+      if (selectedRef.current === id) {
+        setSectionLoading((prev) => ({ ...prev, [section]: false }));
+      }
+    }
+  }
+
+  /** Mutations refresh overview plus any sections already opened in this brand session. */
+  async function load(id: string) {
+    await loadOverview(id);
+    if (selectedRef.current !== id) return;
+    const opened = loadedSectionsRef.current;
+    const jobs: Promise<void>[] = [];
+    if (opened.knowledge) jobs.push(loadSection(id, 'knowledge', { force: true }));
+    if (opened.drafts) jobs.push(loadSection(id, 'drafts', { force: true }));
+    if (opened.assets) jobs.push(loadSection(id, 'assets', { force: true }));
+    if (opened.members) jobs.push(loadSection(id, 'members', { force: true }));
+    if (jobs.length) await Promise.all(jobs);
   }
 
   useEffect(() => {
@@ -231,6 +310,10 @@ export default function SainaBusinessManager() {
     setDrafts([]);
     setPublications([]);
     setMembers([]);
+    setOverviewStats({ draftCount: 0, usableKnowledgeCount: 0 });
+    setLoadedSections({});
+    setSectionLoading({});
+    setCoverAiEnabled(false);
     setAnswer('');
     setPreviewMedia([]);
     setEditorialChat('');
@@ -240,12 +323,45 @@ export default function SainaBusinessManager() {
     setLogoPreview(null);
     setEditDraft(null);
     setTab('Genel Bakış');
-    if (selected) load(selected).catch((e) => setError(e.message));
+    if (!selected) {
+      setBrandLoading(false);
+      return;
+    }
+    let active = true;
+    setBrandLoading(true);
+    loadOverview(selected)
+      .catch((e) => {
+        if (active) setError(e instanceof Error ? e.message : 'İşlem tamamlanamadı.');
+      })
+      .finally(() => {
+        if (active) setBrandLoading(false);
+      });
+    return () => {
+      active = false;
+    };
   }, [selected]);
 
   useEffect(() => {
-    if (!selected) {
-      setCoverAiEnabled(false);
+    if (!selected || !business) return;
+    const fail = (e: unknown) => setError(e instanceof Error ? e.message : 'İşlem tamamlanamadı.');
+    if (tab === 'Bilgi Havuzu') {
+      void loadSection(selected, 'knowledge').catch(fail);
+    } else if (tab === 'İçerik Kütüphanesi') {
+      void Promise.all([loadSection(selected, 'assets'), loadSection(selected, 'knowledge')]).catch(fail);
+    } else if (tab === 'Yansı Stüdyosu') {
+      void Promise.all([
+        loadSection(selected, 'drafts'),
+        loadSection(selected, 'knowledge'),
+        loadSection(selected, 'assets'),
+      ]).catch(fail);
+    } else if (tab === 'Ayarlar' && role === 'owner') {
+      void loadSection(selected, 'members').catch(fail);
+    }
+  }, [selected, business, tab, role]);
+
+  useEffect(() => {
+    if (!selected || tab !== 'Yansı Stüdyosu') {
+      if (tab !== 'Yansı Stüdyosu') setCoverAiEnabled(false);
       return;
     }
     let active = true;
@@ -259,7 +375,7 @@ export default function SainaBusinessManager() {
     return () => {
       active = false;
     };
-  }, [selected]);
+  }, [selected, tab]);
 
   function goToTab(next: (typeof tabs)[number]) {
     if (tab === 'Bilgi Havuzu' && knowledgeUi.formOpen && knowledgeUi.dirty && next !== 'Bilgi Havuzu') {
@@ -325,10 +441,6 @@ export default function SainaBusinessManager() {
       </div>
     );
   }
-
-  const usableKnowledgeCount = knowledge.filter(
-    (k) => k.status === 'published' && k.public_allowed
-  ).length;
 
   if (!isAuthReady) {
     return (
@@ -478,15 +590,15 @@ export default function SainaBusinessManager() {
       <header className="biz-panel-header">
         <div className="biz-brand-block">
           <BrandMark
-            name={business?.name || 'Business'}
-            logoUrl={business?.logo_url}
-            cacheBust={business?.updated_at}
+            name={headerBrand?.name || 'Business'}
+            logoUrl={headerBrand?.logo_url}
+            cacheBust={headerBrand?.updated_at}
             testId="biz-panel-brand"
           />
           <div className="biz-brand-copy">
             <p className="biz-brand-kicker">Business Yansı</p>
             <p className="biz-brand-title" data-testid="biz-panel-brand-name">
-              {business?.name || 'Yönetim'}
+              {headerBrand?.name || 'Yönetim'}
             </p>
           </div>
         </div>
@@ -517,8 +629,16 @@ export default function SainaBusinessManager() {
                   setSelected('');
                   setBusiness(null);
                   setKnowledge([]);
+                  setAssets([]);
                   setDrafts([]);
                   setPublications([]);
+                  setMembers([]);
+                  setOverviewStats({ draftCount: 0, usableKnowledgeCount: 0 });
+                  setLoadedSections({});
+                  setSectionLoading({});
+                  setCoverAiEnabled(false);
+                  setError('');
+                  setNotice('');
                 }}
               >
                 Markalar
@@ -546,7 +666,7 @@ export default function SainaBusinessManager() {
       )}
 
       <fieldset disabled={busy}>
-        {business && (
+        {selected ? (
           <div className="biz-body">
             <nav className="biz-nav" aria-label="Business bölümleri">
               {tabs.map((t) => (
@@ -556,6 +676,7 @@ export default function SainaBusinessManager() {
                   className="biz-nav-btn"
                   aria-current={t === tab ? 'page' : undefined}
                   onClick={() => goToTab(t)}
+                  disabled={!business && brandLoading}
                 >
                   {t}
                 </button>
@@ -563,7 +684,10 @@ export default function SainaBusinessManager() {
             </nav>
 
             <div className="biz-work">
-              {tab === 'Genel Bakış' && (
+              {!business ? (
+                <SectionLoading label={brandLoading ? 'Marka paneli hazırlanıyor…' : 'Marka bilgisi yükleniyor…'} />
+              ) : null}
+              {business && tab === 'Genel Bakış' && (
                 <section>
                   <h1 className="biz-section-title">Genel Bakış</h1>
                   <p className="biz-section-lead">Doğrulanmış marka bilgileri ve editoryal yayınlar</p>
@@ -613,7 +737,10 @@ export default function SainaBusinessManager() {
                 </section>
               )}
 
-              {tab === 'Bilgi Havuzu' && (
+              {business && tab === 'Bilgi Havuzu' && (
+                sectionLoading.knowledge && !loadedSections.knowledge ? (
+                  <SectionLoading label="Bilgi Havuzu yükleniyor…" />
+                ) : (
                 <BusinessKnowledgePool
                   knowledge={knowledge}
                   canEdit={editor}
@@ -639,9 +766,13 @@ export default function SainaBusinessManager() {
                     });
                   }}
                 />
+                )
               )}
 
-              {tab === 'İçerik Kütüphanesi' && (
+              {business && tab === 'İçerik Kütüphanesi' && (
+                sectionLoading.assets && !loadedSections.assets ? (
+                  <SectionLoading label="İçerik Kütüphanesi yükleniyor…" />
+                ) : (
                 <BusinessAssetLibrary
                   businessId={selected}
                   assets={assets}
@@ -653,9 +784,13 @@ export default function SainaBusinessManager() {
                     if (selected) await load(selected);
                   }}
                 />
+                )
               )}
 
-              {tab === 'Yansı Stüdyosu' && (
+              {business && tab === 'Yansı Stüdyosu' && (
+                sectionLoading.drafts && !loadedSections.drafts ? (
+                  <SectionLoading label="Yansı Stüdyosu yükleniyor…" />
+                ) : (
                 <section className="biz-yansi-workspace" data-testid="biz-yansi-workspace">
                   <BusinessYansiStudio
                     key={editDraft?.id || `studio-${selected}`}
@@ -817,9 +952,10 @@ export default function SainaBusinessManager() {
                     </div>
                   )}
                 </section>
+              )
               )}
 
-              {tab === 'Yayınlar' && (
+              {business && tab === 'Yayınlar' && (
                 <section>
                   <h2 className="biz-section-title">Yayınlar</h2>
                   <p className="biz-section-lead">Aktif Business Yansıları ve taslak durumu.</p>
@@ -863,10 +999,13 @@ export default function SainaBusinessManager() {
                 </section>
               )}
 
-              {tab === 'Ayarlar' && (
+              {business && tab === 'Ayarlar' && (
                 <section>
                   <h2 className="biz-section-title">Ayarlar</h2>
                   <p className="biz-section-lead">Marka kimliği ve yetkilendirme.</p>
+                  {role === 'owner' && sectionLoading.members && !loadedSections.members ? (
+                    <SectionLoading label="Üyeler yükleniyor…" />
+                  ) : null}
                   {role === 'owner' ? (
                     <>
                       <form
@@ -987,7 +1126,7 @@ export default function SainaBusinessManager() {
               )}
             </div>
           </div>
-        )}
+        ) : null}
       </fieldset>
     </main>
   );

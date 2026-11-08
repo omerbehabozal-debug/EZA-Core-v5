@@ -56,20 +56,25 @@ describe('stored video upload and preview', () => {
     expect(sent?.body?.get('file')).toBeInstanceOf(File);
   });
 
-  it('requests an authorized private range and returns a blob', async () => {
-    const fetchMock = vi.fn(async () => new Response(new Blob(['mp4']), { status: 206 }));
+  it('mints a ticketed stream URL instead of downloading a full video blob', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          streamPath: '/api/business-yansi/biz-1/assets/asset-1/video?ticket=abc',
+          expiresAt: Math.floor(Date.now() / 1000) + 600,
+          expiresIn: 600,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
     vi.stubGlobal('fetch', fetchMock);
-    URL.createObjectURL = () => 'blob:preview';
-    URL.revokeObjectURL = () => undefined;
     const url = await fetchBrandVideoPreview('biz-1', 'asset-1');
-    expect(url.startsWith('blob:')).toBe(true);
+    expect(url).toContain('/api/business-yansi/biz-1/assets/asset-1/video?ticket=abc');
+    expect(url).not.toContain('brand-videos');
     const [target, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(target).toContain('/biz-1/assets/asset-1/video');
-    expect(target).not.toContain('brand-videos');
-    expect(init.cache).toBe('no-store');
+    expect(target).toContain('/biz-1/assets/asset-1/video-stream');
+    expect(init.method).toBe('POST');
     const headers = init.headers as Record<string, string>;
     expect(headers.Authorization).toBe('Bearer studio-token');
-    expect(headers.Range).toBe('bytes=0-');
-    URL.revokeObjectURL(url);
   });
 });

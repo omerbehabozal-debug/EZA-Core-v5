@@ -7,7 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from starlette.datastructures import UploadFile as ParsedUploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import func, select
 from backend.auth.deps import get_current_user, security
 from backend.auth.jwt import get_user_from_token
 from backend.core.utils.dependencies import get_db
@@ -274,11 +274,34 @@ async def cover_ai_availability(business_id:uuid.UUID,db=Depends(get_db),claims=
     return {'enabled':cover_ai_enabled()}
 @router.get('/{business_id}/overview')
 async def overview(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
+    """Shell payload for the initial Business dashboard. Includes counts so Genel Bakış
+    does not need to load knowledge/drafts lists first."""
     user,business=await manager(db,claims,business_id)
     from backend.models.mirror_network import MirrorNetworkNode
     rows=(await db.execute(select(BusinessPublication,MirrorNetworkNode.visibility).join(MirrorNetworkNode,MirrorNetworkNode.slug==BusinessPublication.slug).where(BusinessPublication.business_id==business_id))).all()
     publications=[{**record(row),'visibility':visibility} for row,visibility in rows]
-    return {'business':record(business),'role':(await db.get(BusinessMember,(business_id,user.id))).role,'publications':publications}
+    draft_count=await db.scalar(
+        select(func.count()).select_from(BusinessYansiDraft).where(
+            BusinessYansiDraft.business_id==business_id,
+            BusinessYansiDraft.status!='published',
+        )
+    )
+    knowledge_count=await db.scalar(
+        select(func.count()).select_from(BusinessKnowledgeVersion).where(
+            BusinessKnowledgeVersion.business_id==business_id,
+            BusinessKnowledgeVersion.status=='published',
+            BusinessKnowledgeVersion.public_allowed.is_(True),
+        )
+    )
+    return {
+        'business':record(business),
+        'role':(await db.get(BusinessMember,(business_id,user.id))).role,
+        'publications':publications,
+        'stats':{
+            'draftCount':int(draft_count or 0),
+            'usableKnowledgeCount':int(knowledge_count or 0),
+        },
+    }
 @router.patch('/{business_id}/settings')
 async def settings(business_id:uuid.UUID,body:Settings,db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims)
@@ -559,10 +582,10 @@ async def brand_asset_content(
     claims=Depends(get_current_user),
     variant:Literal['original','thumb']=Query(default='original'),
 ):
-    """Original bytes or a card thumbnail. Original files and asset IDs are unchanged."""
+    """Original image bytes, image card thumb, or video card poster. Asset IDs unchanged."""
     user=await svc.actor(db,claims)
     if variant=='thumb':
-        data,mime=await assets.stored_card_thumbnail(db,business_id,user.id,asset_id)
+        data,mime=await assets.stored_card_media_thumbnail(db,business_id,user.id,asset_id)
     else:
         data,mime=await assets.stored_preview(db,business_id,user.id,asset_id)
     return Response(content=data,media_type=mime,headers={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'})

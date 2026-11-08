@@ -154,6 +154,98 @@ async def test_portrait_and_square_thumbnails_keep_aspect(sample, asset_dir):
         assert max(image.size) <= 720
 
 
+async def test_video_poster_duplicate_misses_share_one_generation(sample, asset_dir, monkeypatch):
+    """Concurrent cache misses for one asset must not re-download / re-ffmpeg."""
+    import asyncio
+
+    from backend.services.business_yansi import library_video_poster as posters
+
+    store = MemoryVideoStore()
+    film = await ingest_upload(
+        sample.db,
+        sample.business.id,
+        sample.editor.id,
+        store=store,
+        upload=Upload(_mp4(seconds=2)),
+        title="Kilit filmi",
+        caption="",
+        purpose="step",
+        public_allowed=True,
+    )
+    encoded = io.BytesIO()
+    Image.new("RGB", (640, 360), (1, 2, 3)).save(encoded, format="JPEG", quality=80)
+    frame = encoded.getvalue()
+    calls = {"extract": 0}
+
+    async def fake_extract(path: str, stamps: list[int]):
+        calls["extract"] += 1
+        await asyncio.sleep(0.05)
+        return [(stamps[0], frame)]
+
+    monkeypatch.setattr(posters, "video_store_from_env", lambda: store)
+    monkeypatch.setattr(posters, "extract_frames", fake_extract)
+    results = await asyncio.gather(
+        posters.stored_video_poster(sample.db, sample.business.id, sample.viewer.id, film.id),
+        posters.stored_video_poster(sample.db, sample.business.id, sample.viewer.id, film.id),
+        posters.stored_video_poster(sample.db, sample.business.id, sample.viewer.id, film.id),
+    )
+    assert calls["extract"] == 1
+    assert results[0][1] == "image/jpeg"
+    assert results[0][0] == results[1][0] == results[2][0]
+
+
+async def test_video_card_poster_is_cached_jpeg_without_changing_asset(sample, asset_dir, monkeypatch):
+    store = MemoryVideoStore()
+    film = await ingest_upload(
+        sample.db,
+        sample.business.id,
+        sample.editor.id,
+        store=store,
+        upload=Upload(_mp4(seconds=2)),
+        title="Poster filmi",
+        caption="",
+        purpose="step",
+        public_allowed=True,
+    )
+    original_id = film.id
+    original_locator = film.locator
+    encoded = io.BytesIO()
+    Image.new("RGB", (1280, 720), (10, 20, 30)).save(encoded, format="JPEG", quality=85)
+    frame = encoded.getvalue()
+
+    async def fake_extract(path: str, stamps: list[int]):
+        assert stamps == [500] or stamps[0] >= 0
+        return [(stamps[0], frame)]
+
+    monkeypatch.setattr(
+        "backend.services.business_yansi.library_video_poster.video_store_from_env",
+        lambda: store,
+    )
+    monkeypatch.setattr(
+        "backend.services.business_yansi.library_video_poster.extract_frames",
+        fake_extract,
+    )
+    first, mime = await library.stored_card_media_thumbnail(
+        sample.db, sample.business.id, sample.viewer.id, film.id
+    )
+    assert mime == "image/jpeg"
+    assert first.startswith(b"\xff\xd8")
+    with Image.open(io.BytesIO(first)) as image:
+        assert max(image.size) <= 720
+        assert image.size[0] > image.size[1]
+    second, _ = await library.stored_card_media_thumbnail(
+        sample.db, sample.business.id, sample.viewer.id, film.id
+    )
+    assert second == first
+    await sample.db.refresh(film)
+    assert film.id == original_id
+    assert film.locator == original_locator
+    archived = await library.archive_asset(sample.db, sample.business.id, sample.editor.id, film.id, film.revision)
+    with pytest.raises(HTTPException) as blocked:
+        await library.stored_card_media_thumbnail(sample.db, sample.business.id, sample.viewer.id, archived.id)
+    assert blocked.value.status_code == 409
+
+
 async def test_video_stream_ticket_range_and_tenant_isolation(sample, monkeypatch):
     monkeypatch.setattr(
         "backend.services.business_yansi.library_media_ticket.resolve_jwt_secret",

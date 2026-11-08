@@ -54,9 +54,13 @@ describe('Business management', () => {
   it('keeps management scoped and hides write controls from viewer', async () => {
     render(<SainaBusinessManager />);
     await screen.findByText('BiligN', { selector: 'h2' });
+    expect(api).toHaveBeenCalledWith('/business-a/overview');
+    expect(api).not.toHaveBeenCalledWith('/business-a/knowledge');
+    expect(api).not.toHaveBeenCalledWith('/business-a/assets');
+    expect(api).not.toHaveBeenCalledWith('/business-a/drafts');
     fireEvent.click(screen.getByRole('button', { name: 'Bilgi Havuzu' }));
     expect(screen.queryByRole('button', { name: 'Bilgiyi kaydet' })).not.toBeInTheDocument();
-    expect(api).toHaveBeenCalledWith('/business-a/knowledge');
+    await waitFor(() => expect(api).toHaveBeenCalledWith('/business-a/knowledge'));
   });
 
   it('shows backend errors and does not invent authorized content', async () => {
@@ -149,7 +153,7 @@ describe('Business management', () => {
     await screen.findByText('BiligN', { selector: 'h2' });
     fireEvent.click(screen.getByRole('button', { name: 'Bilgi Havuzu' }));
 
-    expect(screen.getByTestId('biz-knowledge-list')).toBeInTheDocument();
+    expect(await screen.findByTestId('biz-knowledge-list')).toBeInTheDocument();
     expect(screen.queryByTestId('biz-knowledge-form')).not.toBeInTheDocument();
     expect(screen.getByTestId('biz-knowledge-new')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'İncelemeye gönder' })).not.toBeInTheDocument();
@@ -202,7 +206,7 @@ describe('Business management', () => {
     render(<SainaBusinessManager />);
     await screen.findByText('BiligN', { selector: 'h2' });
     fireEvent.click(screen.getByRole('button', { name: 'Bilgi Havuzu' }));
-    fireEvent.click(screen.getByTestId('biz-knowledge-new'));
+    fireEvent.click(await screen.findByTestId('biz-knowledge-new'));
     fireEvent.change(screen.getByLabelText('Bilgi başlığı'), { target: { value: 'Taslak başlık' } });
     fireEvent.change(screen.getByLabelText('Bilgi içeriği'), { target: { value: 'Taslak içerik' } });
     fireEvent.change(screen.getByPlaceholderText('Kaynak bağlantısı veya açıklaması'), {
@@ -271,7 +275,7 @@ describe('Business management', () => {
     await screen.findByText('BiligN', { selector: 'h2' });
     fireEvent.click(screen.getByRole('button', { name: 'Bilgi Havuzu' }));
 
-    expect(screen.getByTestId('biz-knowledge-count')).toHaveTextContent('2 bilgi');
+    expect(await screen.findByTestId('biz-knowledge-count')).toHaveTextContent('2 bilgi');
     expect(screen.getByText('Kapalı')).toBeInTheDocument();
     fireEvent.change(screen.getByTestId('biz-knowledge-search'), { target: { value: 'ürün deneyimi' } });
     expect(screen.getByTestId('biz-knowledge-count')).toHaveTextContent('1 bilgi');
@@ -319,7 +323,7 @@ describe('Business management', () => {
     render(<SainaBusinessManager />);
     await screen.findByText('BiligN', { selector: 'h2' });
     fireEvent.click(screen.getByRole('button', { name: 'Bilgi Havuzu' }));
-    fireEvent.click(screen.getByTestId('biz-knowledge-new'));
+    fireEvent.click(await screen.findByTestId('biz-knowledge-new'));
     fireEvent.change(screen.getByLabelText('Bilgi başlığı'), { target: { value: 'Tek kayıt' } });
     fireEvent.change(screen.getByLabelText('Bilgi içeriği'), { target: { value: 'İçerik' } });
     fireEvent.change(screen.getByPlaceholderText('Kaynak bağlantısı veya açıklaması'), {
@@ -361,8 +365,8 @@ describe('Business management', () => {
     render(<SainaBusinessManager />);
     await screen.findByText('BiligN', { selector: 'h2' });
     fireEvent.click(screen.getByRole('button', { name: 'Yansı Stüdyosu' }));
-    expect(screen.getByTestId('biz-yansi-workspace')).toBeInTheDocument();
-    expect(screen.getByTestId('biz-yansi-studio')).toHaveAttribute('data-phase', 'sources');
+    expect(await screen.findByTestId('biz-yansi-workspace')).toBeInTheDocument();
+    expect(await screen.findByTestId('biz-yansi-studio')).toHaveAttribute('data-phase', 'sources');
     expect(screen.getByTestId('biz-studio-step-rail')).toBeInTheDocument();
     expect(screen.getByTestId('biz-studio-no-sources')).toBeInTheDocument();
     expect(screen.getByTestId('biz-studio-goto-knowledge')).toBeInTheDocument();
@@ -785,17 +789,14 @@ describe('Business public identity', () => {
     render(<SainaBusinessManager />);
     await screen.findByText('BiligN', { selector: 'h2' });
     fireEvent.click(screen.getByRole('button', { name: 'İçerik Kütüphanesi' }));
+    expect(await screen.findByTestId('biz-asset-tabs')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('biz-asset-tab-place'));
     expect(await screen.findByRole('heading', { name: 'Atölye' })).toBeInTheDocument();
     expect(screen.getByText('41.025000, 28.974000')).toBeInTheDocument();
     expect(screen.getByText('Bilgi yeni sürüme geçti. İlişkiyi yeniden onaylayın.')).toBeInTheDocument();
     expect(screen.queryByText(/fiyat|stok|sepet|ödeme/i)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Konum / bağlantı' }));
-    expect(screen.getByLabelText('İçerik türü')).toBeInTheDocument();
-    for (const label of ['Konum', 'Bağlantı']) {
-      expect(screen.getByRole('option', { name: label })).toBeInTheDocument();
-    }
-    expect(screen.queryByRole('option', { name: 'Görsel' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'Video' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Konum ekle' }));
+    expect(await screen.findByLabelText('İçerik başlığı')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Vazgeç' }));
     expect(screen.queryByRole('button', { name: 'Düzenle' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('biz-asset-plus-asset-1'));

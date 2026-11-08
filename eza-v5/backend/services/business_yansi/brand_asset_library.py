@@ -1152,6 +1152,19 @@ async def stored_card_thumbnail(db, business_id, user_id, asset_id):
     return encoded, "image/jpeg"
 
 
+async def stored_card_media_thumbnail(db, business_id, user_id, asset_id):
+    """Card JPEG for image or stored video. Does not download video for image thumbs."""
+    await access(db, business_id, user_id, "viewer")
+    row = await _asset_row(db, business_id, asset_id)
+    if row.asset_type == "image":
+        return await stored_card_thumbnail(db, business_id, user_id, asset_id)
+    if row.asset_type == "video":
+        from backend.services.business_yansi.library_video_poster import stored_video_poster
+
+        return await stored_video_poster(db, business_id, user_id, asset_id)
+    fail("asset_file_unavailable", 404)
+
+
 def asset_is_public(asset, link, knowledge, profile, organization):
     """Live gate for a later Yansı or chat. Studio storage does not bypass it."""
     return public_media_allowed(asset=asset, link=link, knowledge=knowledge, profile=profile, organization=organization)

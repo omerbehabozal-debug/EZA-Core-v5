@@ -2,6 +2,7 @@
  * Vitest setup file
  */
 
+import React from 'react';
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
 
@@ -18,6 +19,21 @@ vi.mock('next/navigation', () => ({
   }),
   usePathname: () => '/',
   useSearchParams: () => new URLSearchParams(),
+}));
+
+/** Resolve next/dynamic loaders so Business section code-splitting works under Vitest. */
+vi.mock('next/dynamic', () => ({
+  default: (loader: () => Promise<{ default: React.ComponentType<any> }>, opts?: { loading?: React.ComponentType }) => {
+    const Lazy = React.lazy(loader);
+    const Fallback = opts?.loading;
+    return function DynamicTestWrapper(props: Record<string, unknown>) {
+      return React.createElement(
+        React.Suspense,
+        { fallback: Fallback ? React.createElement(Fallback) : null },
+        React.createElement(Lazy, props),
+      );
+    };
+  },
 }));
 
 Object.defineProperty(window, 'matchMedia', {
