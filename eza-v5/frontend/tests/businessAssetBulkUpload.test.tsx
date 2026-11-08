@@ -174,6 +174,10 @@ function LibraryHarness({ initial = [] as BrandAsset[] } = {}) {
   );
 }
 
+function selectAssetTab(tab: 'image' | 'video' | 'place' | 'link') {
+  fireEvent.click(screen.getByTestId(`biz-asset-tab-${tab}`));
+}
+
 describe('Business asset bulk media upload', () => {
   it('uploads multiple selected images privately without requiring a title', async () => {
     render(<LibraryHarness />);
@@ -217,6 +221,7 @@ describe('Business asset bulk media upload', () => {
         initial={[makeAsset('vid-open', { title: 'Atölye filmi', asset_type: 'video' })]}
       />,
     );
+    selectAssetTab('video');
     await waitFor(() => expect(screen.getByTestId('biz-asset-video-open-vid-open')).toBeInTheDocument());
     const preview = screen.getByTestId('biz-video-vid-open');
     expect(preview).toHaveClass('biz-asset-preview');
@@ -231,6 +236,7 @@ describe('Business asset bulk media upload', () => {
 
   it('uploads multiple videos privately without cover preparation UI on library cards', async () => {
     render(<LibraryHarness />);
+    selectAssetTab('video');
     const files = [
       new File([new Uint8Array([1])], 'one.mp4', { type: 'video/mp4' }),
       new File([new Uint8Array([2])], 'two.mp4', { type: 'video/mp4' }),
@@ -318,6 +324,7 @@ describe('Business asset bulk media upload', () => {
         return asset;
       });
     render(<LibraryHarness />);
+    selectAssetTab('video');
     fireEvent.change(screen.getByTestId('biz-asset-file-input'), {
       target: { files: [new File([new Uint8Array([9])], 'retry.mp4', { type: 'video/mp4' })] },
     });
@@ -340,6 +347,7 @@ describe('Business asset bulk media upload', () => {
         }),
     );
     render(<LibraryHarness />);
+    selectAssetTab('video');
     const file = new File([new Uint8Array([7])], 'same.mp4', { type: 'video/mp4', lastModified: 42 });
     const zone = screen.getByTestId('biz-asset-dropzone');
     fireEvent.drop(zone, { dataTransfer: { files: [file] } });
@@ -391,7 +399,8 @@ describe('Business asset bulk media upload', () => {
         onChanged={async () => undefined}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Konum / bağlantı' }));
+    selectAssetTab('place');
+    fireEvent.click(screen.getByRole('button', { name: 'Konum ekle' }));
     expect(screen.getByTestId('biz-place-picker')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('biz-place-search-result'));
     fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
@@ -440,6 +449,7 @@ describe('Business asset bulk media upload', () => {
         onChanged={onChanged}
       />,
     );
+    selectAssetTab('place');
     fireEvent.click(screen.getByTestId('biz-asset-plus-place-edit'));
     expect(screen.getByTestId('biz-asset-meta-panel-place-edit')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('biz-place-map-drag'));
@@ -486,6 +496,7 @@ describe('Business asset bulk media upload', () => {
         onChanged={vi.fn(async () => undefined)}
       />,
     );
+    selectAssetTab('place');
     fireEvent.click(screen.getByTestId('biz-asset-plus-place-sealed'));
     fireEvent.click(screen.getByTestId('biz-place-map-drag'));
     fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
@@ -589,6 +600,7 @@ describe('Business asset bulk media upload', () => {
         onChanged={onChanged}
       />,
     );
+    selectAssetTab('video');
     fireEvent.click(screen.getByTestId('biz-asset-delete-del-1'));
     expect(screen.getByTestId('biz-asset-delete-confirm-del-1')).toHaveTextContent(/kalıcı olarak silinecek/i);
     expect(mocks.businessRequest).not.toHaveBeenCalled();
@@ -644,8 +656,8 @@ describe('Business asset bulk media upload', () => {
         onChanged={async () => undefined}
       />,
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Konum / bağlantı' }));
-    fireEvent.change(screen.getByLabelText('İçerik türü'), { target: { value: 'link' } });
+    selectAssetTab('link');
+    fireEvent.click(screen.getByRole('button', { name: 'Bağlantı ekle' }));
     fireEvent.change(screen.getByLabelText('Bağlantı adresi'), { target: { value: 'https://example.com/menu' } });
     fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
     await waitFor(() => expect(mocks.businessRequest).toHaveBeenCalled());
@@ -663,7 +675,45 @@ describe('Business asset bulk media upload', () => {
         onChanged={async () => undefined}
       />,
     );
+    selectAssetTab('link');
     expect(screen.getByRole('heading', { name: 'example.com' })).toBeInTheDocument();
     expect(screen.getByTestId('biz-asset-plus-link-1')).toBeInTheDocument();
+  });
+
+  it('filters the library grid by the active content tab', async () => {
+    render(
+      <LibraryHarness
+        initial={[
+          makeAsset('img-1', { title: 'Görsel A' }),
+          makeAsset('vid-1', { title: 'Video A', asset_type: 'video' }),
+          makeAsset('place-1', { title: 'Konum A', asset_type: 'place', latitude: '41', longitude: '29' }),
+          makeAsset('link-1', {
+            title: 'Bağlantı A',
+            asset_type: 'link',
+            locator_kind: 'https',
+            locator: 'https://example.com',
+          }),
+        ]}
+      />,
+    );
+    expect(screen.getByTestId('biz-asset-tab-image')).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('biz-asset-img-1')).toBeInTheDocument();
+    expect(screen.queryByTestId('biz-asset-vid-1')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('biz-asset-place-1')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('biz-asset-link-1')).not.toBeInTheDocument();
+
+    selectAssetTab('video');
+    expect(screen.getByTestId('biz-asset-vid-1')).toBeInTheDocument();
+    expect(screen.queryByTestId('biz-asset-img-1')).not.toBeInTheDocument();
+
+    selectAssetTab('place');
+    expect(screen.getByTestId('biz-asset-place-1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Konum ekle' })).toBeInTheDocument();
+    expect(screen.queryByTestId('biz-asset-dropzone')).not.toBeInTheDocument();
+
+    selectAssetTab('link');
+    expect(screen.getByTestId('biz-asset-link-1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bağlantı ekle' })).toBeInTheDocument();
+    expect(screen.queryByTestId('biz-asset-vid-1')).not.toBeInTheDocument();
   });
 });

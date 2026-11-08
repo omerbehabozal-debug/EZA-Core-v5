@@ -2837,6 +2837,40 @@
   }
 }
 
+.biz-asset-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 16px;
+}
+
+.biz-asset-tab {
+  min-height: 34px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--biz-border);
+  background: transparent;
+  color: var(--biz-muted);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.biz-asset-tab:hover,
+.biz-asset-tab:focus-visible {
+  color: var(--biz-ink);
+}
+
+.biz-asset-tab.is-active,
+.biz-asset-tab[aria-selected='true'] {
+  border-color: var(--biz-gold-line);
+  color: var(--biz-gold);
+  background: var(--biz-gold-soft);
+}
+
+.biz-asset-tab-panel {
+  min-width: 0;
+}
+
 .biz-asset-dropzone {
   display: grid;
   gap: 8px;

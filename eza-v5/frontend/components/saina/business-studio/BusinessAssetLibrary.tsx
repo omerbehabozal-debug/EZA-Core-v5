@@ -16,14 +16,14 @@ import {
   type Knowledge,
 } from '@/lib/eza/businessYansi';
 
-const TYPES = [
-  { id: 'image', label: 'Görsel' },
-  { id: 'video', label: 'Video' },
-  { id: 'place', label: 'Konum' },
-  { id: 'link', label: 'Bağlantı' },
+const TABS = [
+  { id: 'image', tabLabel: 'Görseller', typeLabel: 'Görsel', empty: 'Henüz görsel yok.', lead: 'PNG, JPEG veya WebP görselleri yükleyin. Başlık zorunlu değildir; kayıtlar varsayılan olarak marka içinde kalır.' },
+  { id: 'video', tabLabel: 'Videolar', typeLabel: 'Video', empty: 'Henüz video yok.', lead: 'MP4 videoları yükleyin (40 MB / 60 sn). Başlık zorunlu değildir; kayıtlar varsayılan olarak marka içinde kalır.' },
+  { id: 'place', tabLabel: 'Konumlar', typeLabel: 'Konum', empty: 'Henüz konum yok.', lead: 'Haritadan konum seçin veya adres arayın. Koordinatlar Yansıya bağlandıktan sonra kilitlenebilir.' },
+  { id: 'link', tabLabel: 'Bağlantılar', typeLabel: 'Bağlantı', empty: 'Henüz bağlantı yok.', lead: 'Güvenli HTTPS bağlantıları ekleyin. Başlık zorunlu değildir.' },
 ] as const;
 
-type AssetType = (typeof TYPES)[number]['id'];
+type AssetType = (typeof TABS)[number]['id'];
 type MediaKind = 'image' | 'video';
 type UploadStatus = 'queued' | 'uploading' | 'success' | 'error';
 
@@ -73,8 +73,11 @@ const COPY: Record<string, string> = {
 
 const IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp';
 const VIDEO_ACCEPT = 'video/mp4';
-const MEDIA_ACCEPT = `${IMAGE_ACCEPT},${VIDEO_ACCEPT}`;
 const UPLOAD_CONCURRENCY = 3;
+
+function tabOf(id: AssetType) {
+  return TABS.find((item) => item.id === id) || TABS[0];
+}
 
 function messageOf(error: unknown) {
   const code =
@@ -87,7 +90,7 @@ function messageOf(error: unknown) {
 }
 
 function typeLabel(type: string) {
-  return TYPES.find((item) => item.id === type)?.label || type;
+  return TABS.find((item) => item.id === type)?.typeLabel || type;
 }
 
 function statusLabel(asset: BrandAsset) {
@@ -261,6 +264,7 @@ export default function BusinessAssetLibrary({
   onUiStateChange?: (state: { formOpen: boolean; dirty: boolean }) => void;
   onChanged: () => Promise<void>;
 }) {
+  const [activeTab, setActiveTab] = useState<AssetType>('image');
   const [formOpen, setFormOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [editing, setEditing] = useState<BrandAsset | null>(null);
@@ -380,7 +384,7 @@ export default function BusinessAssetLibrary({
     });
   }
 
-  function enqueueFiles(fileList: FileList | File[]) {
+  function enqueueFiles(fileList: FileList | File[], expectedKind: MediaKind) {
     const files = Array.from(fileList).filter(Boolean);
     if (!files.length) return;
     const inFlight = new Set(
@@ -392,7 +396,7 @@ export default function BusinessAssetLibrary({
     const rejected: string[] = [];
     for (const file of files) {
       const kind = mediaKindOf(file);
-      if (!kind) {
+      if (!kind || kind !== expectedKind) {
         rejected.push(file.name);
         continue;
       }
@@ -414,7 +418,13 @@ export default function BusinessAssetLibrary({
         knowledgeIds: [],
       });
     }
-    if (rejected.length) setError('Yalnızca PNG/JPEG/WebP görselleri ve MP4 videoları yüklenebilir.');
+    if (rejected.length) {
+      setError(
+        expectedKind === 'image'
+          ? 'Yalnızca PNG/JPEG/WebP görselleri yüklenebilir.'
+          : 'Yalnızca MP4 videoları yüklenebilir.',
+      );
+    }
     if (!next.length) return;
     const merged = [...next, ...uploadsRef.current];
     uploadsRef.current = merged;
@@ -491,9 +501,9 @@ export default function BusinessAssetLibrary({
     setPlaceTitle('');
   }
 
-  function openNew() {
+  function openNew(kind: 'place' | 'link' = activeTab === 'link' ? 'link' : 'place') {
     setEditing(null);
-    setAssetType('place');
+    setAssetType(kind);
     resetPlaceDraft(null);
     setFormOpen(true);
     setDirty(false);
@@ -506,6 +516,21 @@ export default function BusinessAssetLibrary({
     setEditing(null);
     resetPlaceDraft(null);
     setDirty(false);
+  }
+
+  function selectTab(next: AssetType) {
+    if (next === activeTab) return;
+    if (formOpen && dirty && !window.confirm('Kaydedilmemiş değişiklikler var. Çıkmak istiyor musunuz?')) return;
+    setFormOpen(false);
+    setEditing(null);
+    resetPlaceDraft(null);
+    setDirty(false);
+    setMetaAssetId(null);
+    setArchiveTarget(null);
+    setDeleteTarget(null);
+    setDragOver(false);
+    setError('');
+    setActiveTab(next);
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {
@@ -687,38 +712,76 @@ export default function BusinessAssetLibrary({
     (editing?.links || []).filter((link) => link.status === 'active' && !link.confirmation_current).map((link) => link.item_id),
   );
 
-  function onDrop(event: DragEvent<HTMLDivElement>) {
+  function onDrop(event: DragEvent<HTMLDivElement>, expectedKind: MediaKind) {
     event.preventDefault();
     setDragOver(false);
     if (!canEdit || busy) return;
-    enqueueFiles(event.dataTransfer.files);
+    enqueueFiles(event.dataTransfer.files, expectedKind);
   }
 
   const libraryIds = useMemo(() => new Set(assets.map((row) => row.id)), [assets]);
+  const filteredAssets = useMemo(
+    () => assets.filter((row) => row.asset_type === activeTab),
+    [assets, activeTab],
+  );
   const visibleUploads = uploads.filter(
-    (item) => item.status !== 'success' || !item.asset || !libraryIds.has(item.asset.id) || item.metaOpen,
+    (item) =>
+      (activeTab === 'image' || activeTab === 'video') &&
+      item.kind === activeTab &&
+      (item.status !== 'success' || !item.asset || !libraryIds.has(item.asset.id) || item.metaOpen),
   );
   const formKind = editing?.asset_type || assetType;
+  const currentTab = tabOf(activeTab);
+  const mediaKind: MediaKind | null = activeTab === 'image' || activeTab === 'video' ? activeTab : null;
+  const showCreateButton = canEdit && !formOpen && (activeTab === 'place' || activeTab === 'link');
 
   return (
     <section className="biz-asset-library" data-testid="biz-asset-library">
       <header className="biz-section-head">
         <div>
           <h2 className="biz-section-title">İçerik Kütüphanesi</h2>
-          <p className="biz-section-lead">
-            Görsel ve videoları sürükleyip bırakın veya seçin. Başlık zorunlu değildir; kayıtlar varsayılan olarak marka içinde kalır.
-          </p>
+          <p className="biz-section-lead">{currentTab.lead}</p>
         </div>
-        {canEdit && !formOpen ? (
-          <button type="button" className="biz-btn-ghost" data-testid="biz-asset-new" onClick={openNew}>
-            Konum / bağlantı
+        {showCreateButton ? (
+          <button
+            type="button"
+            className="biz-btn-ghost"
+            data-testid="biz-asset-new"
+            onClick={() => openNew(activeTab === 'link' ? 'link' : 'place')}
+          >
+            {activeTab === 'link' ? 'Bağlantı ekle' : 'Konum ekle'}
           </button>
         ) : null}
       </header>
 
+      <div className="biz-asset-tabs" role="tablist" aria-label="İçerik türleri" data-testid="biz-asset-tabs">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            id={`biz-asset-tab-${tab.id}`}
+            aria-selected={activeTab === tab.id}
+            aria-controls="biz-asset-tab-panel"
+            className={`biz-asset-tab${activeTab === tab.id ? ' is-active' : ''}`}
+            data-testid={`biz-asset-tab-${tab.id}`}
+            onClick={() => selectTab(tab.id)}
+          >
+            {tab.tabLabel}
+          </button>
+        ))}
+      </div>
+
+      <div
+        className="biz-asset-tab-panel"
+        role="tabpanel"
+        id="biz-asset-tab-panel"
+        aria-labelledby={`biz-asset-tab-${activeTab}`}
+        data-testid={`biz-asset-panel-${activeTab}`}
+      >
       {error ? <p className="biz-form-error" role="alert">{error}</p> : null}
 
-      {canEdit ? (
+      {canEdit && mediaKind ? (
         <div
           className={`biz-asset-dropzone${dragOver ? ' biz-asset-dropzone--active' : ''}`}
           data-testid="biz-asset-dropzone"
@@ -734,10 +797,14 @@ export default function BusinessAssetLibrary({
             event.preventDefault();
             setDragOver(false);
           }}
-          onDrop={onDrop}
+          onDrop={(event) => onDrop(event, mediaKind)}
         >
-          <p>Görsel ve videoları buraya bırakın veya seçin</p>
-          <p className="biz-card-meta">Görsel: PNG/JPEG/WebP · 15 MB · Video: MP4 · 40 MB / 60 sn · birden fazla dosya</p>
+          <p>{mediaKind === 'image' ? 'Görselleri buraya bırakın veya seçin' : 'Videoları buraya bırakın veya seçin'}</p>
+          <p className="biz-card-meta">
+            {mediaKind === 'image'
+              ? 'PNG/JPEG/WebP · 15 MB · birden fazla dosya'
+              : 'MP4 · 40 MB / 60 sn · birden fazla dosya'}
+          </p>
           <button
             type="button"
             className="biz-btn-primary"
@@ -745,18 +812,18 @@ export default function BusinessAssetLibrary({
             disabled={busy}
             onClick={() => fileInputRef.current?.click()}
           >
-            Medya seç
+            {mediaKind === 'image' ? 'Görsel seç' : 'Video seç'}
           </button>
           <input
             ref={fileInputRef}
             type="file"
-            accept={MEDIA_ACCEPT}
+            accept={mediaKind === 'image' ? IMAGE_ACCEPT : VIDEO_ACCEPT}
             multiple
             hidden
-            aria-label="Medya dosyaları"
+            aria-label={mediaKind === 'image' ? 'Görsel dosyaları' : 'Video dosyaları'}
             data-testid="biz-asset-file-input"
             onChange={(event) => {
-              if (event.target.files?.length) enqueueFiles(event.target.files);
+              if (event.target.files?.length) enqueueFiles(event.target.files, mediaKind);
               event.target.value = '';
             }}
           />
@@ -867,29 +934,16 @@ export default function BusinessAssetLibrary({
         </div>
       ) : null}
 
-      {canEdit && formOpen ? (
+      {canEdit && formOpen && (activeTab === 'place' || activeTab === 'link') ? (
         <form className="biz-form biz-asset-form" data-testid="biz-asset-form" onInput={() => setDirty(true)} onSubmit={(event) => void save(event)}>
-          <h3>{editing ? 'İçeriği güncelle' : 'Konum / bağlantı'}</h3>
-          {!editing ? (
-            <label>
-              Tür
-              <select
-                aria-label="İçerik türü"
-                value={assetType}
-                onChange={(event) => {
-                  const next = event.target.value as 'place' | 'link';
-                  setAssetType(next);
-                  if (next === 'place') resetPlaceDraft(null);
-                  setDirty(true);
-                }}
-              >
-                <option value="place">Konum</option>
-                <option value="link">Bağlantı</option>
-              </select>
-            </label>
-          ) : (
-            <p className="biz-card-meta">{typeLabel(editing.asset_type)}</p>
-          )}
+          <h3>
+            {editing
+              ? 'İçeriği güncelle'
+              : formKind === 'link'
+                ? 'Bağlantı ekle'
+                : 'Konum ekle'}
+          </h3>
+          {editing ? <p className="biz-card-meta">{typeLabel(editing.asset_type)}</p> : null}
           {formKind === 'place' ? (
             <>
               <PlaceLocationPicker
@@ -1024,9 +1078,13 @@ export default function BusinessAssetLibrary({
         </form>
       ) : null}
 
-      {!assets.length && !visibleUploads.length ? <p className="biz-empty">Henüz içerik yok.</p> : null}
+      {!filteredAssets.length && !visibleUploads.length ? (
+        <p className="biz-empty" data-testid="biz-asset-empty">
+          {currentTab.empty}
+        </p>
+      ) : null}
       <div className="biz-asset-grid" data-testid="biz-asset-grid">
-        {assets.map((asset) => {
+        {filteredAssets.map((asset) => {
           const activeLinks = asset.links.filter((link) => link.status === 'active');
           const stale = activeLinks.some((link) => !link.confirmation_current);
           const metaOpen = metaAssetId === asset.id;
@@ -1167,6 +1225,7 @@ export default function BusinessAssetLibrary({
             </article>
           );
         })}
+      </div>
       </div>
     </section>
   );
