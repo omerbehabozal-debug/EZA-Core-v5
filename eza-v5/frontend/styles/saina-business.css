@@ -2782,6 +2782,11 @@
 }
 
 .biz-studio-answer-body {
+  background: #25221e;
+  color: #f6efe5;
+  border: 1px solid #61564a;
+  border-radius: 0.85rem;
+  padding: 0.75rem 0.9rem;
   display: grid;
   gap: 0.55rem;
 }

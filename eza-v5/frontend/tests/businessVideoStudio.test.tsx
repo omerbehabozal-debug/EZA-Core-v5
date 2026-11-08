@@ -12,6 +12,11 @@ const mocks = vi.hoisted(() => ({
   retryCoverJob: vi.fn(),
   requestCoverSegment: vi.fn(),
   fetchBrandVideoPreview: vi.fn(async () => 'blob:stored-video'),
+  mintBrandVideoStream: vi.fn(async () => ({
+    streamUrl: 'https://api.example/video?ticket=test',
+    expiresAt: Math.floor(Date.now() / 1000) + 600,
+    expiresIn: 600,
+  })),
   fetchBrandAssetPreview: vi.fn(async () => 'blob:image'),
 }));
 
@@ -86,6 +91,7 @@ beforeEach(() => {
   mocks.retryCoverJob.mockReset();
   mocks.requestCoverSegment.mockReset();
   mocks.fetchBrandVideoPreview.mockClear();
+  mocks.mintBrandVideoStream.mockClear();
   mocks.fetchCoverJob.mockResolvedValue(job('ready', film.id));
 });
 
@@ -112,6 +118,7 @@ describe('business studio video experience', () => {
         onChanged={vi.fn()}
       />,
     );
+    fireEvent.click(screen.getByRole('tab', { name: 'Videolar' }));
     const file = new File([new Uint8Array(8)], 'atolye.mp4', { type: 'video/mp4' });
     fireEvent.change(screen.getByTestId('biz-asset-file-input'), { target: { files: [file] } });
     expect(screen.getByTestId('biz-asset-upload-grid').textContent).toMatch(/Yükleniyor\s+40%/);
@@ -139,10 +146,18 @@ describe('business studio video experience', () => {
         onChanged={vi.fn()}
       />,
     );
+    fireEvent.click(screen.getByRole('tab', { name: 'Videolar' }));
+    expect(screen.getByTestId(`biz-video-poster-${film.id}`)).toBeInTheDocument();
+    expect(mocks.mintBrandVideoStream).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Videoyu oynat' }));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(screen.getByLabelText('Yüklenen video')).toBeInTheDocument();
+    const player = screen.getByTestId('media-lightbox-video');
+    expect(player).toHaveAttribute('controls');
+    expect(player).toHaveAttribute('src', 'https://api.example/video?ticket=test');
+    expect(mocks.mintBrandVideoStream).toHaveBeenCalledTimes(1);
+    expect(mocks.mintBrandVideoStream).toHaveBeenCalledWith('biz-1', film.id);
     expect(screen.queryByLabelText('Hazır kapak')).not.toBeInTheDocument();
     expect(screen.queryByTestId(`biz-cover-prep-${film.id}`)).not.toBeInTheDocument();
     expect(screen.queryByTestId(`biz-cover-status-${film.id}`)).not.toBeInTheDocument();
@@ -166,10 +181,10 @@ describe('business studio video experience', () => {
         onChanged={onChanged}
       />,
     );
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(0);
-    });
-    expect(screen.getByTestId(`biz-asset-${film.id}`).querySelectorAll('video')).toHaveLength(1);
+    fireEvent.click(screen.getByRole('tab', { name: 'Videolar' }));
+    const card = screen.getByTestId(`biz-asset-${film.id}`);
+    expect(card.querySelector('video')).toBeNull();
+    expect(screen.getByTestId(`biz-video-poster-${film.id}`)).toBeInTheDocument();
     expect(screen.getByTestId(`biz-asset-plus-${film.id}`)).toBeInTheDocument();
     expect(screen.getByTestId(`biz-asset-delete-${film.id}`)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Düzenle' })).not.toBeInTheDocument();
@@ -178,7 +193,7 @@ describe('business studio video experience', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(mocks.businessRequest).toHaveBeenCalled();
+    expect(mocks.businessRequest).toHaveBeenCalledWith(`/biz-1/assets/${film.id}/archive`, 'POST', { revision: film.revision });
     expect(onChanged).toHaveBeenCalled();
     expect(screen.queryByTestId(`biz-cover-prep-${film.id}`)).not.toBeInTheDocument();
   });

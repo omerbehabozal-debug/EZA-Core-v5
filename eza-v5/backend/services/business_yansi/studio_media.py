@@ -11,6 +11,7 @@ import uuid
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import OperationalError, ProgrammingError
 
@@ -517,6 +518,43 @@ def public_block(asset):
     if kind == "link":
         block["caption"] = asset.caption or ""
     return block
+
+
+async def draft_preview_media(db, business_id, steps, plan):
+    """Project saved choices against each step's currently eligible assets."""
+    saved = (plan or {}).get("blocks") or []
+    if not any(saved):
+        return [[] for _ in steps]
+    grouped = await eligible_for_versions(
+        db, business_id, {source for step in steps for source in step["sources"]}
+    )
+    result = []
+    for index, step in enumerate(steps):
+        pool = {
+            str(asset.id): asset
+            for source in step["sources"]
+            for asset in grouped.get(uid(source), [])
+        }
+        shown = []
+        choices = (saved[index] or []) if index < len(saved) else []
+        for choice in choices:
+            asset = pool.get(choice.get("assetId"))
+            if asset is None or BLOCK_TYPES.get(asset.asset_type) != choice.get("type"):
+                continue
+            if asset.asset_type in {"image", "video"} and asset.locator_kind == "storage":
+                shown.append({"type": choice["type"], "assetId": str(asset.id), "title": asset.title, "authenticated": True})
+            elif asset.asset_type == "image" and asset.locator_kind == "https":
+                try:
+                    href = validate_https_url(asset.locator)
+                except (HTTPException, ValueError):
+                    continue
+                shown.append({"type": "image", "assetId": str(asset.id), "title": asset.title, "externalImageUrl": href})
+            elif asset.asset_type in {"place", "link", "video"}:
+                block = public_block(asset)
+                if block is not None:
+                    shown.append(block)
+        result.append(shown)
+    return result
 
 
 async def live_public_asset(db, business_id, asset_id):

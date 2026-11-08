@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import ChatBubble from '@/components/standalone/ChatBubble';
 import ProfileUserAvatar from '@/components/mirror/ayna/ProfileUserAvatar';
 import type { StudioEvidence } from '@/lib/eza/businessStudio';
@@ -18,6 +18,7 @@ export type StudioPreviewTurn = {
   answer: string;
   evidence?: StudioEvidence | null;
   sourceLabel?: string;
+  media?: ReactNode;
 };
 
 type Props = {
@@ -149,6 +150,7 @@ export default function StudioChatPreview({
                 renderedBody={
                   <div className="biz-studio-answer-body">
                     <p className="biz-studio-answer-text">{turn.answer}</p>
+                    {turn.media}
                     {turn.evidence ? (
                       <>
                         <button

@@ -16,7 +16,7 @@ export function BusinessAnswerBody({ text, blocks, layout }: { text: string; blo
 }
 
 /** Approved brand media inside an existing Yansı or Business answer. */
-export default function BusinessMediaBlocks({ blocks, layout }: { blocks: PublicBusinessBlock[]; layout: 'mobile' | 'desktop' }) {
+export default function BusinessMediaBlocks({ blocks, layout, imageSrc }: { blocks: PublicBusinessBlock[]; imageSrc?: string; layout: 'mobile' | 'desktop' }) {
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(null);
   if (!blocks.length) return null;
   return (
@@ -28,7 +28,7 @@ export default function BusinessMediaBlocks({ blocks, layout }: { blocks: Public
     >
       {blocks.map((block) => {
         if (block.type === 'image') {
-          const src = businessMediaUrl(block.contentPath);
+          const src = imageSrc ?? businessMediaUrl(block.contentPath);
           return (
             <button
               key={block.assetId}

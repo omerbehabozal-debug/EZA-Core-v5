@@ -574,3 +574,41 @@ def test_media_plan_migration_follows_brand_assets():
     assert "business_yansi_drafts" in sql and "media_plan" in sql
     assert "DROP TABLE" not in sql
     assert "business_knowledge_chunks" not in sql
+
+
+@pytest.mark.asyncio
+async def test_saved_draft_media_preview_is_revision_and_tenant_scoped(sample, asset_dir):
+    import json
+
+    from backend.routers.business_yansi import draft_media_preview
+
+    knowledge = await source(sample, title="Seramik", content="Seramik kaplama atolyede uretilir.")
+    image = await _asset(sample, knowledge, asset_type="image", title="Seramik", public_allowed=True, image_bytes=_PNG)
+    link = await _asset(sample, knowledge, asset_type="link", title="Seramik", public_allowed=True, locator="https://bilign.example/seramik")
+    plan = [[] for _ in range(8)]
+    plan[1] = [{"type": "image", "assetId": str(image.id)}]
+    plan[7] = [{"type": "link", "assetId": str(link.id)}]
+    draft = await svc.create_draft(sample.db, sample.business.id, sample.editor.id, "Seramik", "Seramik", _steps(knowledge), media_choices=plan)
+    claims = {"user_id": str(sample.editor.id)}
+
+    response = await draft_media_preview(sample.business.id, draft.id, draft.revision, sample.db, claims)
+    payload = json.loads(response.body)
+    assert response.headers["cache-control"] == "private, no-store"
+    assert payload["revision"] == draft.revision and payload["steps"] == draft.steps
+    assert payload["hasAssignments"]
+    assert [[block["assetId"] for block in step] for step in payload["blocks"]] == [
+        [], [str(image.id)], [], [], [], [], [], [str(link.id)]
+    ]
+    assert payload["blocks"][1][0]["authenticated"] is True
+    assert "locator" not in str(payload)
+    with pytest.raises(HTTPException) as conflict:
+        await draft_media_preview(sample.business.id, draft.id, draft.revision + 1, sample.db, claims)
+    assert conflict.value.status_code == 409
+    with pytest.raises(HTTPException) as denied:
+        await draft_media_preview(sample.business.id, draft.id, draft.revision, sample.db, {"user_id": str(sample.outsider.id)})
+    assert denied.value.status_code == 403
+
+    text = await svc.create_draft(sample.db, sample.business.id, sample.editor.id, "Seramik", "Seramik", _steps(knowledge), media_choices=[[] for _ in range(8)])
+    response = await draft_media_preview(sample.business.id, text.id, text.revision, sample.db, claims)
+    assert json.loads(response.body)["blocks"] == [[] for _ in range(8)]
+    assert not json.loads(response.body)["hasAssignments"]

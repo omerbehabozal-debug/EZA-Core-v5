@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { BrandAsset, Knowledge, Step, Draft } from '@/lib/eza/businessYansi';
 import { businessRequest as api, revisionCoverPayload } from '@/lib/eza/businessYansi';
 import {
@@ -22,8 +22,16 @@ import {
 } from '@/lib/eza/businessStudio';
 import { CoverExperience } from './CoverExperience';
 import StudioChatPreview, { type StudioBrand } from './StudioChatPreview';
+import { StudioDraftMedia, type DraftPreviewBlock } from './StudioDraftMedia';
 import StudioGenerationStatus from './StudioGenerationStatus';
 import StudioStepRail, { type StudioRailStep, type StudioRailStepId } from './StudioStepRail';
+
+type SavedMediaPreview = {
+  revision: number;
+  steps: Step[];
+  blocks: DraftPreviewBlock[][];
+  hasAssignments: boolean;
+};
 
 type Props = {
   businessId: string;
@@ -77,7 +85,7 @@ export default function BusinessYansiStudio({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [topicHint, setTopicHint] = useState('');
   const [phase, setPhase] = useState<FlowPhase>(editDraft ? 'preview' : 'sources');
-  const [manualOpen, setManualOpen] = useState(Boolean(editDraft));
+  const [manualOpen, setManualOpen] = useState(false);
   const [editingStep, setEditingStep] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -88,6 +96,11 @@ export default function BusinessYansiStudio({
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
 
   const [draftJob, setDraftJob] = useState<StudioGeneration | null>(null);
+  const [savedDraft, setSavedDraft] = useState<Draft | null>(null);
+  const [savedPreview, setSavedPreview] = useState<{
+    key: string;
+    data?: SavedMediaPreview;
+  } | null>(null);
   const [draftResult, setDraftResult] = useState<StudioDraftResult | null>(null);
 
   const [title, setTitle] = useState(editDraft?.title || '');
@@ -188,6 +201,7 @@ export default function BusinessYansiStudio({
     setTopicsJob(null);
     setSelectedTopicId(null);
     setDraftResult(null);
+    setSavedDraft(null);
     setDraftJob(null);
     setEditingStep(null);
     topicsKeyRef.current = null;
@@ -270,6 +284,7 @@ export default function BusinessYansiStudio({
       setTopics(parsed);
       setSelectedTopicId(null);
       setDraftResult(null);
+      setSavedDraft(null);
       setDraftJob(null);
       draftKeyRef.current = null;
       setPhase('topics');
@@ -400,13 +415,14 @@ export default function BusinessYansiStudio({
     setBusy(true);
     setError('');
     try {
-      await api(`${base}/drafts${editDraft ? '/' + editDraft.id : ''}`, editDraft ? 'PATCH' : 'POST', {
+      const saved = await api<Draft>(`${base}/drafts${editDraft ? '/' + editDraft.id : ''}`, editDraft ? 'PATCH' : 'POST', {
         title,
         summary,
         steps,
         ...(heldExplicit || heldLegacy ? {} : revisionCoverPayload(coverAssetId, true, coverKind)),
         ...(editDraft ? { revision: editDraft.revision } : {}),
       });
+      if (saved?.id) setSavedDraft(saved);
       onClearEdit?.();
       await onDraftSaved();
       setPhase('preview');
@@ -419,6 +435,30 @@ export default function BusinessYansiStudio({
     }
   };
 
+  const previewId = savedDraft?.id || editDraft?.id || draftJob?.draftId;
+  const previewRevision = savedDraft?.revision ?? editDraft?.revision ?? 1;
+  const previewKey = JSON.stringify([businessId, previewId, previewRevision]);
+  useEffect(() => {
+    if (!previewId) return;
+    let active = true;
+    void (async () => api<SavedMediaPreview>(
+      `/${businessId}/drafts/${previewId}/media-preview?revision=${previewRevision}`,
+    ))().then((data) => {
+      if (active) setSavedPreview({ key: previewKey, data: data?.revision === previewRevision ? data : undefined });
+    }).catch(() => {
+      if (active) setSavedPreview({ key: previewKey });
+    });
+    return () => { active = false; };
+  }, [businessId, previewId, previewRevision, previewKey]);
+
+  const preview = savedPreview?.key === previewKey ? savedPreview.data : undefined;
+  const matchesSavedSteps = preview?.steps.length === 8 && steps.length === 8 && steps.every((step, index) => {
+    const saved = preview.steps[index];
+    return step.question === saved.question && step.answer === saved.answer
+      && step.sources.length === saved.sources.length
+      && step.sources.every((source, sourceIndex) => source === saved.sources[sourceIndex]);
+  });
+
   const previewTurns = useMemo(() => {
     return steps.map((step, index) => {
       const evidence = draftResult?.steps[index]?.evidence ?? null;
@@ -426,10 +466,11 @@ export default function BusinessYansiStudio({
         question: step.question || `Adım ${index + 1} sorusu henüz yok`,
         answer: step.answer || 'Cevap henüz yok',
         evidence,
+        media: matchesSavedSteps ? <StudioDraftMedia key={previewKey} businessId={businessId} blocks={preview.blocks[index] ?? []} /> : undefined,
         sourceLabel: sourceTitles[step.sources[0]] || sourceTitles[evidence?.versionId || ''],
       };
     });
-  }, [steps, draftResult, sourceTitles]);
+  }, [steps, draftResult, sourceTitles, matchesSavedSteps, preview, previewKey, businessId]);
 
   const coverPicker = (
     <CoverExperience
@@ -714,6 +755,16 @@ export default function BusinessYansiStudio({
 
           {(draftResult || hasFilledDraft(steps, title) || editDraft) && !manualOpen ? (
             <>
+              {previewId ? (
+                <p className="biz-studio-evidence-meta" role="status">
+                  {savedPreview?.key !== previewKey ? 'Kaydedilmiş taslak medyası yükleniyor…'
+                    : !preview ? 'Kaydedilmiş revizyonun medyası alınamadı. Taslağı yeniden açın.'
+                    : !matchesSavedSteps ? 'Medya önizlemesi kaydedilmiş adımlara aittir. Değişiklikleri kaydedin.'
+                    : !preview.hasAssignments ? 'Bu sohbete medya eklenmemiş.'
+                    : !preview.blocks.some((blocks) => blocks.length) ? 'Kaydedilmiş medya şu anda erişilebilir değil.'
+                    : `Kaydedilmiş taslak · Revizyon ${preview.revision}`}
+                </p>
+              ) : null}
               <StudioChatPreview
                 brand={brand}
                 title={title}

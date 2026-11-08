@@ -43,6 +43,8 @@ const knowledge: Knowledge[] = [
 
 const apiMocks = vi.hoisted(() => ({
   businessRequest: vi.fn(),
+  fetchBrandAssetPreview: vi.fn().mockResolvedValue("blob:studio-image"),
+  fetchBrandVideoPreview: vi.fn().mockResolvedValue("https://backend.example/private-video?ticket=test"),
 }));
 
 vi.mock('@/lib/eza/businessYansi', async () => {
@@ -51,7 +53,7 @@ vi.mock('@/lib/eza/businessYansi', async () => {
   );
   return {
     ...actual,
-    businessRequest: apiMocks.businessRequest,
+    ...apiMocks,
   };
 });
 
@@ -119,6 +121,55 @@ describe('businessStudio helpers', () => {
 describe('BusinessYansiStudio', () => {
   beforeEach(() => {
     apiMocks.businessRequest.mockReset();
+  });
+
+  it.each([true, false])('renders saved revision media or an empty notice (%s)', async (hasAssignments) => {
+    const steps = Array.from({ length: 8 }, (_, index) => ({
+      question: `Soru ${index + 1}`, answer: `Cevap ${index + 1}`, sources: ['kb-1'],
+    }));
+    const draft: Draft = {
+      id: 'draft-1', title: 'Taslak', summary: 'Özet', revision: 4, steps, status: 'draft', conversation_id: null,
+    };
+    const blocks = Array.from({ length: 8 }, (_, index) => {
+      if (!hasAssignments) return [];
+      if (index === 0) return [{ type: 'image', assetId: 'img', title: 'Fotoğraf', authenticated: true }];
+      if (index === 2) return [{ type: 'video', assetId: 'vid', title: 'Film', authenticated: true }];
+      if (index === 7) return [
+        { type: 'map', assetId: 'place', title: 'Konum', latitude: '40', longitude: '29' },
+        { type: 'link', assetId: 'link', title: 'Bağlantı', href: 'https://example.test' },
+      ];
+      return [];
+    });
+    apiMocks.businessRequest.mockResolvedValue({ revision: 4, steps, blocks, hasAssignments });
+    render(<BusinessYansiStudio businessId="biz-1" knowledge={knowledge} canEdit editDraft={draft} onDraftSaved={vi.fn()} />);
+    await screen.findByText(hasAssignments ? 'Kaydedilmiş taslak · Revizyon 4' : 'Bu sohbete medya eklenmemiş.');
+    expect(apiMocks.businessRequest).toHaveBeenCalledWith('/biz-1/drafts/draft-1/media-preview?revision=4');
+    expect(screen.getAllByTestId('mock-bubble-ai')).toHaveLength(8);
+    if (!hasAssignments) {
+      expect(screen.queryByTestId('business-media-blocks')).toBeNull();
+      return;
+    }
+    expect(await within(screen.getByTestId('biz-studio-turn-0')).findByRole('img', { name: 'Fotoğraf' })).toHaveAttribute('src', 'blob:studio-image');
+    expect(await within(screen.getByTestId('biz-studio-turn-2')).findByTestId('biz-video-vid')).toHaveAttribute('controls');
+    expect(within(screen.getByTestId('biz-studio-turn-7')).getByTestId('business-media-map')).toBeInTheDocument();
+    expect(within(screen.getByTestId('biz-studio-turn-7')).getByTestId('business-media-link')).toBeInTheDocument();
+    expect(apiMocks.fetchBrandAssetPreview).toHaveBeenCalledWith('biz-1', 'img');
+    expect(apiMocks.fetchBrandVideoPreview).toHaveBeenCalledWith('biz-1', 'vid');
+  });
+
+  it('does not display a media response for a different revision', async () => {
+    const steps = Array.from({ length: 8 }, () => ({ question: 'Soru', answer: 'Cevap', sources: ['kb-1'] }));
+    const draft: Draft = {
+      id: 'draft-1', title: 'Taslak', summary: 'Özet', revision: 4, steps, status: 'draft', conversation_id: null,
+    };
+    apiMocks.businessRequest.mockResolvedValue({
+      revision: 3, steps, hasAssignments: true,
+      blocks: [[{ type: 'link', assetId: 'stale', title: 'Eski bağlantı', href: 'https://example.test' }]],
+    });
+    render(<BusinessYansiStudio businessId="biz-1" knowledge={knowledge} canEdit editDraft={draft} onDraftSaved={vi.fn()} />);
+    await screen.findByText('Kaydedilmiş revizyonun medyası alınamadı. Taslağı yeniden açın.');
+    expect(screen.queryByText('Eski bağlantı')).toBeNull();
+    expect(screen.getAllByTestId('mock-bubble-ai')).toHaveLength(8);
   });
 
   it('lists only published public knowledge and blocks topic suggest without selection', () => {
@@ -326,7 +377,6 @@ describe('BusinessYansiStudio', () => {
         }}
       />
     );
-    fireEvent.click(screen.getByTestId('biz-studio-toggle-manual'));
     const publisher = screen.getByTestId('biz-studio-publisher');
     expect(publisher).toHaveTextContent('Akdeniz');
     expect(publisher).not.toHaveTextContent('Doğrulanmış');
@@ -450,7 +500,7 @@ describe('BusinessYansiStudio', () => {
     expect(screen.getByTestId('biz-studio-selected-cover')).toHaveTextContent('Seçilen kapak: Atolye filmi · video');
     fireEvent.click(screen.getByTestId('biz-studio-save-draft'));
     await waitFor(() => expect(apiMocks.businessRequest).toHaveBeenCalled());
-    const body = apiMocks.businessRequest.mock.calls[0][2] as { coverAssetId: string; coverKind: string };
+    const body = apiMocks.businessRequest.mock.calls.find((call) => call[1] === 'PATCH')![2] as { coverAssetId: string; coverKind: string };
     expect(body.coverAssetId).toBe(film.id);
     expect(body.coverKind).toBe('video');
     expect(JSON.stringify(body)).not.toContain('atolye.mp4');

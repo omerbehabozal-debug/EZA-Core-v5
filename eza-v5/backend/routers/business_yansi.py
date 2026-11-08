@@ -5,7 +5,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials
 from starlette.datastructures import UploadFile as ParsedUploadFile
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import func, select
 from backend.auth.deps import get_current_user, security
@@ -609,6 +609,29 @@ async def remove_knowledge(business_id:uuid.UUID,version_id:uuid.UUID,body:Knowl
 @router.get('/{business_id}/drafts')
 async def drafts(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
     await manager(db,claims,business_id);return {'items':[record(row) for row in (await db.scalars(select(BusinessYansiDraft).where(BusinessYansiDraft.business_id==business_id))).all()]}
+@router.get('/{business_id}/drafts/{draft_id}/media-preview')
+async def draft_media_preview(
+    business_id: uuid.UUID, draft_id: uuid.UUID, revision: int,
+    db=Depends(get_db), claims=Depends(get_current_user),
+):
+    from backend.services.business_yansi.studio_media import draft_preview_media
+
+    await manager(db, claims, business_id)
+    row = (await db.execute(select(
+        BusinessYansiDraft.revision, BusinessYansiDraft.steps, BusinessYansiDraft.media_plan,
+    ).where(
+        BusinessYansiDraft.business_id == business_id, BusinessYansiDraft.id == draft_id,
+    ))).one_or_none()
+    if row is None:
+        raise HTTPException(404, detail={'code': 'draft_not_found'})
+    if row.revision != revision:
+        raise HTTPException(409, detail={'code': 'draft_revision_conflict'})
+    blocks = await draft_preview_media(db, business_id, row.steps, row.media_plan)
+    return JSONResponse(
+        {'revision': row.revision, 'steps': row.steps, 'blocks': blocks,
+         'hasAssignments': any((row.media_plan or {}).get('blocks') or [])},
+        headers={'Cache-Control': 'private, no-store'},
+    )
 @router.post('/{business_id}/drafts')
 async def add_draft(business_id:uuid.UUID,body:DraftCreate,db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims);return await recorded(db,await svc.create_draft(db,business_id,user.id,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps],cover_asset_id=body.coverAssetId,cover_kind=body.coverKind))
