@@ -28,6 +28,62 @@ vi.mock('@/lib/eza/businessYansi', async () => {
   return { ...actual, ...mocks };
 });
 
+vi.mock('@/components/saina/business-studio/PlaceLocationPicker', () => ({
+  default: function MockPlaceLocationPicker({
+    latitude,
+    longitude,
+    includeFormFields = true,
+    onCoordinatesChange,
+    onPlaceLabelChange,
+  }: {
+    businessId: string;
+    latitude: string;
+    longitude: string;
+    includeFormFields?: boolean;
+    onCoordinatesChange: (next: { latitude: string; longitude: string }) => void;
+    onPlaceLabelChange?: (label: string) => void;
+  }) {
+    return (
+      <div data-testid="biz-place-picker">
+        <input data-testid="biz-place-search-input" aria-label="Yer ara" defaultValue="" />
+        <button
+          type="button"
+          data-testid="biz-place-search-result"
+          onClick={() => {
+            onCoordinatesChange({ latitude: '41.025000', longitude: '28.974000' });
+            onPlaceLabelChange?.('Karaköy, İstanbul');
+          }}
+        >
+          search-result
+        </button>
+        <button
+          type="button"
+          data-testid="biz-place-map-click"
+          onClick={() => onCoordinatesChange({ latitude: '41.025000', longitude: '28.974000' })}
+        >
+          map-click
+        </button>
+        <button
+          type="button"
+          data-testid="biz-place-map-drag"
+          onClick={() => onCoordinatesChange({ latitude: '41.030000', longitude: '28.980000' })}
+        >
+          marker-drag
+        </button>
+        <span data-testid="biz-place-selection">
+          {latitude && longitude ? `${latitude}, ${longitude}` : 'Konum seçilmedi'}
+        </span>
+        {includeFormFields ? (
+          <>
+            <input type="hidden" name="latitude" value={latitude} readOnly />
+            <input type="hidden" name="longitude" value={longitude} readOnly />
+          </>
+        ) : null}
+      </div>
+    );
+  },
+}));
+
 const knowledge: Knowledge = {
   id: 'kb-1',
   item_id: 'item-1',
@@ -310,7 +366,7 @@ describe('Business asset bulk media upload', () => {
     await waitFor(() => expect(screen.getByTestId('biz-asset-img-again-2')).toBeInTheDocument());
   });
 
-  it('creates a place with optional title and requires coordinates', async () => {
+  it('creates a place from map selection with optional title', async () => {
     mocks.businessRequest.mockImplementation(async (path: string, method?: string, body?: Record<string, unknown>) => {
       if (method === 'POST' && path.endsWith('/assets')) {
         return makeAsset('place-1', {
@@ -336,16 +392,106 @@ describe('Business asset bulk media upload', () => {
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Konum / bağlantı' }));
-    fireEvent.change(screen.getByLabelText('Adres veya yer tanımı'), { target: { value: 'Karaköy' } });
-    expect(screen.getByTestId('biz-place-coord-hint')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Enlem'), { target: { value: '41.025' } });
-    fireEvent.change(screen.getByLabelText('Boylam'), { target: { value: '28.974' } });
+    expect(screen.getByTestId('biz-place-picker')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('biz-place-search-result'));
     fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
     await waitFor(() => expect(mocks.businessRequest).toHaveBeenCalled());
-    const body = mocks.businessRequest.mock.calls[0][2] as { title: string; caption: string; publicAllowed: boolean };
+    const body = mocks.businessRequest.mock.calls[0][2] as {
+      title: string;
+      caption: string;
+      publicAllowed: boolean;
+      latitude: string;
+      longitude: string;
+    };
     expect(body.title).toBe('');
-    expect(body.caption).toBe('Karaköy');
+    expect(body.caption).toBe('Karaköy, İstanbul');
+    expect(body.latitude).toBe('41.025000');
+    expect(body.longitude).toBe('28.974000');
     expect(body.publicAllowed).toBe(false);
+  });
+
+  it('edits an existing place from + including moved coordinates and visibility', async () => {
+    const asset = makeAsset('place-edit', {
+      asset_type: 'place',
+      title: 'Atölye',
+      caption: 'Karaköy',
+      latitude: '41.025000',
+      longitude: '28.974000',
+      public_allowed: false,
+      revision: 2,
+    });
+    mocks.businessRequest.mockResolvedValue({
+      ...asset,
+      title: 'Yeni atölye',
+      caption: 'Galata',
+      latitude: '41.030000',
+      longitude: '28.980000',
+      public_allowed: true,
+      revision: 3,
+    });
+    const onChanged = vi.fn(async () => undefined);
+    render(
+      <BusinessAssetLibrary
+        businessId="biz-1"
+        assets={[asset]}
+        knowledge={[knowledge]}
+        canEdit
+        busy={false}
+        onChanged={onChanged}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('biz-asset-plus-place-edit'));
+    expect(screen.getByTestId('biz-asset-meta-panel-place-edit')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('biz-place-map-drag'));
+    fireEvent.change(screen.getByLabelText('Kayıtlı içerik başlığı'), { target: { value: 'Yeni atölye' } });
+    fireEvent.change(screen.getByLabelText('Adres veya yer tanımı'), { target: { value: 'Galata' } });
+    fireEvent.click(screen.getByLabelText('Kullanıcılara gösterilmesine izin ver'));
+    fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+    await waitFor(() => {
+      expect(mocks.businessRequest).toHaveBeenCalledWith(
+        '/biz-1/assets/place-edit',
+        'PATCH',
+        expect.objectContaining({
+          title: 'Yeni atölye',
+          caption: 'Galata',
+          latitude: '41.030000',
+          longitude: '28.980000',
+          publicAllowed: true,
+          revision: 2,
+        }),
+      );
+    });
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it('shows a Turkish sealed-media message when place coordinates cannot change', async () => {
+    const asset = makeAsset('place-sealed', {
+      asset_type: 'place',
+      title: 'Atölye',
+      caption: 'Karaköy',
+      latitude: '41.025000',
+      longitude: '28.974000',
+      revision: 1,
+    });
+    mocks.businessRequest.mockRejectedValue(
+      Object.assign(new Error('sealed_media_immutable'), { code: 'sealed_media_immutable' }),
+    );
+    render(
+      <BusinessAssetLibrary
+        businessId="biz-1"
+        assets={[asset]}
+        knowledge={[knowledge]}
+        canEdit
+        busy={false}
+        onChanged={vi.fn(async () => undefined)}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('biz-asset-plus-place-sealed'));
+    fireEvent.click(screen.getByTestId('biz-place-map-drag'));
+    fireEvent.click(screen.getByRole('button', { name: 'Kaydet' }));
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/Yansı taslağında veya yayımlanmış Yansıda/);
+    });
   });
 
   it('opens the inline metadata editor from + without a Düzenle button', async () => {

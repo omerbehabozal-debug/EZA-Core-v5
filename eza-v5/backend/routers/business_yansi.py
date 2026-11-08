@@ -305,6 +305,14 @@ async def _read_image(upload:UploadFile):
     data=await upload.read(MAX_BRAND_LIBRARY_IMAGE_BYTES+1)
     if len(data)>MAX_BRAND_LIBRARY_IMAGE_BYTES: svc.fail('asset_file_too_large',400)
     return data
+@router.get('/{business_id}/place-search')
+async def place_search(business_id:uuid.UUID,q:str='',db=Depends(get_db),claims=Depends(get_current_user)):
+    """Authenticated Nominatim proxy. Upstream host is fixed server-side (no SSRF)."""
+    from backend.services.business_yansi import place_geocode as geocode
+    user=await svc.actor(db,claims)
+    await svc.access(db,business_id,user.id,'editor')
+    hits=await geocode.search_places(q,user_id=str(user.id),business_id=str(business_id))
+    return {'items':[hit.as_dict() for hit in hits],'attribution':geocode.search_attribution()}
 @router.get('/{business_id}/assets')
 async def brand_library(business_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims)

@@ -5,6 +5,8 @@
 import '@testing-library/jest-dom/vitest';
 import { vi } from 'vitest';
 
+vi.mock('leaflet/dist/leaflet.css', () => ({}));
+
 // Mock Next.js
 vi.mock('next/navigation', () => ({
   useRouter: () => ({

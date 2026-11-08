@@ -172,6 +172,11 @@ const MSG = {
   video_storage_unconfigured: 'Video depolama servisi şu anda kullanılamıyor.',
   video_probe_unavailable: 'Video işleme servisi şu anda kullanılamıyor.',
   video_storage_failed: 'Video kaydedilemedi. Lütfen biraz sonra tekrar deneyin.',
+  place_search_unavailable: 'Adres araması şu anda kullanılamıyor. Haritadan konum seçebilirsiniz.',
+  place_search_misconfigured: 'Adres araması yapılandırılmadı. Haritadan konum seçebilirsiniz.',
+  place_search_timeout: 'Adres araması zaman aşımına uğradı. Tekrar deneyin veya haritadan seçin.',
+  place_search_rate_limited: 'Adres arama limiti doldu. Biraz sonra tekrar deneyin.',
+  place_search_query_rejected: 'Arama metni çok kısa veya geçersiz.',
 } as const;
 
 function detailCode(detail: unknown): string {
@@ -235,6 +240,25 @@ export class BusinessApiError extends Error {
 
 export function isBusinessApiError(error: unknown): error is BusinessApiError {
   return error instanceof BusinessApiError;
+}
+
+export type PlaceSearchHit = {
+  placeName: string;
+  address: string;
+  latitude: string;
+  longitude: string;
+};
+
+export type PlaceSearchResponse = {
+  items: PlaceSearchHit[];
+  attribution: string;
+};
+
+export async function searchBrandPlaces(businessId: string, query: string): Promise<PlaceSearchResponse> {
+  const q = query.trim();
+  return businessRequest<PlaceSearchResponse>(
+    `/${businessId}/place-search?q=${encodeURIComponent(q)}`,
+  );
 }
 
 export async function businessRequest<T>(path = '', method = 'GET', body?: unknown): Promise<T> {

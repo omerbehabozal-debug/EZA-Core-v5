@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react';
 import MediaLightbox from '@/components/media/MediaLightbox';
+import PlaceLocationPicker from '@/components/saina/business-studio/PlaceLocationPicker';
 import {
   BRAND_LIBRARY_IMAGE_MAX_BYTES,
   STORED_VIDEO_MAX_BYTES,
@@ -52,6 +53,13 @@ const COPY: Record<string, string> = {
   published_knowledge_required: 'Yalnızca güncel bilgi kaydı seçilebilir.',
   archived_asset: 'Arşivlenmiş içerik düzenlenemez.',
   asset_in_use: 'Bu içerik bir Yansı taslağında veya yayımlanmış Yansıda kullanılıyor. Önce o Yansıdan kaldırın.',
+  sealed_media_immutable:
+    'Bu konum bir Yansı taslağında veya yayımlanmış Yansıda kullanıldığı için koordinatları değiştirilemez. Başlık ve açıklama güncellenebilir; konumu değiştirmek için önce Yansidan kaldırın veya yeni bir konum kaydı oluşturun.',
+  place_search_unavailable: 'Adres araması şu anda kullanılamıyor. Haritadan konum seçebilirsiniz.',
+  place_search_misconfigured: 'Adres araması yapılandırılmadı. Haritadan konum seçebilirsiniz.',
+  place_search_timeout: 'Adres araması zaman aşımına uğradı. Tekrar deneyin veya haritadan seçin.',
+  place_search_rate_limited: 'Adres arama limiti doldu. Biraz sonra tekrar deneyin.',
+  place_search_query_rejected: 'Arama metni çok kısa veya geçersiz.',
   cover_job_busy: 'Bu içerik için kapak hazırlığı sürüyor. Biraz sonra tekrar deneyin.',
   video_too_large: 'Video 40 MB sınırını aşıyor.',
   video_too_long: 'Video 60 saniyeden uzun olamaz.',
@@ -257,6 +265,10 @@ export default function BusinessAssetLibrary({
   const [dirty, setDirty] = useState(false);
   const [editing, setEditing] = useState<BrandAsset | null>(null);
   const [assetType, setAssetType] = useState<'place' | 'link'>('place');
+  const [placeLatitude, setPlaceLatitude] = useState('');
+  const [placeLongitude, setPlaceLongitude] = useState('');
+  const [placeCaption, setPlaceCaption] = useState('');
+  const [placeTitle, setPlaceTitle] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [uploads, setUploads] = useState<UploadItem[]>([]);
@@ -465,9 +477,24 @@ export default function BusinessAssetLibrary({
     }
   }
 
+  function resetPlaceDraft(asset?: BrandAsset | null) {
+    if (asset?.asset_type === 'place') {
+      setPlaceLatitude(asset.latitude || '');
+      setPlaceLongitude(asset.longitude || '');
+      setPlaceCaption(asset.caption || '');
+      setPlaceTitle(asset.title || '');
+      return;
+    }
+    setPlaceLatitude('');
+    setPlaceLongitude('');
+    setPlaceCaption('');
+    setPlaceTitle('');
+  }
+
   function openNew() {
     setEditing(null);
     setAssetType('place');
+    resetPlaceDraft(null);
     setFormOpen(true);
     setDirty(false);
     setError('');
@@ -477,6 +504,7 @@ export default function BusinessAssetLibrary({
     if (dirty && !window.confirm('Kaydedilmemiş değişiklikler var. Çıkmak istiyor musunuz?')) return;
     setFormOpen(false);
     setEditing(null);
+    resetPlaceDraft(null);
     setDirty(false);
   }
 
@@ -523,18 +551,20 @@ export default function BusinessAssetLibrary({
           revision: editing.revision,
         });
       } else {
+        const placeLat = chosen === 'place' ? placeLatitude.trim() || String(data.get('latitude') || '').trim() : '';
+        const placeLng = chosen === 'place' ? placeLongitude.trim() || String(data.get('longitude') || '').trim() : '';
         const body = {
           assetType: chosen,
-          title,
-          caption,
+          title: chosen === 'place' ? placeTitle.trim() || title : title,
+          caption: chosen === 'place' ? placeCaption.trim() || caption : caption,
           publicAllowed,
           locator: chosen === 'place' ? null : String(data.get('locator') || '').trim(),
-          latitude: chosen === 'place' ? String(data.get('latitude') || '').trim() : null,
-          longitude: chosen === 'place' ? String(data.get('longitude') || '').trim() : null,
+          latitude: chosen === 'place' ? placeLat : null,
+          longitude: chosen === 'place' ? placeLng : null,
           ...(editing ? { revision: editing.revision } : {}),
         };
         if (chosen === 'place' && (!body.latitude || !body.longitude)) {
-          throw new Error('Konum kaydı için enlem ve boylam gerekli. Adres metninden koordinat üretilmez.');
+          throw new Error('Konum kaydı için haritadan bir nokta seçin veya gelişmiş koordinatları girin.');
         }
         if (chosen === 'link' && !body.locator) {
           throw new Error('asset_url_rejected');
@@ -556,6 +586,7 @@ export default function BusinessAssetLibrary({
       }
       setFormOpen(false);
       setEditing(null);
+      resetPlaceDraft(null);
       setDirty(false);
       await onChanged();
     } catch (err) {
@@ -599,31 +630,44 @@ export default function BusinessAssetLibrary({
     }
   }
 
-  async function saveExistingMetadata(asset: BrandAsset, title: string, caption: string, knowledgeIds: string[]) {
+  async function saveExistingMetadata(
+    asset: BrandAsset,
+    payload: {
+      title: string;
+      caption: string;
+      knowledgeIds: string[];
+      latitude: string | null;
+      longitude: string | null;
+      publicAllowed: boolean;
+    },
+  ) {
     if (saving || busy) return;
     setSaving(true);
     setError('');
     try {
+      if (asset.asset_type === 'place' && (!payload.latitude?.trim() || !payload.longitude?.trim())) {
+        throw new Error('Konum kaydı için haritadan bir nokta seçin veya gelişmiş koordinatları girin.');
+      }
       const saved = await businessRequest<BrandAsset>(`/${businessId}/assets/${asset.id}`, 'PATCH', {
         assetType: asset.asset_type,
-        title,
-        caption,
-        publicAllowed: asset.public_allowed,
+        title: payload.title,
+        caption: payload.caption,
+        publicAllowed: payload.publicAllowed,
         revision: asset.revision,
         locator: asset.locator_kind === 'https' ? asset.locator : null,
-        latitude: asset.latitude,
-        longitude: asset.longitude,
+        latitude: asset.asset_type === 'place' ? payload.latitude : asset.latitude,
+        longitude: asset.asset_type === 'place' ? payload.longitude : asset.longitude,
       });
       const previous = new Set(
         (asset.links || [])
           .filter((link) => link.status === 'active' && link.confirmation_current)
           .map((link) => link.confirmed_version_id),
       );
-      const next = new Set(knowledgeIds);
+      const next = new Set(payload.knowledgeIds);
       const same = previous.size === next.size && Array.from(previous).every((id) => next.has(id));
       if (!same) {
         await businessRequest(`/${businessId}/assets/${saved.id}/links`, 'POST', {
-          knowledgeVersionIds: knowledgeIds,
+          knowledgeVersionIds: payload.knowledgeIds,
           revision: saved.revision,
         });
       }
@@ -833,7 +877,9 @@ export default function BusinessAssetLibrary({
                 aria-label="İçerik türü"
                 value={assetType}
                 onChange={(event) => {
-                  setAssetType(event.target.value as 'place' | 'link');
+                  const next = event.target.value as 'place' | 'link';
+                  setAssetType(next);
+                  if (next === 'place') resetPlaceDraft(null);
                   setDirty(true);
                 }}
               >
@@ -846,33 +892,51 @@ export default function BusinessAssetLibrary({
           )}
           {formKind === 'place' ? (
             <>
+              <PlaceLocationPicker
+                businessId={businessId}
+                latitude={placeLatitude}
+                longitude={placeLongitude}
+                placeLabel={placeCaption}
+                disabled={saving}
+                includeFormFields
+                onCoordinatesChange={({ latitude, longitude }) => {
+                  setPlaceLatitude(latitude);
+                  setPlaceLongitude(longitude);
+                  setDirty(true);
+                }}
+                onPlaceLabelChange={(label) => {
+                  setPlaceCaption(label);
+                  setDirty(true);
+                }}
+              />
               <label>
                 Adres / yer tanımı
                 <textarea
                   name="caption"
                   aria-label="Adres veya yer tanımı"
                   maxLength={500}
-                  defaultValue={editing?.caption || ''}
+                  value={placeCaption}
                   placeholder="Örn. Karaköy iskele yanı"
                   disabled={saving}
+                  onChange={(event) => {
+                    setPlaceCaption(event.target.value);
+                    setDirty(true);
+                  }}
                 />
               </label>
-              <p className="biz-card-meta" data-testid="biz-place-coord-hint">
-                Harita araması bu aşamada yok. Kaydetmek için enlem ve boylamı kendiniz girin; adres metninden koordinat üretilmez.
-              </p>
-              <div className="biz-asset-coords">
-                <label>
-                  Enlem
-                  <input name="latitude" aria-label="Enlem" inputMode="decimal" defaultValue={editing?.latitude || ''} required disabled={saving} />
-                </label>
-                <label>
-                  Boylam
-                  <input name="longitude" aria-label="Boylam" inputMode="decimal" defaultValue={editing?.longitude || ''} required disabled={saving} />
-                </label>
-              </div>
               <label>
                 Başlık (isteğe bağlı)
-                <input name="title" aria-label="İçerik başlığı" maxLength={160} defaultValue={editing?.title || ''} disabled={saving} />
+                <input
+                  name="title"
+                  aria-label="İçerik başlığı"
+                  maxLength={160}
+                  value={placeTitle}
+                  disabled={saving}
+                  onChange={(event) => {
+                    setPlaceTitle(event.target.value);
+                    setDirty(true);
+                  }}
+                />
               </label>
             </>
           ) : null}
@@ -1097,7 +1161,7 @@ export default function BusinessAssetLibrary({
                   selected={selected}
                   saving={saving}
                   onCancel={() => setMetaAssetId(null)}
-                  onSave={(nextTitle, nextCaption, knowledgeIds) => void saveExistingMetadata(asset, nextTitle, nextCaption, knowledgeIds)}
+                  onSave={(payload) => void saveExistingMetadata(asset, payload)}
                 />
               ) : null}
             </article>
@@ -1121,20 +1185,52 @@ function ExistingMetaPanel({
   selected: Set<string>;
   saving: boolean;
   onCancel: () => void;
-  onSave: (title: string, caption: string, knowledgeIds: string[]) => void;
+  onSave: (payload: {
+    title: string;
+    caption: string;
+    knowledgeIds: string[];
+    latitude: string | null;
+    longitude: string | null;
+    publicAllowed: boolean;
+  }) => void;
 }) {
   const [title, setTitle] = useState(asset.title || '');
   const [caption, setCaption] = useState(asset.caption || '');
+  const [latitude, setLatitude] = useState(asset.latitude || '');
+  const [longitude, setLongitude] = useState(asset.longitude || '');
+  const [publicAllowed, setPublicAllowed] = useState(Boolean(asset.public_allowed));
   const [knowledgeIds, setKnowledgeIds] = useState<string[]>(Array.from(selected));
+  const isPlace = asset.asset_type === 'place';
   return (
     <div className="biz-asset-meta-panel" data-testid={`biz-asset-meta-panel-${asset.id}`}>
+      {isPlace ? (
+        <PlaceLocationPicker
+          businessId={asset.business_id}
+          latitude={latitude}
+          longitude={longitude}
+          placeLabel={caption}
+          disabled={saving}
+          includeFormFields={false}
+          onCoordinatesChange={(next) => {
+            setLatitude(next.latitude);
+            setLongitude(next.longitude);
+          }}
+          onPlaceLabelChange={(label) => setCaption(label)}
+        />
+      ) : null}
       <label>
         Başlık
         <input aria-label="Kayıtlı içerik başlığı" maxLength={160} value={title} onChange={(event) => setTitle(event.target.value)} disabled={saving} />
       </label>
       <label>
-        Açıklama
-        <textarea aria-label="Kayıtlı içerik açıklaması" maxLength={500} value={caption} onChange={(event) => setCaption(event.target.value)} disabled={saving} />
+        {isPlace ? 'Adres / yer tanımı' : 'Açıklama'}
+        <textarea
+          aria-label={isPlace ? 'Adres veya yer tanımı' : 'Kayıtlı içerik açıklaması'}
+          maxLength={500}
+          value={caption}
+          onChange={(event) => setCaption(event.target.value)}
+          disabled={saving}
+        />
       </label>
       <fieldset className="biz-asset-links">
         <legend>Bilgi kayıtları</legend>
@@ -1153,8 +1249,32 @@ function ExistingMetaPanel({
           </label>
         ))}
       </fieldset>
+      <label className="biz-check">
+        <input
+          type="checkbox"
+          aria-label="Kullanıcılara gösterilmesine izin ver"
+          checked={publicAllowed}
+          disabled={saving}
+          onChange={(event) => setPublicAllowed(event.target.checked)}
+        />
+        Kullanıcılara gösterilmesine izin ver
+      </label>
       <div className="biz-actions">
-        <button type="button" className="biz-btn-primary" disabled={saving} onClick={() => onSave(title, caption, knowledgeIds)}>
+        <button
+          type="button"
+          className="biz-btn-primary"
+          disabled={saving}
+          onClick={() =>
+            onSave({
+              title,
+              caption,
+              knowledgeIds,
+              latitude: isPlace ? latitude : asset.latitude,
+              longitude: isPlace ? longitude : asset.longitude,
+              publicAllowed,
+            })
+          }
+        >
           Kaydet
         </button>
         <button type="button" className="biz-btn-ghost" disabled={saving} onClick={onCancel}>
