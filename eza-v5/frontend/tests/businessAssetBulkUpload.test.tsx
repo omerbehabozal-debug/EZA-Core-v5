@@ -10,7 +10,14 @@ const mocks = vi.hoisted(() => ({
   uploadBrandImage: vi.fn(),
   uploadBrandVideo: vi.fn(),
   replaceBrandImage: vi.fn(),
-  fetchBrandAssetPreview: vi.fn(async () => 'blob:image'),
+  fetchBrandAssetPreview: vi.fn(async (_biz: string, _id: string, variant: 'thumb' | 'original' = 'original') =>
+    variant === 'thumb' ? 'blob:image-thumb' : 'blob:image-original',
+  ),
+  mintBrandVideoStream: vi.fn(async () => ({
+    streamUrl: 'https://api.example/video-stream?ticket=abc',
+    expiresAt: Math.floor(Date.now() / 1000) + 90,
+    expiresIn: 90,
+  })),
   fetchCoverJob: vi.fn(async () => ({
     status: 'ready',
     resultAssetId: 'cover-1',
@@ -121,7 +128,14 @@ const libraryStore: { rows: BrandAsset[] } = { rows: [] };
 beforeEach(() => {
   libraryStore.rows = [];
   Object.values(mocks).forEach((fn) => fn.mockReset?.());
-  mocks.fetchBrandAssetPreview.mockResolvedValue('blob:image');
+  mocks.fetchBrandAssetPreview.mockImplementation(async (_biz: string, _id: string, variant: 'thumb' | 'original' = 'original') =>
+    variant === 'thumb' ? 'blob:image-thumb' : 'blob:image-original',
+  );
+  mocks.mintBrandVideoStream.mockResolvedValue({
+    streamUrl: 'https://api.example/video-stream?ticket=abc',
+    expiresAt: Math.floor(Date.now() / 1000) + 90,
+    expiresIn: 90,
+  });
   mocks.fetchBrandVideoPreview.mockResolvedValue('blob:video');
   mocks.fetchCoverJob.mockResolvedValue({
     status: 'ready',
@@ -206,16 +220,18 @@ describe('Business asset bulk media upload', () => {
       />,
     );
     await waitFor(() => expect(screen.getByTestId('biz-asset-image-open-img-open')).toBeInTheDocument());
-    expect(document.querySelector('.biz-asset-preview')).toBeTruthy();
+    expect(document.querySelector('.biz-asset-preview--contain')).toBeTruthy();
+    expect(mocks.fetchBrandAssetPreview).toHaveBeenCalledWith('biz-1', 'img-open', 'thumb');
     fireEvent.click(screen.getByTestId('biz-asset-image-open-img-open'));
-    expect(screen.getByTestId('media-lightbox')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('media-lightbox')).toBeInTheDocument());
+    expect(mocks.fetchBrandAssetPreview).toHaveBeenCalledWith('biz-1', 'img-open', 'original');
     expect(screen.getByTestId('media-lightbox-image')).toHaveClass('object-contain');
-    expect(screen.getByTestId('media-lightbox-image')).toHaveAttribute('src', 'blob:image');
+    expect(screen.getByTestId('media-lightbox-image')).toHaveAttribute('src', 'blob:image-original');
     fireEvent.click(screen.getByRole('button', { name: 'Kapat' }));
     expect(screen.queryByTestId('media-lightbox')).not.toBeInTheDocument();
   });
 
-  it('opens a contain video lightbox from library cards without cropping the preview', async () => {
+  it('opens video playback only after user interaction without downloading card blobs', async () => {
     render(
       <LibraryHarness
         initial={[makeAsset('vid-open', { title: 'Atölye filmi', asset_type: 'video' })]}
@@ -223,13 +239,19 @@ describe('Business asset bulk media upload', () => {
     );
     selectAssetTab('video');
     await waitFor(() => expect(screen.getByTestId('biz-asset-video-open-vid-open')).toBeInTheDocument());
-    const preview = screen.getByTestId('biz-video-vid-open');
-    expect(preview).toHaveClass('biz-asset-preview');
-    expect(preview.tagName).toBe('VIDEO');
+    expect(screen.getByTestId('biz-video-poster-vid-open')).toBeInTheDocument();
+    expect(screen.queryByTestId('biz-video-vid-open')).not.toBeInTheDocument();
+    expect(mocks.mintBrandVideoStream).not.toHaveBeenCalled();
+    expect(mocks.fetchBrandVideoPreview).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('biz-asset-video-open-vid-open'));
+    await waitFor(() => expect(screen.getByTestId('media-lightbox-video')).toBeInTheDocument());
+    expect(mocks.mintBrandVideoStream).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('media-lightbox-video')).toHaveClass('object-contain');
     expect(screen.getByTestId('media-lightbox-video')).toHaveAttribute('controls');
-    expect(screen.getByTestId('media-lightbox-video')).toHaveAttribute('src', 'blob:video');
+    expect(screen.getByTestId('media-lightbox-video')).toHaveAttribute(
+      'src',
+      'https://api.example/video-stream?ticket=abc',
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Kapat' }));
     expect(screen.queryByTestId('media-lightbox')).not.toBeInTheDocument();
   });
@@ -257,7 +279,9 @@ describe('Business asset bulk media upload', () => {
     expect(mocks.fetchCoverJob).not.toHaveBeenCalled();
     expect(screen.queryByTestId('biz-cover-prep-vid-one.mp4')).not.toBeInTheDocument();
     expect(screen.queryByText(/Kapak hazır/)).not.toBeInTheDocument();
-    expect(screen.getAllByLabelText('Yüklenen video')).toHaveLength(2);
+    expect(screen.getAllByLabelText('Videoyu oynat')).toHaveLength(2);
+    expect(mocks.mintBrandVideoStream).not.toHaveBeenCalled();
+    expect(document.querySelectorAll('video')).toHaveLength(0);
   });
 
   it('rejects oversized images before calling the API', async () => {
@@ -705,15 +729,19 @@ describe('Business asset bulk media upload', () => {
     selectAssetTab('video');
     expect(screen.getByTestId('biz-asset-vid-1')).toBeInTheDocument();
     expect(screen.queryByTestId('biz-asset-img-1')).not.toBeInTheDocument();
+    expect(mocks.mintBrandVideoStream).not.toHaveBeenCalled();
+    expect(document.querySelectorAll('video')).toHaveLength(0);
 
     selectAssetTab('place');
     expect(screen.getByTestId('biz-asset-place-1')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Konum ekle' })).toBeInTheDocument();
     expect(screen.queryByTestId('biz-asset-dropzone')).not.toBeInTheDocument();
+    expect(mocks.mintBrandVideoStream).not.toHaveBeenCalled();
 
     selectAssetTab('link');
     expect(screen.getByTestId('biz-asset-link-1')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Bağlantı ekle' })).toBeInTheDocument();
     expect(screen.queryByTestId('biz-asset-vid-1')).not.toBeInTheDocument();
+    expect(mocks.mintBrandVideoStream).not.toHaveBeenCalled();
   });
 });

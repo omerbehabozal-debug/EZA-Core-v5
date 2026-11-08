@@ -12,7 +12,14 @@ const mocks = vi.hoisted(() => ({
   uploadBrandImage: vi.fn(),
   uploadBrandVideo: vi.fn(),
   replaceBrandImage: vi.fn(),
-  fetchBrandAssetPreview: vi.fn(async () => 'blob:image'),
+  fetchBrandAssetPreview: vi.fn(async (_biz: string, _id: string, variant: 'thumb' | 'original' = 'original') =>
+    variant === 'thumb' ? 'blob:image-thumb' : 'blob:image-original',
+  ),
+  mintBrandVideoStream: vi.fn(async () => ({
+    streamUrl: 'https://api.example/video-stream?ticket=one',
+    expiresAt: Math.floor(Date.now() / 1000) + 600,
+    expiresIn: 600,
+  })),
   fetchBrandVideoPreview: vi.fn(async () => 'blob:library-video'),
 }));
 
@@ -53,22 +60,25 @@ function makeVideo(id: string, title: string, overrides: Partial<BrandAsset> = {
   };
 }
 
-const css = readFileSync(
-  path.join(process.cwd(), 'styles/saina-business.css'),
-  'utf8',
-);
+const css = readFileSync(path.join(process.cwd(), 'styles/saina-business.css'), 'utf8');
 
 beforeEach(() => {
   Object.values(mocks).forEach((fn) => fn.mockReset?.());
-  mocks.fetchBrandAssetPreview.mockResolvedValue('blob:image');
+  mocks.fetchBrandAssetPreview.mockImplementation(async (_biz: string, _id: string, variant: 'thumb' | 'original' = 'original') =>
+    variant === 'thumb' ? 'blob:image-thumb' : 'blob:image-original',
+  );
+  mocks.mintBrandVideoStream.mockResolvedValue({
+    streamUrl: 'https://api.example/video-stream?ticket=one',
+    expiresAt: Math.floor(Date.now() / 1000) + 600,
+    expiresIn: 600,
+  });
   mocks.fetchBrandVideoPreview.mockResolvedValue('blob:library-video');
 });
 
 describe('Content Library video aspect preservation', () => {
-  it('keeps card images cover-fit while video previews use contain letterboxing', () => {
-    expect(css).toMatch(/\.biz-asset-preview\s*\{[^}]*object-fit:\s*cover/s);
-    expect(css).toMatch(/video\.biz-asset-preview[\s\S]*object-fit:\s*contain/);
-    expect(css).toMatch(/video\.biz-asset-preview[\s\S]*background:\s*#0c0b0a/);
+  it('keeps card images contain-fit and video posters letterboxed', () => {
+    expect(css).toMatch(/\.biz-asset-preview--contain\s*\{[^}]*object-fit:\s*contain/s);
+    expect(css).toMatch(/\.biz-asset-video-poster__frame/);
   });
 
   it.each([
@@ -87,24 +97,52 @@ describe('Content Library video aspect preservation', () => {
       />,
     );
 
-    await waitFor(() => expect(screen.getByTestId(`biz-video-${id}`)).toBeInTheDocument());
-    const preview = screen.getByTestId(`biz-video-${id}`);
-    expect(preview.tagName).toBe('VIDEO');
-    expect(preview).toHaveClass('biz-asset-preview');
-    expect(preview).not.toHaveAttribute('controls');
+    fireEvent.click(screen.getByTestId('biz-asset-tab-video'));
+    await waitFor(() => expect(screen.getByTestId(`biz-video-poster-${id}`)).toBeInTheDocument());
+    expect(screen.queryByTestId(`biz-video-${id}`)).not.toBeInTheDocument();
+    expect(mocks.mintBrandVideoStream).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByTestId(`biz-asset-video-open-${id}`));
-    expect(screen.getByTestId('media-lightbox')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('media-lightbox')).toBeInTheDocument());
+    expect(mocks.mintBrandVideoStream).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('media-lightbox-video-shell')).toBeInTheDocument();
     const player = screen.getByTestId('media-lightbox-video');
     expect(player).toHaveClass('object-contain');
     expect(player).toHaveAttribute('controls');
-    expect(player).toHaveAttribute('src', 'blob:library-video');
-    expect(player).toHaveProperty('playsInline', true);
+    expect(player).toHaveAttribute('src', 'https://api.example/video-stream?ticket=one');
     expect(screen.queryByTestId('media-lightbox-image')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Kapat' }));
     expect(screen.queryByTestId('media-lightbox')).not.toBeInTheDocument();
+  });
+
+  it('renews a ticketed stream URL after a media error without permanent public URLs', async () => {
+    const renew = vi
+      .fn()
+      .mockResolvedValueOnce('https://api.example/video-stream?ticket=two');
+    render(
+      <MediaLightbox
+        open
+        src="https://api.example/video-stream?ticket=one"
+        kind="video"
+        alt="Atölye"
+        onClose={vi.fn()}
+        renewVideoSrc={renew}
+        streamExpiresAt={Math.floor(Date.now() / 1000) + 600}
+      />,
+    );
+    const player = screen.getByTestId('media-lightbox-video');
+    expect(player).toHaveAttribute('src', 'https://api.example/video-stream?ticket=one');
+    await act(async () => {
+      fireEvent.error(player);
+    });
+    await waitFor(() => expect(renew).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByTestId('media-lightbox-video')).toHaveAttribute(
+        'src',
+        'https://api.example/video-stream?ticket=two',
+      ),
+    );
   });
 
   it('fits enlarged video inside the viewport shell without cover cropping', () => {
@@ -138,6 +176,7 @@ describe('Content Library video aspect preservation', () => {
     );
     await waitFor(() => expect(screen.getByTestId('biz-asset-image-open-img-1')).toBeInTheDocument());
     fireEvent.click(screen.getByTestId('biz-asset-image-open-img-1'));
+    await waitFor(() => expect(screen.getByTestId('media-lightbox-image')).toBeInTheDocument());
     expect(screen.getByTestId('media-lightbox-image')).toHaveClass('object-contain');
     expect(screen.queryByTestId('media-lightbox-video')).not.toBeInTheDocument();
   });
@@ -159,15 +198,17 @@ describe('Content Library video aspect preservation', () => {
         />,
       );
     });
-    expect(mocks.fetchBrandVideoPreview).not.toHaveBeenCalled();
-    const preview = screen.getByTestId('biz-video-vid-https');
-    expect(preview).toHaveClass('biz-asset-preview');
-    expect(preview).toHaveAttribute('src', 'https://cdn.bilign.example/remote.mp4');
+    fireEvent.click(screen.getByTestId('biz-asset-tab-video'));
+    expect(mocks.mintBrandVideoStream).not.toHaveBeenCalled();
+    expect(screen.getByTestId('biz-video-poster-vid-https')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('biz-asset-video-open-vid-https'));
-    expect(screen.getByTestId('media-lightbox-video')).toHaveAttribute(
-      'src',
-      'https://cdn.bilign.example/remote.mp4',
+    await waitFor(() =>
+      expect(screen.getByTestId('media-lightbox-video')).toHaveAttribute(
+        'src',
+        'https://cdn.bilign.example/remote.mp4',
+      ),
     );
     expect(screen.getByTestId('media-lightbox-video')).toHaveClass('object-contain');
+    expect(mocks.mintBrandVideoStream).not.toHaveBeenCalled();
   });
 });

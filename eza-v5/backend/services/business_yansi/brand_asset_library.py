@@ -27,6 +27,10 @@ MAX_BRAND_LIBRARY_IMAGE_BYTES = 15 * 1024 * 1024
 _MAX_LIBRARY_EDGE = 4096
 _MAX_LIBRARY_PIXELS = 36_000_000
 _LIBRARY_JPEG_QUALITY = 85
+# Card grid derivative only. Original library files and BrandAsset IDs stay untouched.
+_CARD_THUMB_EDGE = 720
+_CARD_THUMB_JPEG_QUALITY = 72
+_CARD_THUMB_SUFFIX = ".cardthumb.jpg"
 
 _MIME_EXT = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp"}
 
@@ -1068,7 +1072,84 @@ async def stored_preview(db, business_id, user_id, asset_id):
     row = await _asset_row(db, business_id, asset_id)
     if row.locator_kind != "storage" or not row.locator:
         fail("asset_file_unavailable", 404)
+    if row.asset_type != "image":
+        fail("asset_file_unavailable", 404)
     return read_stored_image(row.business_id, row.locator)
+
+
+def _card_thumb_path(business_id, locator: str) -> Path:
+    business = str(uid(business_id))
+    normalized = normalize_asset(
+        business_id=business,
+        asset_type="image",
+        title="Önizleme",
+        locator_kind="storage",
+        locator=locator,
+    )
+    name = normalized["locator"].rsplit("/", 1)[-1]
+    root = asset_root().resolve()
+    target = (root / business / name).resolve()
+    if root != target and root not in target.parents:
+        fail("asset_file_unavailable", 404)
+    return target.with_name(target.name + _CARD_THUMB_SUFFIX)
+
+
+def _encode_card_thumbnail(image_bytes: bytes) -> bytes:
+    from io import BytesIO
+
+    from PIL import Image, ImageOps, UnidentifiedImageError
+    from PIL.Image import DecompressionBombError
+
+    try:
+        with Image.open(BytesIO(image_bytes)) as raw:
+            raw.load()
+            image = ImageOps.exif_transpose(raw)
+            if image.mode not in ("RGB", "RGBA"):
+                has_alpha = image.mode in ("RGBA", "LA") or (
+                    image.mode == "P" and "transparency" in image.info
+                )
+                image = image.convert("RGBA" if has_alpha else "RGB")
+            if image.mode == "RGBA":
+                canvas = Image.new("RGB", image.size, (12, 11, 10))
+                canvas.paste(image, mask=image.split()[-1])
+                image = canvas
+            elif image.mode != "RGB":
+                image = image.convert("RGB")
+            if max(image.size) > _CARD_THUMB_EDGE:
+                image.thumbnail((_CARD_THUMB_EDGE, _CARD_THUMB_EDGE), Image.Resampling.LANCZOS)
+            out = BytesIO()
+            image.save(out, format="JPEG", quality=_CARD_THUMB_JPEG_QUALITY, optimize=True)
+            return out.getvalue()
+    except (UnidentifiedImageError, DecompressionBombError, OSError, ValueError):
+        fail("asset_file_unavailable", 404)
+
+
+async def stored_card_thumbnail(db, business_id, user_id, asset_id):
+    """Lightweight JPEG for Content Library cards. Does not alter the original file."""
+    await access(db, business_id, user_id, "viewer")
+    row = await _asset_row(db, business_id, asset_id)
+    if row.asset_type != "image" or row.locator_kind != "storage" or not row.locator:
+        fail("asset_file_unavailable", 404)
+    if row.status == "archived":
+        fail("archived_asset", 409)
+    thumb = _card_thumb_path(row.business_id, row.locator)
+    original_path = thumb.with_name(thumb.name[: -len(_CARD_THUMB_SUFFIX)])
+    if thumb.is_file() and original_path.is_file():
+        try:
+            if thumb.stat().st_size > 0 and thumb.stat().st_mtime >= original_path.stat().st_mtime:
+                return thumb.read_bytes(), "image/jpeg"
+        except OSError:
+            pass
+    original_body, _mime = read_stored_image(row.business_id, row.locator)
+    encoded = _encode_card_thumbnail(original_body)
+    try:
+        thumb.parent.mkdir(parents=True, exist_ok=True)
+        tmp = thumb.with_suffix(thumb.suffix + ".tmp")
+        tmp.write_bytes(encoded)
+        tmp.replace(thumb)
+    except OSError:
+        logger.warning("card thumbnail cache write failed for asset %s", asset_id)
+    return encoded, "image/jpeg"
 
 
 def asset_is_public(asset, link, knowledge, profile, organization):

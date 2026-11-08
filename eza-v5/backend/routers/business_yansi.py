@@ -2,12 +2,14 @@
 import uuid
 from typing import Literal
 from datetime import datetime
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
+from fastapi.security import HTTPAuthorizationCredentials
 from starlette.datastructures import UploadFile as ParsedUploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from backend.auth.deps import get_current_user, security
+from backend.auth.jwt import get_user_from_token
 from backend.core.utils.dependencies import get_db
 from backend.models.business_yansi import BusinessProfile, BusinessMember, BusinessKnowledgeVersion, BusinessYansiDraft, BusinessPublication
 from backend.services.business_yansi import service as svc
@@ -491,11 +493,47 @@ async def cover_retry(business_id:uuid.UUID,asset_id:uuid.UUID,db=Depends(get_db
     source=await db.get(BusinessBrandAsset,asset_id)
     scale=source.verified_timescale if source is not None else None
     return present_job(job, scale if type(scale) is int else None)
-@router.get('/{business_id}/assets/{asset_id}/video')
-async def brand_video_preview(business_id:uuid.UUID,asset_id:uuid.UUID,request:Request,db=Depends(get_db),claims=Depends(get_current_user)):
-    """Private byte range for a brand member. No storage key and no public URL."""
+@router.post('/{business_id}/assets/{asset_id}/video-stream')
+async def brand_video_stream_ticket(business_id:uuid.UUID,asset_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
+    """Mint a short-lived ticket so <video> can issue native Range requests without a Bearer header."""
+    from backend.services.business_yansi.library_media_ticket import mint_library_video_ticket
     from backend.services.business_yansi.video_preview import preview_video
     from backend.services.business_yansi.video_storage import video_store_from_env
+    user=await svc.actor(db,claims)
+    store=video_store_from_env()
+    try:
+        # Authorize membership and asset shape before issuing a ticket.
+        await preview_video(db,business_id,user.id,asset_id,'bytes=0-0',store)
+    finally:
+        await store.aclose()
+    minted=mint_library_video_ticket(user_id=user.id,business_id=business_id,asset_id=asset_id)
+    path=f'/api/business-yansi/{business_id}/assets/{asset_id}/video?ticket={minted["ticket"]}'
+    return {'streamPath':path,'expiresAt':minted['expiresAt'],'expiresIn':minted['expiresIn']}
+@router.get('/{business_id}/assets/{asset_id}/video')
+async def brand_video_preview(
+    business_id:uuid.UUID,
+    asset_id:uuid.UUID,
+    request:Request,
+    db=Depends(get_db),
+    credentials:HTTPAuthorizationCredentials|None=Depends(security),
+    ticket:str|None=Query(default=None),
+):
+    """Private byte range for a brand member. Bearer or short-lived ticket. No public R2 URL."""
+    from backend.services.business_yansi.library_media_ticket import parse_library_video_ticket
+    from backend.services.business_yansi.video_preview import preview_video
+    from backend.services.business_yansi.video_storage import video_store_from_env
+    if ticket:
+        parsed=parse_library_video_ticket(ticket)
+        if parsed['business_id']!=str(business_id) or parsed['asset_id']!=str(asset_id):
+            raise HTTPException(401,detail={'code':'media_ticket_rejected'})
+        claims={'user_id':parsed['user_id']}
+    elif credentials is not None:
+        user_info=get_user_from_token(credentials.credentials)
+        if user_info is None:
+            raise HTTPException(401,detail='Invalid or expired token')
+        claims=user_info
+    else:
+        raise HTTPException(401,detail='Authentication required')
     user=await svc.actor(db,claims)
     store=video_store_from_env()
     try:
@@ -514,9 +552,19 @@ async def delete_brand_asset(business_id:uuid.UUID,asset_id:uuid.UUID,body:Asset
     user=await svc.actor(db,claims)
     return await assets.delete_asset(db,business_id,user.id,asset_id,body.revision)
 @router.get('/{business_id}/assets/{asset_id}/content')
-async def brand_asset_content(business_id:uuid.UUID,asset_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):
+async def brand_asset_content(
+    business_id:uuid.UUID,
+    asset_id:uuid.UUID,
+    db=Depends(get_db),
+    claims=Depends(get_current_user),
+    variant:Literal['original','thumb']=Query(default='original'),
+):
+    """Original bytes or a card thumbnail. Original files and asset IDs are unchanged."""
     user=await svc.actor(db,claims)
-    data,mime=await assets.stored_preview(db,business_id,user.id,asset_id)
+    if variant=='thumb':
+        data,mime=await assets.stored_card_thumbnail(db,business_id,user.id,asset_id)
+    else:
+        data,mime=await assets.stored_preview(db,business_id,user.id,asset_id)
     return Response(content=data,media_type=mime,headers={'Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'})
 async def _asset_view(db,business_id,asset_id):
     """Management payload by id. Includes cover derivatives hidden from library lists."""

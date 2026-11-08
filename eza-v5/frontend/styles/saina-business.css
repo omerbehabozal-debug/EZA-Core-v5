@@ -2970,6 +2970,40 @@ video.biz-asset-preview,
   background: #0c0b0a;
 }
 
+.biz-asset-video-poster {
+  cursor: pointer;
+}
+
+.biz-asset-video-poster__frame {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  margin: 0;
+  color: rgba(244, 240, 232, 0.92);
+  background:
+    radial-gradient(circle at center, rgba(197, 161, 91, 0.18), transparent 58%),
+    #0c0b0a;
+}
+
+.biz-asset-video-poster__play {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(197, 161, 91, 0.55);
+  background: rgba(12, 11, 10, 0.72);
+  font-size: 14px;
+  line-height: 1;
+  padding-left: 2px;
+}
+
+.biz-asset-video-poster__label {
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  color: rgba(244, 240, 232, 0.78);
+}
+
 .biz-asset-preview-button {
   display: block;
   width: 100%;

@@ -60,9 +60,16 @@ async def test_segment_and_retry_leave_explicit_and_approved_plans(sample, asset
     from backend.services.business_yansi import brand_asset_library as library
 
     knowledge = await source(sample, content="Atolye filmi kapak secimi icin yeterince aciktir.")
+    # Valid 1x1 PNG — truncated PNG headers are rejected by prepare_brand_library_image.
+    _png = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+        b"\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
+        b"\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01"
+        b"\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
     image = await library.create_asset(sample.db, sample.business.id, sample.editor.id, {
         "asset_type": "image", "title": "Atolye gorseli", "caption": "", "public_allowed": True,
-    }, image_bytes=b"\x89PNG\r\n\x1a\n" + b"\x00" * 24)
+    }, image_bytes=_png)
     image = await _confirm(sample, knowledge, image)
     steps = _steps(knowledge)
     explicit = await svc.create_draft(
@@ -151,23 +158,35 @@ async def test_preview_range_stays_inside_the_brand(sample):
         yield sample.db
 
     app.dependency_overrides[get_db] = db_override
-    app.dependency_overrides[get_current_user] = lambda: {"user_id": str(sample.viewer.id), "role": "user"}
 
     def same_store():
         return store
 
     monkeypatch = pytest.MonkeyPatch()
     monkeypatch.setattr("backend.services.business_yansi.video_storage.video_store_from_env", same_store)
+    monkeypatch.setattr(
+        "backend.services.business_yansi.library_media_ticket.resolve_jwt_secret",
+        lambda _settings=None: "library-media-ticket-test-secret",
+    )
     try:
+        from backend.services.business_yansi.library_media_ticket import mint_library_video_ticket
+
+        minted = mint_library_video_ticket(
+            user_id=sample.viewer.id,
+            business_id=sample.business.id,
+            asset_id=film.id,
+        )
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://studio") as client:
             response = await client.get(
                 f"/api/business-yansi/{sample.business.id}/assets/{film.id}/video",
+                params={"ticket": minted["ticket"]},
                 headers={"Range": "bytes=1-2"},
             )
         assert response.status_code == 206
         assert response.content == body[1:3]
         assert response.headers["cache-control"] == "private, no-store"
+        assert response.headers["content-length"] == "2"
         assert "brand-videos" not in response.headers.get("content-disposition", "")
         assert film.locator not in response.text
     finally:

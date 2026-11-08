@@ -8,7 +8,7 @@ import {
   STORED_VIDEO_MAX_BYTES,
   businessRequest,
   fetchBrandAssetPreview,
-  fetchBrandVideoPreview,
+  mintBrandVideoStream,
   replaceBrandImage,
   uploadBrandImage,
   uploadBrandVideo,
@@ -134,98 +134,187 @@ function releasePreviewUrl(url: string) {
   if (url && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url);
 }
 
-function AssetPreview({ businessId, asset }: { businessId: string; asset: BrandAsset }) {
-  const [src, setSrc] = useState('');
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const title = displayTitle(asset);
+function useVisibleOnce(enabled: boolean) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [visible, setVisible] = useState(!enabled);
 
   useEffect(() => {
-    if (asset.asset_type === 'image' && asset.locator_kind === 'storage') {
-      let url = '';
-      let active = true;
-      fetchBrandAssetPreview(businessId, asset.id)
-        .then((next) => {
-          url = next;
-          if (active) setSrc(next);
-          else releasePreviewUrl(next);
-        })
-        .catch(() => {
-          if (active) setSrc('');
-        });
-      return () => {
-        active = false;
-        releasePreviewUrl(url);
-      };
-    }
-    if (asset.asset_type === 'video' && asset.locator_kind === 'storage') {
-      let url = '';
-      let active = true;
-      fetchBrandVideoPreview(businessId, asset.id)
-        .then((next) => {
-          url = next;
-          if (active) setSrc(next);
-          else releasePreviewUrl(next);
-        })
-        .catch(() => {
-          if (active) setSrc('');
-        });
-      return () => {
-        active = false;
-        releasePreviewUrl(url);
-      };
-    }
-    if (asset.asset_type === 'video' && asset.locator_kind === 'https' && asset.locator) {
-      setSrc(asset.locator);
+    if (!enabled) {
+      setVisible(true);
       return;
     }
-    setSrc('');
-  }, [asset.asset_type, asset.id, asset.locator, asset.locator_kind, asset.revision, businessId]);
+    const node = ref.current;
+    if (!node || typeof IntersectionObserver !== 'function') {
+      setVisible(true);
+      return;
+    }
+    let active = true;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!active) return;
+        if (entries.some((entry) => entry.isIntersecting || entry.intersectionRatio > 0)) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '120px 0px', threshold: 0.01 },
+    );
+    observer.observe(node);
+    return () => {
+      active = false;
+      observer.disconnect();
+    };
+  }, [enabled]);
+
+  return { ref, visible };
+}
+
+function AssetPreview({ businessId, asset }: { businessId: string; asset: BrandAsset }) {
+  const [thumbSrc, setThumbSrc] = useState('');
+  const [lightboxSrc, setLightboxSrc] = useState('');
+  const [streamExpiresAt, setStreamExpiresAt] = useState<number | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [opening, setOpening] = useState(false);
+  const title = displayTitle(asset);
+  const archived = asset.status === 'archived';
+  const wantsLazyImage =
+    !archived && asset.asset_type === 'image' && asset.locator_kind === 'storage';
+  const { ref, visible } = useVisibleOnce(wantsLazyImage);
+
+  useEffect(() => {
+    if (!wantsLazyImage || !visible) return;
+    let url = '';
+    let active = true;
+    fetchBrandAssetPreview(businessId, asset.id, 'thumb')
+      .then((next) => {
+        url = next;
+        if (active) setThumbSrc(next);
+        else releasePreviewUrl(next);
+      })
+      .catch(() => {
+        if (active) setThumbSrc('');
+      });
+    return () => {
+      active = false;
+      releasePreviewUrl(url);
+    };
+  }, [asset.id, asset.revision, businessId, visible, wantsLazyImage]);
+
+  async function openImageLightbox() {
+    if (archived || opening) return;
+    setOpening(true);
+    try {
+      const original = await fetchBrandAssetPreview(businessId, asset.id, 'original');
+      setLightboxSrc((previous) => {
+        if (previous.startsWith('blob:')) releasePreviewUrl(previous);
+        return original;
+      });
+      setLightboxOpen(true);
+    } catch {
+      setLightboxSrc('');
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  async function openVideoLightbox() {
+    if (archived || opening) return;
+    setOpening(true);
+    try {
+      if (asset.locator_kind === 'https' && asset.locator) {
+        setStreamExpiresAt(null);
+        setLightboxSrc(asset.locator);
+        setLightboxOpen(true);
+        return;
+      }
+      if (asset.locator_kind === 'storage') {
+        const stream = await mintBrandVideoStream(businessId, asset.id);
+        setStreamExpiresAt(stream.expiresAt);
+        setLightboxSrc(stream.streamUrl);
+        setLightboxOpen(true);
+      }
+    } catch {
+      setLightboxSrc('');
+      setStreamExpiresAt(null);
+    } finally {
+      setOpening(false);
+    }
+  }
+
+  async function renewVideoStream(): Promise<string | null> {
+    if (asset.locator_kind === 'https' && asset.locator) return asset.locator;
+    if (asset.locator_kind !== 'storage') return null;
+    const stream = await mintBrandVideoStream(businessId, asset.id);
+    setStreamExpiresAt(stream.expiresAt);
+    setLightboxSrc(stream.streamUrl);
+    return stream.streamUrl;
+  }
+
+  function closeLightbox() {
+    setLightboxOpen(false);
+    setStreamExpiresAt(null);
+    setLightboxSrc((previous) => {
+      if (previous.startsWith('blob:')) releasePreviewUrl(previous);
+      return '';
+    });
+  }
 
   if (asset.asset_type === 'image') {
-    if (!src) return <div className="biz-asset-placeholder">Görsel önizlemesi</div>;
     return (
-      <>
-        <button
-          type="button"
-          className="biz-asset-preview-button"
-          data-testid={`biz-asset-image-open-${asset.id}`}
-          aria-label={`${title} görselini büyüt`}
-          onClick={() => setLightboxOpen(true)}
-        >
-          <img className="biz-asset-preview" src={src} alt="" />
-        </button>
-        <MediaLightbox open={lightboxOpen} src={src} alt={title} onClose={() => setLightboxOpen(false)} />
-      </>
-    );
-  }
-  if (asset.asset_type === 'video') {
-    if (!src) return <div className="biz-asset-placeholder">Yüklenen video</div>;
-    return (
-      <>
-        <div className="biz-asset-video-shell">
+      <div ref={ref}>
+        {archived ? (
+          <div className="biz-asset-placeholder">Arşiv görseli</div>
+        ) : !thumbSrc ? (
+          <div className="biz-asset-placeholder">{visible ? 'Görsel önizlemesi' : 'Görsel'}</div>
+        ) : (
           <button
             type="button"
             className="biz-asset-preview-button"
-            data-testid={`biz-asset-video-open-${asset.id}`}
-            aria-label="Yüklenen video"
-            onClick={() => setLightboxOpen(true)}
+            data-testid={`biz-asset-image-open-${asset.id}`}
+            aria-label={`${title} görselini büyüt`}
+            disabled={opening}
+            onClick={() => void openImageLightbox()}
           >
-            <video
-              className="biz-asset-preview"
-              src={src}
-              muted
-              playsInline
-              preload="metadata"
-              data-testid={`biz-video-${asset.id}`}
-            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="biz-asset-preview biz-asset-preview--contain" src={thumbSrc} alt="" />
           </button>
+        )}
+        <MediaLightbox open={lightboxOpen} src={lightboxSrc} alt={title} onClose={closeLightbox} />
+      </div>
+    );
+  }
+  if (asset.asset_type === 'video') {
+    return (
+      <>
+        <div className="biz-asset-video-shell">
+          {archived ? (
+            <div className="biz-asset-placeholder">Arşiv videosu</div>
+          ) : (
+            <button
+              type="button"
+              className="biz-asset-preview-button biz-asset-video-poster"
+              data-testid={`biz-asset-video-open-${asset.id}`}
+              aria-label="Videoyu oynat"
+              disabled={opening}
+              onClick={() => void openVideoLightbox()}
+            >
+              <span className="biz-asset-preview biz-asset-preview--contain biz-asset-video-poster__frame" data-testid={`biz-video-poster-${asset.id}`}>
+                <span className="biz-asset-video-poster__play" aria-hidden="true">
+                  ▶
+                </span>
+                <span className="biz-asset-video-poster__label">Videoyu aç</span>
+              </span>
+            </button>
+          )}
         </div>
         <MediaLightbox
           open={lightboxOpen}
-          src={src}
+          src={lightboxSrc}
           alt={title}
           kind="video"
-          onClose={() => setLightboxOpen(false)}
+          onClose={closeLightbox}
+          renewVideoSrc={asset.locator_kind === 'storage' ? renewVideoStream : undefined}
+          streamExpiresAt={streamExpiresAt}
         />
       </>
     );

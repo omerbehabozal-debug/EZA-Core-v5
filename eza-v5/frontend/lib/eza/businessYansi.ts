@@ -565,25 +565,47 @@ export function uploadBrandVideo(
   });
 }
 
-export async function fetchBrandVideoPreview(businessId: string, assetId: string): Promise<string> {
-  const token = getAuthToken();
-  if (!token) throw new Error('Business yönetimi için giriş yapmalısın.');
-  const response = await fetch(
-    getApiUrl().replace(/\/$/, '') + `/api/business-yansi/${businessId}/assets/${assetId}/video`,
-    { headers: { Authorization: `Bearer ${token}`, Range: 'bytes=0-' }, cache: 'no-store' },
+export type BrandVideoStream = {
+  streamUrl: string;
+  expiresAt: number;
+  expiresIn: number;
+};
+
+/** Mint a short-lived authenticated stream URL for native <video> Range playback. */
+export async function mintBrandVideoStream(businessId: string, assetId: string): Promise<BrandVideoStream> {
+  const minted = await businessRequest<{ streamPath: string; expiresAt: number; expiresIn: number }>(
+    `/${businessId}/assets/${assetId}/video-stream`,
+    'POST',
   );
-  if (response.status !== 200 && response.status !== 206) {
-    const data = await response.json().catch(() => null);
-    throw new BusinessApiError(response.status, data?.detail ?? null);
-  }
-  return URL.createObjectURL(await response.blob());
+  const path = minted.streamPath.startsWith('/') ? minted.streamPath : `/${minted.streamPath}`;
+  return {
+    streamUrl: getApiUrl().replace(/\/$/, '') + path,
+    expiresAt: minted.expiresAt,
+    expiresIn: minted.expiresIn,
+  };
 }
 
-export async function fetchBrandAssetPreview(businessId: string, assetId: string): Promise<string> {
+/**
+ * @deprecated Full-file video blobs are not used by Content Library cards.
+ * Prefer mintBrandVideoStream + native Range playback in the lightbox.
+ */
+export async function fetchBrandVideoPreview(businessId: string, assetId: string): Promise<string> {
+  const stream = await mintBrandVideoStream(businessId, assetId);
+  return stream.streamUrl;
+}
+
+export type BrandImageVariant = 'thumb' | 'original';
+
+export async function fetchBrandAssetPreview(
+  businessId: string,
+  assetId: string,
+  variant: BrandImageVariant = 'original',
+): Promise<string> {
   const token = getAuthToken();
   if (!token) throw new Error('Business yönetimi için giriş yapmalısın.');
+  const query = variant === 'thumb' ? '?variant=thumb' : '';
   const response = await fetch(
-    getApiUrl().replace(/\/$/, '') + `/api/business-yansi/${businessId}/assets/${assetId}/content`,
+    getApiUrl().replace(/\/$/, '') + `/api/business-yansi/${businessId}/assets/${assetId}/content${query}`,
     { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' },
   );
   if (!response.ok) {

@@ -46,6 +46,7 @@ def preview_headers(start: int, end: int, size: int, *, ranged: bool) -> dict[st
         "Cache-Control": "private, no-store",
         "X-Content-Type-Options": "nosniff",
         "Content-Disposition": 'inline; filename="video.mp4"',
+        "Content-Length": str(end - start + 1),
     }
     if ranged:
         headers["Content-Range"] = f"bytes {start}-{end}/{size}"
