@@ -155,6 +155,24 @@ describe('Business asset bulk media upload', () => {
     expect(screen.queryByTestId('media-lightbox')).not.toBeInTheDocument();
   });
 
+  it('opens a contain video lightbox from library cards without cropping the preview', async () => {
+    render(
+      <LibraryHarness
+        initial={[makeAsset('vid-open', { title: 'Atölye filmi', asset_type: 'video' })]}
+      />,
+    );
+    await waitFor(() => expect(screen.getByTestId('biz-asset-video-open-vid-open')).toBeInTheDocument());
+    const preview = screen.getByTestId('biz-video-vid-open');
+    expect(preview).toHaveClass('biz-asset-preview');
+    expect(preview.tagName).toBe('VIDEO');
+    fireEvent.click(screen.getByTestId('biz-asset-video-open-vid-open'));
+    expect(screen.getByTestId('media-lightbox-video')).toHaveClass('object-contain');
+    expect(screen.getByTestId('media-lightbox-video')).toHaveAttribute('controls');
+    expect(screen.getByTestId('media-lightbox-video')).toHaveAttribute('src', 'blob:video');
+    fireEvent.click(screen.getByRole('button', { name: 'Kapat' }));
+    expect(screen.queryByTestId('media-lightbox')).not.toBeInTheDocument();
+  });
+
   it('uploads multiple videos privately without cover preparation UI on library cards', async () => {
     render(<LibraryHarness />);
     const files = [

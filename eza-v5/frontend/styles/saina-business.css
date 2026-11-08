@@ -2921,6 +2921,21 @@
   object-fit: cover;
 }
 
+/* Content Library / studio card videos: never crop; letterbox inside the card frame. */
+video.biz-asset-preview,
+.biz-asset-preview--contain {
+  object-fit: contain;
+  background: #0c0b0a;
+}
+
+.biz-asset-video-shell {
+  width: 100%;
+  min-width: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0c0b0a;
+}
+
 .biz-asset-preview-button {
   display: block;
   width: 100%;

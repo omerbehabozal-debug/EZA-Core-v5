@@ -39,11 +39,14 @@ export function AuthorizedVideo({
   assetId,
   label,
   onDuration,
+  className = 'biz-asset-preview',
 }: {
   businessId: string;
   assetId: string;
   label: string;
   onDuration?: (seconds: number) => void;
+  /** Library/studio preview class. Defaults keep the fixed card frame. */
+  className?: string;
 }) {
   const [src, setSrc] = useState('');
   useEffect(() => {
@@ -66,7 +69,7 @@ export function AuthorizedVideo({
   if (!src) return <div className="biz-asset-placeholder">{label}</div>;
   return (
     <video
-      className="biz-asset-preview"
+      className={className}
       src={src}
       controls
       playsInline

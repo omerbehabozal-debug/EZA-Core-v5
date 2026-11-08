@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from 'react';
 import MediaLightbox from '@/components/media/MediaLightbox';
-import { AuthorizedVideo } from './CoverPreparation';
 import {
   BRAND_LIBRARY_IMAGE_MAX_BYTES,
   STORED_VIDEO_MAX_BYTES,
   businessRequest,
   fetchBrandAssetPreview,
+  fetchBrandVideoPreview,
   replaceBrandImage,
   uploadBrandImage,
   uploadBrandVideo,
@@ -119,27 +119,56 @@ function displayTitle(asset: BrandAsset) {
   return 'Başlıksız görsel';
 }
 
+function releasePreviewUrl(url: string) {
+  if (url && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url);
+}
+
 function AssetPreview({ businessId, asset }: { businessId: string; asset: BrandAsset }) {
   const [src, setSrc] = useState('');
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const title = displayTitle(asset);
+
   useEffect(() => {
-    if (asset.asset_type !== 'image' || asset.locator_kind !== 'storage') return;
-    let url = '';
-    let active = true;
-    fetchBrandAssetPreview(businessId, asset.id)
-      .then((next) => {
-        url = next;
-        if (active) setSrc(next);
-        else if (typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(next);
-      })
-      .catch(() => {
-        if (active) setSrc('');
-      });
-    return () => {
-      active = false;
-      if (url && typeof URL.revokeObjectURL === 'function') URL.revokeObjectURL(url);
-    };
-  }, [asset.asset_type, asset.id, asset.locator_kind, asset.revision, businessId]);
+    if (asset.asset_type === 'image' && asset.locator_kind === 'storage') {
+      let url = '';
+      let active = true;
+      fetchBrandAssetPreview(businessId, asset.id)
+        .then((next) => {
+          url = next;
+          if (active) setSrc(next);
+          else releasePreviewUrl(next);
+        })
+        .catch(() => {
+          if (active) setSrc('');
+        });
+      return () => {
+        active = false;
+        releasePreviewUrl(url);
+      };
+    }
+    if (asset.asset_type === 'video' && asset.locator_kind === 'storage') {
+      let url = '';
+      let active = true;
+      fetchBrandVideoPreview(businessId, asset.id)
+        .then((next) => {
+          url = next;
+          if (active) setSrc(next);
+          else releasePreviewUrl(next);
+        })
+        .catch(() => {
+          if (active) setSrc('');
+        });
+      return () => {
+        active = false;
+        releasePreviewUrl(url);
+      };
+    }
+    if (asset.asset_type === 'video' && asset.locator_kind === 'https' && asset.locator) {
+      setSrc(asset.locator);
+      return;
+    }
+    setSrc('');
+  }, [asset.asset_type, asset.id, asset.locator, asset.locator_kind, asset.revision, businessId]);
 
   if (asset.asset_type === 'image') {
     if (!src) return <div className="biz-asset-placeholder">Görsel önizlemesi</div>;
@@ -149,20 +178,46 @@ function AssetPreview({ businessId, asset }: { businessId: string; asset: BrandA
           type="button"
           className="biz-asset-preview-button"
           data-testid={`biz-asset-image-open-${asset.id}`}
-          aria-label={`${displayTitle(asset)} görselini büyüt`}
+          aria-label={`${title} görselini büyüt`}
           onClick={() => setLightboxOpen(true)}
         >
           <img className="biz-asset-preview" src={src} alt="" />
         </button>
-        <MediaLightbox open={lightboxOpen} src={src} alt={displayTitle(asset)} onClose={() => setLightboxOpen(false)} />
+        <MediaLightbox open={lightboxOpen} src={src} alt={title} onClose={() => setLightboxOpen(false)} />
       </>
     );
   }
-  if (asset.asset_type === 'video' && asset.locator_kind === 'storage') {
-    return <AuthorizedVideo businessId={businessId} assetId={asset.id} label="Yüklenen video" />;
-  }
-  if (asset.asset_type === 'video' && asset.locator) {
-    return <video className="biz-asset-preview" src={asset.locator} controls playsInline preload="metadata" />;
+  if (asset.asset_type === 'video') {
+    if (!src) return <div className="biz-asset-placeholder">Yüklenen video</div>;
+    return (
+      <>
+        <div className="biz-asset-video-shell">
+          <button
+            type="button"
+            className="biz-asset-preview-button"
+            data-testid={`biz-asset-video-open-${asset.id}`}
+            aria-label="Yüklenen video"
+            onClick={() => setLightboxOpen(true)}
+          >
+            <video
+              className="biz-asset-preview"
+              src={src}
+              muted
+              playsInline
+              preload="metadata"
+              data-testid={`biz-video-${asset.id}`}
+            />
+          </button>
+        </div>
+        <MediaLightbox
+          open={lightboxOpen}
+          src={src}
+          alt={title}
+          kind="video"
+          onClose={() => setLightboxOpen(false)}
+        />
+      </>
+    );
   }
   if (asset.asset_type === 'place') {
     return (

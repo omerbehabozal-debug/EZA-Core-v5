@@ -7,11 +7,19 @@ export type MediaLightboxProps = {
   open: boolean;
   src: string | null;
   alt?: string;
+  /** Defaults to image. Video keeps native controls inside a contain-fit viewport shell. */
+  kind?: 'image' | 'video';
   onClose: () => void;
 };
 
-/** Full-size image view with object-fit: contain. Used by library cards and Yansı chat. */
-export default function MediaLightbox({ open, src, alt = '', onClose }: MediaLightboxProps) {
+/** Full-size media view with object-fit: contain. Used by library cards and Yansı chat. */
+export default function MediaLightbox({
+  open,
+  src,
+  alt = '',
+  kind = 'image',
+  onClose,
+}: MediaLightboxProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -34,12 +42,14 @@ export default function MediaLightbox({ open, src, alt = '', onClose }: MediaLig
 
   if (!mounted || !open || !src?.trim()) return null;
 
+  const label = alt.trim() || (kind === 'video' ? 'Video önizleme' : 'Görsel önizleme');
+
   return createPortal(
     <div
       className="fixed inset-0 z-[220] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
-      aria-label={alt.trim() || 'Görsel önizleme'}
+      aria-label={label}
       data-testid="media-lightbox"
       onClick={onClose}
     >
@@ -51,14 +61,33 @@ export default function MediaLightbox({ open, src, alt = '', onClose }: MediaLig
       >
         Kapat
       </button>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={alt}
-        className="max-h-[min(92vh,1200px)] max-w-[min(92vw,1200px)] h-auto w-auto rounded-xl object-contain shadow-2xl"
-        data-testid="media-lightbox-image"
-        onClick={(event) => event.stopPropagation()}
-      />
+      {kind === 'video' ? (
+        <div
+          className="flex max-h-[min(92vh,1200px)] max-w-[min(92vw,1200px)] items-center justify-center bg-black"
+          data-testid="media-lightbox-video-shell"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <video
+            src={src}
+            controls
+            playsInline
+            autoPlay
+            preload="metadata"
+            className="max-h-[min(92vh,1200px)] max-w-[min(92vw,1200px)] h-auto w-auto object-contain"
+            data-testid="media-lightbox-video"
+            aria-label={label}
+          />
+        </div>
+      ) : (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img
+          src={src}
+          alt={alt}
+          className="max-h-[min(92vh,1200px)] max-w-[min(92vw,1200px)] h-auto w-auto rounded-xl object-contain shadow-2xl"
+          data-testid="media-lightbox-image"
+          onClick={(event) => event.stopPropagation()}
+        />
+      )}
     </div>,
     document.body,
   );
