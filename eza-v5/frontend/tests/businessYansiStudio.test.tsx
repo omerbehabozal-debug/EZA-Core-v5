@@ -2,7 +2,7 @@
  * Stage 3 — AI Yansı Stüdyosu UX (honest API states, no fake success).
  */
 import type { ReactNode } from 'react';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import BusinessYansiStudio from '@/components/saina/business-studio/BusinessYansiStudio';
 import type { BrandAsset, Draft, Knowledge } from '@/lib/eza/businessYansi';
@@ -172,6 +172,74 @@ describe('BusinessYansiStudio', () => {
     expect(screen.getAllByTestId('mock-bubble-ai')).toHaveLength(8);
   });
 
+  it.each(['success', 'failure', 'stale'] as const)('protects step media while exact revision assignments load (%s)', async (outcome) => {
+    const steps = Array.from({ length: 8 }, () => ({ question: 'Soru', answer: 'Cevap', sources: ['kb-1'] }));
+    const cover = { type: 'image', assetId: 'cover', title: 'Manuel kapak', authenticated: true };
+    const existing = [[{ type: 'image', assetId: 'image' }, { type: 'link', assetId: 'old-link' }],
+      [{ type: 'link', assetId: 'untouched' }], [], [], [], [], [], []];
+    const updated = [[{ type: 'map', assetId: 'place' }, { type: 'link', assetId: 'new-link' }], ...existing.slice(1)];
+    const draft: Draft = {
+      id: 'draft-1', title: 'Taslak', summary: 'Özet', revision: 4, steps, status: 'draft', conversation_id: null,
+      media_plan: { coverAssetId: 'cover', blocks: [], seal: null, coverMode: 'explicit', coverKind: 'image' },
+    };
+    const asset = (id: string, asset_type: BrandAsset['asset_type']): BrandAsset => ({
+      id, asset_type, title: id, business_id: 'biz-1', caption: '', locator: null, locator_kind: null,
+      latitude: null, longitude: null, public_allowed: true, status: 'published', revision: 1,
+      links: [{ id: 'relation', item_id: 'item-1', confirmed_version_id: 'kb-1', status: 'active',
+        knowledge_title: 'Kaynak', knowledge_status: 'published', current_published_version_id: 'kb-1', confirmation_current: true }],
+    });
+    const assets = [asset('cover', 'image'), asset('image', 'image'), asset('old-link', 'link'),
+      asset('new-link', 'link'), asset('place', 'place')];
+    const preview = { revision: 4, steps, cover, assignments: existing,
+      blocks: Array.from({ length: 8 }, () => []), hasAssignments: true };
+    let resolve!: (value: unknown) => void;
+    let reject!: (error: Error) => void;
+    apiMocks.businessRequest.mockReturnValueOnce(new Promise((yes, no) => { resolve = yes; reject = no; }));
+    const props = { businessId: 'biz-1', knowledge, canEdit: true, assets, onDraftSaved: vi.fn() };
+    const studio = render(<BusinessYansiStudio {...props} editDraft={draft} />);
+    fireEvent.click(screen.getByTestId('biz-studio-edit-step-0'));
+    const field = screen.getByLabelText('Medya ekle veya aynı türü değiştir');
+    expect(field).toBeDisabled();
+    expect(screen.getByText('Adım medyası yükleniyor…')).toBeInTheDocument();
+    fireEvent.change(field, { target: { value: 'place' } });
+    if (outcome === 'failure') {
+      await act(async () => reject(new Error('offline')));
+      expect(field).toBeDisabled();
+      expect(screen.getByText(/Kaydedilmiş adım medyası alınamadı/)).toBeInTheDocument();
+      return;
+    }
+    if (outcome === 'stale') {
+      apiMocks.businessRequest.mockResolvedValueOnce({ ...preview, revision: 5 });
+      studio.rerender(<BusinessYansiStudio {...props} editDraft={{ ...draft, revision: 5 }} />);
+      await waitFor(() => expect(field).toBeEnabled());
+      await act(async () => resolve({ ...preview, assignments: [] }));
+      expect(screen.getByText('old-link', { selector: 'span' })).toBeInTheDocument();
+      return;
+    }
+    await act(async () => resolve(preview));
+    expect(field).toBeEnabled();
+    fireEvent.change(field, { target: { value: 'place' } });
+    fireEvent.change(field, { target: { value: 'new-link' } });
+    const editor = within(screen.getByTestId('biz-studio-step-editor-0'));
+    const imageRow = editor.getByText('image', { selector: 'span' }).parentElement!;
+    fireEvent.click(within(imageRow).getByRole('button', { name: 'Kaldır' }));
+    const saved = { ...draft, revision: 5 };
+    apiMocks.businessRequest.mockResolvedValueOnce(saved).mockResolvedValueOnce({ ...preview, revision: 5, assignments: updated });
+    fireEvent.click(screen.getByTestId('biz-studio-save-draft'));
+    await waitFor(() => expect(apiMocks.businessRequest).toHaveBeenCalledWith('/biz-1/drafts/draft-1', 'PATCH',
+      expect.objectContaining({ revision: 4, mediaChoices: [updated[0], null, null, null, null, null, null, null] })));
+    const body = apiMocks.businessRequest.mock.calls.find((call) => call[1] === 'PATCH')![2];
+    expect(body).not.toHaveProperty('coverAssetId');
+    studio.unmount();
+    apiMocks.businessRequest.mockResolvedValue({ ...preview, revision: 5, assignments: updated });
+    render(<BusinessYansiStudio {...props} editDraft={saved} />);
+    expect(await within(await screen.findByTestId('biz-studio-saved-cover')).findByRole('img', { name: 'Manuel kapak' })).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('biz-studio-edit-step-0'));
+    expect(within(screen.getByTestId('biz-studio-step-editor-0')).getAllByRole('button', { name: 'Kaldır' })).toHaveLength(2);
+    fireEvent.click(screen.getByTestId('biz-studio-edit-step-1'));
+    expect(within(screen.getByTestId('biz-studio-step-editor-1')).getByText('Kayıtlı medya')).toBeInTheDocument();
+  });
+
   it('lists only published public knowledge and blocks topic suggest without selection', () => {
     render(
       <BusinessYansiStudio
@@ -278,6 +346,8 @@ describe('BusinessYansiStudio', () => {
       },
     }));
 
+    const savedSteps = steps.map(({ question, answer }) => ({ question, answer, sources: ['kb-1'] }));
+    const assignments = [[{ type: 'link', assetId: 'guide' }], ...Array.from({ length: 7 }, () => [])];
     apiMocks.businessRequest
       .mockResolvedValueOnce(
         gen({
@@ -299,7 +369,14 @@ describe('BusinessYansiStudio', () => {
           draftId: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
           result: { title: 'Üretilen başlık', summary: 'Özet', steps },
         })
-      );
+      )
+      .mockResolvedValueOnce({
+        revision: 1, title: 'Üretilen başlık', summary: 'Özet', steps: savedSteps,
+        cover: { type: 'image', assetId: 'generated-cover', title: 'Otomatik kapak', authenticated: true },
+        blocks: [[{ type: 'link', assetId: 'guide', title: 'Rehber', href: 'https://example.test' }], ...assignments.slice(1)],
+        assignments, hasAssignments: true,
+      })
+      .mockResolvedValueOnce({ id: 'dddddddd-dddd-dddd-dddd-dddddddddddd', revision: 2 });
 
     render(
       <BusinessYansiStudio
@@ -321,10 +398,23 @@ describe('BusinessYansiStudio', () => {
     expect(screen.getByDisplayValue('Üretilen başlık')).toBeInTheDocument();
     expect(screen.queryByTestId('biz-studio-topic-grid')).toBeNull();
     expect(screen.queryByTestId('biz-studio-manual-form')).toBeNull();
+    expect(await within(screen.getByTestId('biz-studio-saved-cover')).findByRole('img', { name: 'Otomatik kapak' })).toBeInTheDocument();
+    expect(within(screen.getByTestId('biz-studio-turn-0')).getByRole('link', { name: 'Rehber' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'İncelemeye gönder' })).toBeEnabled();
 
     fireEvent.click(screen.getByTestId('biz-studio-edit-step-0'));
     expect(screen.getByTestId('biz-studio-step-editor-0')).toBeInTheDocument();
     expect(screen.queryByTestId('biz-studio-step-editor-1')).toBeNull();
+
+    fireEvent.click(within(screen.getByTestId('biz-studio-step-editor-0')).getByRole('button', { name: 'Kaldır' }));
+    expect(screen.queryByRole('button', { name: 'İncelemeye gönder' })).toBeNull();
+    fireEvent.click(screen.getByTestId('biz-studio-save-draft'));
+    await waitFor(() => expect(apiMocks.businessRequest).toHaveBeenCalledWith(
+      '/biz-1/drafts/dddddddd-dddd-dddd-dddd-dddddddddddd', 'PATCH',
+      expect.objectContaining({ revision: 1, mediaChoices: [[], null, null, null, null, null, null, null] }),
+    ));
+    const revisionBody = apiMocks.businessRequest.mock.calls.find((call) => call[1] === 'PATCH')![2];
+    expect(revisionBody).not.toHaveProperty('coverAssetId');
 
     fireEvent.click(screen.getByTestId('biz-studio-toggle-manual'));
     expect(screen.getByTestId('biz-studio-manual-form')).toBeInTheDocument();

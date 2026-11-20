@@ -96,6 +96,91 @@ async def test_grounded_draft_atomic_idempotency_no_transaction_over_ai(ready):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize('selection', ['valid', 'none', 'invalid'])
+async def test_generation_selects_separate_cover_and_step_media_and_preserves_revision(ready, tmp_path, monkeypatch, selection):
+    from io import BytesIO
+    from PIL import Image
+    from backend.services.business_yansi import brand_asset_library as library, service
+
+    monkeypatch.setenv('EZA_BRAND_ASSET_DIR', str(tmp_path))
+    s = ready
+    parent, _ = await topics(s)
+    image = BytesIO()
+    Image.new('RGB', (8, 8), color=(30, 60, 90)).save(image, format='PNG')
+    cover = await library.create_asset(s.db, s.business.id, s.owner.id, {
+        'asset_type': 'image', 'title': 'Workshop cover', 'public_allowed': True,
+    }, image_bytes=image.getvalue())
+    link = await library.create_asset(s.db, s.business.id, s.owner.id, {
+        'asset_type': 'link', 'title': 'Workshop guide', 'public_allowed': True, 'locator': 'https://example.com/guide',
+    })
+    for asset in (cover, link):
+        await library.set_links(s.db, s.business.id, s.owner.id, asset.id, [s.knowledge.id], asset.revision)
+    value = draft_output(parent)
+    value['coverAssetId'] = {'valid': str(cover.id), 'none': None, 'invalid': '00000000-0000-4000-8000-000000000099'}[selection]
+    for step in value['steps']:
+        step['media'] = []
+    value['steps'][2]['media'] = [{'assetId': str(link.id)}]
+    provider = fake(reply(value), reply(value))
+    row = await execution.execute(s.db, await draft_job(s, parent), router=provider)
+    if selection == 'invalid':
+        assert row.status == 'failed' and row.draft_id is None
+        assert row.error_code == 'studio_invalid_model_output' and provider.generate.await_count == 2
+        assert await s.db.scalar(select(func.count(BusinessYansiDraft.id))) == 0
+        return
+    assert row.status == 'succeeded' and row.draft_id
+    expected_cover = str(cover.id) if selection == 'valid' else None
+    draft = await s.db.get(BusinessYansiDraft, row.draft_id)
+    assert draft.media_plan['coverAssetId'] == expected_cover
+    assert draft.media_plan['coverMode'] == 'automatic'
+    assert draft.media_plan['blocks'] == [[], [], [{'assetId': str(link.id), 'type': 'link'}], [], [], [], [], []]
+    request_args = provider.generate.await_args.kwargs
+    assert str(cover.id) in request_args['prompt'] and str(link.id) in request_args['prompt']
+    assert 'https://example.com/guide' not in request_args['prompt']
+    cover_schema = request_args['json_schema']['$defs']['DraftOutput']['properties']['coverAssetId']
+    assert cover_schema['anyOf'][0]['enum'] == [str(cover.id)]
+
+    revised = await service.revise_draft(
+        s.db, s.business.id, s.owner.id, draft.id, draft.revision, draft.title, draft.summary,
+        draft.steps, cover_specified=False, media_choices=[None, None, [], None, None, None, None, None],
+    )
+    assert revised.media_plan['coverAssetId'] == expected_cover
+    assert revised.media_plan['blocks'] == [[] for _ in range(8)]
+    assert provider.generate.await_count == 1
+    assert await s.db.scalar(select(func.count(BusinessYansiDraft.id))) == 1
+
+
+@pytest.mark.asyncio
+async def test_storage_video_is_excluded_from_model_catalog_and_automatic_fallback(ready):
+    from backend.services.business_yansi import brand_asset_library as library, studio_media
+
+    s = ready
+    parent, _ = await topics(s)
+    video = await library.create_asset(s.db, s.business.id, s.owner.id, {
+        'asset_type': 'video', 'title': 'Workshop product care', 'public_allowed': True,
+        'locator': 'https://example.com/workshop.mp4',
+    })
+    await library.set_links(s.db, s.business.id, s.owner.id, video.id, [s.knowledge.id], video.revision)
+    video.locator_kind = 'storage'
+    video.locator = 'brand-videos/private-opaque-object.mp4'
+    video.verified_duration = 5
+    video.verified_timescale = 1
+    video.verified_size_bytes = 500
+    video.verified_has_audio = False
+    await s.db.commit()
+    assert studio_media.video_may_be_cover(video)
+    assert studio_media.public_block(video) is None
+    assert await studio_media.studio_media_catalog(s.db, s.business.id, {str(s.knowledge.id)}) == {}
+
+    provider = fake(reply(draft_output(parent)))
+    row = await execution.execute(s.db, await draft_job(s, parent), router=provider)
+    assert row.status == 'succeeded' and row.draft_id
+    draft = await s.db.get(BusinessYansiDraft, row.draft_id)
+    assert draft.media_plan['coverAssetId'] is None
+    assert draft.media_plan['blocks'] == [[] for _ in range(8)]
+    assert str(video.id) not in provider.generate.await_args.kwargs['prompt']
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize('failure',['json','foreign','duplicate','incomplete'])
 async def test_invalid_output_retry_bound(ready,failure):
     s=ready;job=await studio.create_job(s.db,s.business.id,s.owner.id,request(s),'topics')
@@ -440,7 +525,8 @@ async def test_openai_strict_schema_is_sent_to_provider(monkeypatch):
     assert seen[0]['messages'][0]['role']=='system'
 
 @pytest.mark.asyncio
-async def test_metadata_only_source_is_pinned_for_owner_review(ready):
+@pytest.mark.parametrize('change_cover', [False, True])
+async def test_metadata_only_source_is_pinned_for_owner_review(ready, tmp_path, monkeypatch, change_cover):
     from backend.tests.test_business_yansi import source
     s=ready
     metadata=await source(s,content='Workshop approach to verified product care',title='Workshop identity')
@@ -458,8 +544,35 @@ async def test_metadata_only_source_is_pinned_for_owner_review(ready):
     draft=await s.db.get(BusinessYansiDraft,row.draft_id)
     assert str(metadata.id) in draft.knowledge_snapshot
     assert all(str(metadata.id) not in step['sources'] for step in draft.steps)
-    metadata.public_allowed=False;await s.db.commit()
     from backend.services.business_yansi import service
+    if change_cover:
+        from io import BytesIO
+        from PIL import Image
+        from backend.services.business_yansi import brand_asset_library as library
+
+        monkeypatch.setenv('EZA_BRAND_ASSET_DIR', str(tmp_path))
+        image = BytesIO()
+        Image.new('RGB', (8, 8)).save(image, format='PNG')
+        cover = await library.create_asset(s.db, s.business.id, s.owner.id, {
+            'asset_type': 'image', 'title': 'New workshop cover', 'public_allowed': True,
+        }, image_bytes=image.getvalue())
+        await library.set_links(s.db, s.business.id, s.owner.id, cover.id, [s.knowledge.id], cover.revision)
+        before = list(draft.knowledge_snapshot)
+        draft = await service.revise_draft(
+            s.db, s.business.id, s.owner.id, draft.id, draft.revision, draft.title, draft.summary,
+            draft.steps, cover.id, cover_kind='image', cover_kind_specified=True, media_choices=[None] * 8,
+        )
+        assert draft.media_plan['coverAssetId'] == str(cover.id)
+        assert draft.knowledge_snapshot == before
+
+    metadata.public_allowed=False;await s.db.commit()
+    if change_cover:
+        with pytest.raises(HTTPException) as revoked:
+            await service.revise_draft(
+                s.db, s.business.id, s.owner.id, draft.id, draft.revision, 'Edited title',
+                draft.summary, draft.steps, cover_specified=False, media_choices=[None] * 8,
+            )
+        assert revoked.value.detail['code'] == 'source_snapshot_unavailable'
     await service.transition_draft(s.db,s.business.id,s.owner.id,draft.id,'review',draft.revision)
     with pytest.raises(HTTPException) as error:
         await service.transition_draft(s.db,s.business.id,s.owner.id,draft.id,'approved',draft.revision)
@@ -537,7 +650,7 @@ async def test_five_sources_fit_one_attempt_without_a_second_call(ready, monkeyp
     provider = fake(reply(produced))
     row = await execution.execute(s.db, job, router=provider)
     assert row.status == 'succeeded' and row.attempts == 1 and provider.generate.await_count == 1
-    assert row.execution['promptVersion'] == 'business-studio-extractive-v3'
+    assert row.execution['promptVersion'] == 'business-studio-extractive-v4'
     reserve_in = row.execution['reserveIn']
     assert 10000 < reserve_in <= 20000
     assert reserve_in * row.max_attempts > 20000

@@ -103,10 +103,15 @@ class Step(Body):
     question: str=Field(min_length=1,max_length=1000)
     answer: str=Field(min_length=1,max_length=4000)
     sources: list[uuid.UUID]=Field(min_length=1,max_length=4)
+class DraftMediaChoice(Body):
+    type: Literal['image', 'video', 'map', 'link']
+    assetId: uuid.UUID
+
 class DraftCreate(Body):
     title: str=Field(min_length=1,max_length=200)
     summary: str=Field(default='',max_length=500)
     steps: list[Step]=Field(min_length=8,max_length=8)
+    mediaChoices: list[list[DraftMediaChoice] | None] | None = Field(default=None, min_length=8, max_length=8)
     coverAssetId: uuid.UUID|None=None
     coverKind: Literal['video','image']|None=None
 class DraftUpdate(DraftCreate):
@@ -619,6 +624,7 @@ async def draft_media_preview(
     await manager(db, claims, business_id)
     row = (await db.execute(select(
         BusinessYansiDraft.revision, BusinessYansiDraft.steps, BusinessYansiDraft.media_plan,
+        BusinessYansiDraft.title, BusinessYansiDraft.summary,
     ).where(
         BusinessYansiDraft.business_id == business_id, BusinessYansiDraft.id == draft_id,
     ))).one_or_none()
@@ -626,15 +632,17 @@ async def draft_media_preview(
         raise HTTPException(404, detail={'code': 'draft_not_found'})
     if row.revision != revision:
         raise HTTPException(409, detail={'code': 'draft_revision_conflict'})
-    blocks = await draft_preview_media(db, business_id, row.steps, row.media_plan)
+    cover, blocks = await draft_preview_media(db, business_id, row.steps, row.media_plan)
     return JSONResponse(
-        {'revision': row.revision, 'steps': row.steps, 'blocks': blocks,
+        {'revision': row.revision, 'title': row.title, 'summary': row.summary,
+         'steps': row.steps, 'blocks': blocks, 'cover': cover,
+         'assignments': (row.media_plan or {}).get('blocks') or [],
          'hasAssignments': any((row.media_plan or {}).get('blocks') or [])},
         headers={'Cache-Control': 'private, no-store'},
     )
 @router.post('/{business_id}/drafts')
 async def add_draft(business_id:uuid.UUID,body:DraftCreate,db=Depends(get_db),claims=Depends(get_current_user)):
-    user=await svc.actor(db,claims);return await recorded(db,await svc.create_draft(db,business_id,user.id,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps],cover_asset_id=body.coverAssetId,cover_kind=body.coverKind))
+    user=await svc.actor(db,claims);return await recorded(db,await svc.create_draft(db,business_id,user.id,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps],cover_asset_id=body.coverAssetId,cover_kind=body.coverKind,media_choices=body.model_dump(mode="json")["mediaChoices"]))
 @router.post('/{business_id}/drafts/{draft_id}/transition')
 async def draft_transition(business_id:uuid.UUID,draft_id:uuid.UUID,body:Transition,db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims);return await recorded(db,await svc.transition_draft(db,business_id,user.id,draft_id,body.target,body.revision))
@@ -663,7 +671,7 @@ async def public_profile(slug:str,db=Depends(get_db)):
 @router.patch('/{business_id}/drafts/{draft_id}')
 async def edit_draft(business_id:uuid.UUID,draft_id:uuid.UUID,body:DraftUpdate,db=Depends(get_db),claims=Depends(get_current_user)):
     user=await svc.actor(db,claims)
-    return await recorded(db,await svc.revise_draft(db,business_id,user.id,draft_id,body.revision,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps],body.coverAssetId,cover_specified='coverAssetId' in body.model_fields_set,cover_kind=body.coverKind if 'coverKind' in body.model_fields_set else None,cover_kind_specified='coverKind' in body.model_fields_set))
+    return await recorded(db,await svc.revise_draft(db,business_id,user.id,draft_id,body.revision,body.title,body.summary,[s.model_dump(mode='json') for s in body.steps],body.coverAssetId,cover_specified='coverAssetId' in body.model_fields_set,cover_kind=body.coverKind if 'coverKind' in body.model_fields_set else None,cover_kind_specified='coverKind' in body.model_fields_set,media_choices=body.model_dump(mode='json')['mediaChoices']))
 
 @router.delete('/{business_id}/members/{user_id}')
 async def remove_member(business_id:uuid.UUID,user_id:uuid.UUID,db=Depends(get_db),claims=Depends(get_current_user)):

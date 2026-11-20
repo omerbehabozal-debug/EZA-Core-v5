@@ -239,6 +239,33 @@ async def eligible_for_versions(db, business_id, version_ids):
         return grouped
 
 
+def studio_public_video_compatible(asset):
+    """Automatic generation must select videos the existing public renderer can serve."""
+    return asset.asset_type != "video" or (
+        asset.locator_kind == "https" and public_block(asset) is not None
+    )
+
+
+async def studio_media_catalog(db, business_id, version_ids):
+    """Bound the provider input to eligible display metadata and opaque IDs."""
+    grouped = await eligible_for_versions(db, business_id, sorted(version_ids))
+    catalog = {}
+    for source_id, assets in sorted(grouped.items(), key=lambda pair: str(pair[0])):
+        for asset in sorted(assets, key=lambda item: str(item.id)):
+            key = str(asset.id)
+            kind = BLOCK_TYPES.get(asset.asset_type)
+            if kind is None or not studio_public_video_compatible(asset) or (key not in catalog and len(catalog) >= 32):
+                continue
+            row = catalog.setdefault(key, {
+                "type": kind, "title": asset.title[:120], "caption": (asset.caption or "")[:160],
+                "coverEligible": kind in {"image", "video"} and video_may_be_cover(asset),
+                "sourceVersionIds": [],
+            })
+            if str(source_id) not in row["sourceVersionIds"]:
+                row["sourceVersionIds"].append(str(source_id))
+    return catalog
+
+
 async def assert_ready_derivative(db, business_id, asset) -> None:
     """A derivative stays selectable while any ready job still names that file.
 
@@ -265,7 +292,7 @@ async def assert_confirmed_interval(db, business_id, asset) -> None:
         fail("cover_interval_required", 409)
 
 
-async def bind_media_plan(db, business_id, title, summary, steps, media_choices=None, cover_asset_id=None, *, cover_kind=None):
+async def bind_media_plan(db, business_id, title, summary, steps, media_choices=None, cover_asset_id=None, *, cover_kind=None, automatic_cover_choice=None, public_video_only=False):
     if media_choices is not None and len(media_choices) != len(steps):
         fail("asset_choice_rejected", 422)
     version_ids = [source for step in steps for source in step["sources"]]
@@ -286,7 +313,10 @@ async def bind_media_plan(db, business_id, title, summary, steps, media_choices=
             pool = []
             for source in step["sources"]:
                 pool.extend(grouped.get(uid(source), []))
-            unique = list({asset.id: asset for asset in pool}.values())
+            unique = list({
+                asset.id: asset for asset in pool
+                if not public_video_only or studio_public_video_compatible(asset)
+            }.values())
             choice = None if media_choices is None else media_choices[index]
             blocks.append(select_step_blocks(step["question"], step["answer"], unique, choice))
             cover_assets.extend(asset for asset in unique if asset.asset_type in {"image", "video"})
@@ -307,6 +337,12 @@ async def bind_media_plan(db, business_id, title, summary, steps, media_choices=
             if cover_kind == "video":
                 await assert_confirmed_interval(db, business_id, match)
             mode = "explicit"
+        elif automatic_cover_choice is not None:
+            chosen = accept_cover_choice(automatic_cover_choice, pool)
+            if chosen:
+                match = next(asset for asset in pool if str(asset.id) == chosen)
+                await assert_ready_derivative(db, business_id, match)
+            mode = "automatic"
         else:
             # Phase 7G-4c.2/3A: optional observation-assisted ranking on the existing
             # eligible pool only. Flag default-off preserves exact select_cover.
@@ -520,14 +556,32 @@ def public_block(asset):
     return block
 
 
+def draft_preview_block(asset):
+    if asset.asset_type in {"image", "video"} and asset.locator_kind == "storage":
+        return {"type": BLOCK_TYPES[asset.asset_type], "assetId": str(asset.id),
+                "title": asset.title, "authenticated": True}
+    if asset.asset_type == "image" and asset.locator_kind == "https":
+        try:
+            href = validate_https_url(asset.locator)
+        except (HTTPException, ValueError):
+            return None
+        return {"type": "image", "assetId": str(asset.id), "title": asset.title, "externalImageUrl": href}
+    if asset.asset_type in {"place", "link", "video"}:
+        return public_block(asset)
+    return None
+
+
 async def draft_preview_media(db, business_id, steps, plan):
     """Project saved choices against each step's currently eligible assets."""
-    saved = (plan or {}).get("blocks") or []
-    if not any(saved):
-        return [[] for _ in steps]
+    plan = plan or {}
+    saved = plan.get("blocks") or []
+    cover_id = plan.get("coverAssetId")
+    if not cover_id and not any(saved):
+        return None, [[] for _ in steps]
     grouped = await eligible_for_versions(
         db, business_id, {source for step in steps for source in step["sources"]}
     )
+    cover = None
     result = []
     for index, step in enumerate(steps):
         pool = {
@@ -535,26 +589,20 @@ async def draft_preview_media(db, business_id, steps, plan):
             for source in step["sources"]
             for asset in grouped.get(uid(source), [])
         }
+        cover_asset = pool.get(cover_id)
+        if cover is None and cover_asset is not None and cover_asset.asset_type in {"image", "video"}:
+            cover = draft_preview_block(cover_asset)
         shown = []
         choices = (saved[index] or []) if index < len(saved) else []
         for choice in choices:
             asset = pool.get(choice.get("assetId"))
             if asset is None or BLOCK_TYPES.get(asset.asset_type) != choice.get("type"):
                 continue
-            if asset.asset_type in {"image", "video"} and asset.locator_kind == "storage":
-                shown.append({"type": choice["type"], "assetId": str(asset.id), "title": asset.title, "authenticated": True})
-            elif asset.asset_type == "image" and asset.locator_kind == "https":
-                try:
-                    href = validate_https_url(asset.locator)
-                except (HTTPException, ValueError):
-                    continue
-                shown.append({"type": "image", "assetId": str(asset.id), "title": asset.title, "externalImageUrl": href})
-            elif asset.asset_type in {"place", "link", "video"}:
-                block = public_block(asset)
-                if block is not None:
-                    shown.append(block)
+            block = draft_preview_block(asset)
+            if block is not None:
+                shown.append(block)
         result.append(shown)
-    return result
+    return cover, result
 
 
 async def live_public_asset(db, business_id, asset_id):

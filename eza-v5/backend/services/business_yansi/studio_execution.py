@@ -24,6 +24,7 @@ _REPAIR_INSTRUCTIONS = {
     'invalid_envelope': 'Return either insufficientSources=false with a result or insufficientSources=true with result=null.',
     'studio_invalid_passage': 'Use only allowed passage IDs from the supplied catalog and schema.',
     'studio_topic_mismatch': 'Use the exact title and summary passage IDs fixed by the selected topic.',
+    'studio_invalid_media_choice': 'Choose only eligible catalog assets linked to the selected passage source; omit unrelated media.',
     'studio_question_too_short': 'Use at least three words in each question.',
     'studio_repeated_answer': 'Use eight distinct answer passages, with different text for each step.',
     'studio_duplicate_question': 'Write eight distinct questions; punctuation or casing alone is not a difference.',
@@ -49,7 +50,7 @@ class InvalidOutput(ValueError):
     pass
 
 
-def parse_output(result, finish, job, passages, topic):
+def parse_output(result, finish, job, passages, topic, media):
     if finish != 'stop':
         raise InvalidOutput('truncated_output' if finish == 'length' else 'unexpected_finish')
     try:
@@ -61,7 +62,7 @@ def parse_output(result, finish, job, passages, topic):
         return None
     if job.kind == 'topics':
         return generation.validate_topics(value, passages)
-    return generation.validate_draft(value, passages, topic, job)
+    return generation.validate_draft(value, passages, topic, job, media)
 
 
 def enabled():
@@ -143,13 +144,27 @@ async def prepare(db, job, limits):
         await studio.revalidate(db, job)
         passages = generation.catalog(job.source_snapshot)
         topic = await selected_topic(db, job)
+        media = {}
+        if topic is not None:
+            from .studio_media import studio_media_catalog
+
+            media = await studio_media_catalog(
+                db, job.business_id,
+                {passages[key]['versionId'] for key in topic['answerPassageIds']},
+            )
         rates = configuration(job.model)
-        text = generation.prompt(job.kind, passages, job.request_payload.get('topicHint', ''), topic)
-        schema = generation.output_schema(job.kind, passages, topic)
+        text = generation.prompt(job.kind, passages, job.request_payload.get('topicHint', ''), topic, media)
+        schema = generation.output_schema(job.kind, passages, topic, media)
         # One attempt must fit the existing job caps. The repair attempt is gated later.
         reserve_in = input_token_count(job.model, text, schema)
         reserve_out = job.reserved_output_tokens // job.max_attempts
         reserve_cost = cost(reserve_in, reserve_out, rates)
+        if media and (reserve_in > job.reserved_input_tokens or reserve_cost > job.cost_limit_usd):
+            media = {}
+            text = generation.prompt(job.kind, passages, job.request_payload.get('topicHint', ''), topic)
+            schema = generation.output_schema(job.kind, passages, topic)
+            reserve_in = input_token_count(job.model, text, schema)
+            reserve_cost = cost(reserve_in, reserve_out, rates)
         if reserve_in > job.reserved_input_tokens or reserve_out > job.reserved_output_tokens or reserve_cost > job.cost_limit_usd:
             business.fail('studio_attempt_budget_exceeded', 429)
     except HTTPException as error:
@@ -174,7 +189,7 @@ async def prepare(db, job, limits):
         .values(status='running', attempts=1).execution_options(synchronize_session=False))
     job = await db.scalar(select(Job).where(Job.id == job.id).execution_options(populate_existing=True))
     db.expunge(job); await db.commit()
-    return job, (text, passages, topic) if claim.rowcount == 1 else None
+    return job, (text, passages, topic, media, schema) if claim.rowcount == 1 else None
 
 
 def usage(result, execution, job):
@@ -238,7 +253,9 @@ async def settle(db, snapshot, result, parsed, error, *, retry_input_tokens=None
         # Preserve existing draft validation; defer its commit for atomic provenance.
         try:
             async with db.begin_nested():
-                draft = await business.create_draft(db, job.business_id, job.actor_id, **draft_data, commit=False)
+                draft = await business.create_draft(
+                    db, job.business_id, job.actor_id, **draft_data, commit=False, public_video_only=True,
+                )
                 # Include metadata-only/selected sources so existing owner approval
                 # also fails closed after their revocation. No publishing-path change.
                 draft.knowledge_snapshot = sorted(s['versionId'] for s in job.source_snapshot['sources'])
@@ -296,8 +313,7 @@ async def execute(db, job, *, router=None, limits=studio.Limits()):
     job, work = await prepare(db, job, limits)
     if work is None:
         return job
-    text, passages, topic = work
-    schema = generation.output_schema(job.kind, passages, topic)
+    text, passages, topic, media, schema = work
     router = router or ModelRouter()
     # Router has a legacy fixed model list. Permit the explicitly configured OpenAI
     # model only when its existing provider credential is available; no fallback.
@@ -318,7 +334,7 @@ async def execute(db, job, *, router=None, limits=studio.Limits()):
                 error = 'studio_provider_failed'
             else:
                 finish = finish_classification(result)
-                parsed = parse_output(result, finish, job, passages, topic)
+                parsed = parse_output(result, finish, job, passages, topic, media)
                 if parsed is None:
                     error = 'studio_insufficient_sources'
         except asyncio.CancelledError:

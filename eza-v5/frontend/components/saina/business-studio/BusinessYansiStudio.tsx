@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import type { BrandAsset, Knowledge, Step, Draft } from '@/lib/eza/businessYansi';
+import type { BrandAsset, Knowledge, Step, Draft, DraftMediaBlock } from '@/lib/eza/businessYansi';
 import { businessRequest as api, revisionCoverPayload } from '@/lib/eza/businessYansi';
 import {
   classifyStudioAvailability,
@@ -31,6 +31,10 @@ type SavedMediaPreview = {
   steps: Step[];
   blocks: DraftPreviewBlock[][];
   hasAssignments: boolean;
+  cover?: DraftPreviewBlock | null;
+  assignments?: DraftMediaBlock[][];
+  title?: string;
+  summary?: string;
 };
 
 type Props = {
@@ -96,6 +100,7 @@ export default function BusinessYansiStudio({
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
 
   const [draftJob, setDraftJob] = useState<StudioGeneration | null>(null);
+  const [stepMediaEdits, setStepMediaEdits] = useState<Record<number, { key: string; sources: string; blocks: DraftMediaBlock[] }>>({});
   const [savedDraft, setSavedDraft] = useState<Draft | null>(null);
   const [savedPreview, setSavedPreview] = useState<{
     key: string;
@@ -201,6 +206,7 @@ export default function BusinessYansiStudio({
     setTopicsJob(null);
     setSelectedTopicId(null);
     setDraftResult(null);
+    setStepMediaEdits({});
     setSavedDraft(null);
     setDraftJob(null);
     setEditingStep(null);
@@ -284,6 +290,7 @@ export default function BusinessYansiStudio({
       setTopics(parsed);
       setSelectedTopicId(null);
       setDraftResult(null);
+      setStepMediaEdits({});
       setSavedDraft(null);
       setDraftJob(null);
       draftKeyRef.current = null;
@@ -402,27 +409,37 @@ export default function BusinessYansiStudio({
     }
   };
 
+  const previewId = savedDraft?.id || editDraft?.id || draftJob?.draftId;
+  const previewRevision = savedDraft?.revision ?? editDraft?.revision ?? 1;
+  const previewKey = JSON.stringify([businessId, previewId, previewRevision]);
+
   const saveDraft = async (event?: FormEvent) => {
     event?.preventDefault();
     if (!canEdit || busy) return;
-    const heldExplicit =
-      Boolean(editDraft) && !coverTouched && Boolean(coverAssetId) && coverAssetId === coverChoiceFromDraft(editDraft);
-    const heldLegacy = Boolean(editDraft) && !coverTouched && !coverChoiceFromDraft(editDraft);
-    if (!heldExplicit && !heldLegacy && (!coverAssetId || !coverKind)) {
+    if ((!previewId || coverTouched) && (!coverAssetId || !coverKind)) {
       setError('Kapağı onaylamadan bu adım tamamlanamaz.');
       return;
     }
     setBusy(true);
     setError('');
     try {
-      const saved = await api<Draft>(`${base}/drafts${editDraft ? '/' + editDraft.id : ''}`, editDraft ? 'PATCH' : 'POST', {
+      const mediaChoices = steps.map((step, index) => {
+        const edit = stepMediaEdits[index];
+        return edit?.key === previewKey && edit.sources === JSON.stringify(step.sources) ? edit.blocks : null;
+      });
+      const saved = await api<Draft>(`${base}/drafts${previewId ? '/' + previewId : ''}`, previewId ? 'PATCH' : 'POST', {
         title,
         summary,
         steps,
-        ...(heldExplicit || heldLegacy ? {} : revisionCoverPayload(coverAssetId, true, coverKind)),
-        ...(editDraft ? { revision: editDraft.revision } : {}),
+        ...(!previewId || coverTouched ? revisionCoverPayload(coverAssetId, true, coverKind) : {}),
+        ...(previewId ? { revision: previewRevision } : {}),
+        ...(previewId || mediaChoices.some((choice) => choice !== null) ? { mediaChoices } : {}),
       });
-      if (saved?.id) setSavedDraft(saved);
+      if (saved?.id) {
+        setSavedDraft(saved);
+        setStepMediaEdits({});
+        setCoverTouched(false);
+      }
       onClearEdit?.();
       await onDraftSaved();
       setPhase('preview');
@@ -435,9 +452,6 @@ export default function BusinessYansiStudio({
     }
   };
 
-  const previewId = savedDraft?.id || editDraft?.id || draftJob?.draftId;
-  const previewRevision = savedDraft?.revision ?? editDraft?.revision ?? 1;
-  const previewKey = JSON.stringify([businessId, previewId, previewRevision]);
   useEffect(() => {
     if (!previewId) return;
     let active = true;
@@ -458,6 +472,50 @@ export default function BusinessYansiStudio({
       && step.sources.length === saved.sources.length
       && step.sources.every((source, sourceIndex) => source === saved.sources[sourceIndex]);
   });
+
+  const assignmentsReady = !previewId || (
+    Array.isArray(preview?.assignments) &&
+    (preview.assignments.length === 0 || (preview.assignments.length === 8 && preview.assignments.every(Array.isArray)))
+  );
+  const activeStep = editingStep === null ? undefined : steps[editingStep];
+  const activeSources = JSON.stringify(activeStep?.sources);
+  const activeEdit = editingStep === null ? undefined : stepMediaEdits[editingStep];
+  const activeAssignments = editingStep === null ? [] : activeEdit?.key === previewKey && activeEdit.sources === activeSources
+    ? activeEdit.blocks
+    : JSON.stringify(preview?.steps[editingStep]?.sources) === activeSources
+      ? preview?.assignments?.[editingStep] ?? []
+      : [];
+  const stepCandidates = activeStep ? assets.filter((asset) =>
+    asset.public_allowed && asset.status !== 'archived' && asset.links.some((link) =>
+      link.status === 'active' && activeStep.sources.includes(link.confirmed_version_id)
+    )
+  ) : [];
+  function editStepMedia(blocks: DraftMediaBlock[]) {
+    if (!assignmentsReady || editingStep === null || !activeStep) return;
+    setStepMediaEdits((current) => ({ ...current, [editingStep]: { key: previewKey, sources: activeSources, blocks } }));
+  }
+
+  const canRequestReview = previewId && preview && matchesSavedSteps && !coverTouched
+    && !Object.values(stepMediaEdits).some((edit) => edit.key === previewKey)
+    && title === preview.title && summary === preview.summary
+    && (savedDraft?.status ?? editDraft?.status ?? 'draft') === 'draft';
+
+  async function requestReview() {
+    if (!canRequestReview || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const updated = await api<Draft>(`${base}/drafts/${previewId}/transition`, 'POST', {
+        target: 'review', revision: previewRevision,
+      });
+      setSavedDraft(updated);
+      await onDraftSaved();
+    } catch (err) {
+      setError(isBusinessApiError(err) ? err.message : 'Taslak incelemeye gönderilemedi.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const previewTurns = useMemo(() => {
     return steps.map((step, index) => {
@@ -481,8 +539,8 @@ export default function BusinessYansiStudio({
       linkVersionIds={Array.from(new Set(steps.flatMap((step) => step.sources)))}
       busy={busy}
       aiEnabled={coverAiEnabled}
-      draftId={editDraft?.id || draftJob?.draftId || ''}
-      draftRevision={editDraft?.revision || 1}
+      draftId={previewId || ''}
+      draftRevision={previewRevision}
       onKind={(next) => {
         setCoverKind(next);
       }}
@@ -765,6 +823,15 @@ export default function BusinessYansiStudio({
                     : `Kaydedilmiş taslak · Revizyon ${preview.revision}`}
                 </p>
               ) : null}
+              {preview ? (
+                <section aria-label="Kaydedilmiş kapak" data-testid="biz-studio-saved-cover">
+                  <h4>Kapak</h4>
+                  {preview.cover
+                    ? <StudioDraftMedia key={previewKey} businessId={businessId} blocks={[preview.cover]} />
+                    : <p>Kapak seçilemedi. Aşağıdan bir kapak seçebilirsiniz.</p>}
+                  {coverTouched ? <p>Yeni kapak seçimi henüz kaydedilmedi.</p> : null}
+                </section>
+              ) : null}
               <StudioChatPreview
                 brand={brand}
                 title={title}
@@ -817,6 +884,37 @@ export default function BusinessYansiStudio({
                       ))}
                     </select>
                   </label>
+                  <fieldset disabled={busy || !assignmentsReady}>
+                    <legend>Adım medyası</legend>
+                    {!assignmentsReady ? (
+                      <p role="status">
+                        {savedPreview?.key !== previewKey
+                          ? 'Adım medyası yükleniyor…'
+                          : 'Kaydedilmiş adım medyası alınamadı. Düzenlemek için taslağı yeniden açın.'}
+                      </p>
+                    ) : null}
+                    {activeAssignments.map((block) => (
+                      <div key={block.assetId}>
+                        <span>{assets.find((asset) => asset.id === block.assetId)?.title || 'Kayıtlı medya'}</span>
+                        <button type="button" onClick={() => editStepMedia(activeAssignments.filter((item) => item.assetId !== block.assetId))}>
+                          Kaldır
+                        </button>
+                      </div>
+                    ))}
+                    <label>
+                      Medya ekle veya aynı türü değiştir
+                      <select value="" onChange={(event) => {
+                        const asset = stepCandidates.find((candidate) => candidate.id === event.target.value);
+                        if (!asset) return;
+                        const type = asset.asset_type === 'place' ? 'map' : asset.asset_type;
+                        editStepMedia([...activeAssignments.filter((block) => block.type !== type), { type, assetId: asset.id }]);
+                      }}>
+                        <option value="">Kaynağa bağlı medya seç</option>
+                        {stepCandidates.map((asset) => <option key={asset.id} value={asset.id}>{asset.title}</option>)}
+                      </select>
+                    </label>
+                    {activeEdit ? <p>Medya değişiklikleri kaydedildiğinde önizlemeye yansır.</p> : null}
+                  </fieldset>
                   <div className="biz-actions">
                     <button type="button" onClick={() => setEditingStep(null)} disabled={busy}>
                       Düzenlemeyi kapat
@@ -838,6 +936,7 @@ export default function BusinessYansiStudio({
 
               {coverPicker}
               <div className="biz-actions">
+                {canRequestReview ? <button type="button" disabled={busy} onClick={() => void requestReview()}>İncelemeye gönder</button> : null}
                 <button
                   type="button"
                   className="biz-btn-primary"
@@ -845,7 +944,7 @@ export default function BusinessYansiStudio({
                   onClick={() => void saveDraft()}
                   data-testid="biz-studio-save-draft"
                 >
-                  {busy ? 'Kaydediliyor…' : editDraft ? 'Taslağı güncelle' : 'Taslağı kaydet'}
+                  {busy ? 'Kaydediliyor…' : previewId ? 'Taslağı güncelle' : 'Taslağı kaydet'}
                 </button>
                 {editDraft ? (
                   <button type="button" disabled={busy} onClick={() => onClearEdit?.()}>
@@ -927,7 +1026,7 @@ export default function BusinessYansiStudio({
               {coverPicker}
               <div className="biz-actions">
                 <button type="submit" className="biz-btn-primary" disabled={busy} data-testid="biz-studio-save-draft">
-                  {busy ? 'Kaydediliyor…' : editDraft ? 'Taslağı güncelle' : 'Taslağı kaydet'}
+                  {busy ? 'Kaydediliyor…' : previewId ? 'Taslağı güncelle' : 'Taslağı kaydet'}
                 </button>
                 {editDraft ? (
                   <button type="button" disabled={busy} onClick={() => onClearEdit?.()}>

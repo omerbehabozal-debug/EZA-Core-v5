@@ -546,7 +546,7 @@ def _assert_supported_steps(steps, allowed):
         # Phase 1 accepts only source-exact answers; no unsupported brand claims.
         if not any(step['answer'] in allowed[v].content for v in step['sources']): fail('answer_not_supported_by_source',422)
 
-async def create_draft(db,business_id,user_id,title,summary,steps,*,commit=True,media_choices=None,cover_asset_id=None,cover_kind=None):
+async def create_draft(db,business_id,user_id,title,summary,steps,*,commit=True,media_choices=None,cover_asset_id=None,cover_kind=None,automatic_cover_choice=None,public_video_only=False):
     await access(db,business_id,user_id,'editor')
     public_content(title,summary,*(s['question'] for s in steps),*(s['answer'] for s in steps))
     if len(steps)!=8: fail('eight_steps_required',422)
@@ -558,7 +558,7 @@ async def create_draft(db,business_id,user_id,title,summary,steps,*,commit=True,
         await require_locked_access(db, business_id, user_id, 'editor')
         allowed={str(row.id):row for row in await published_knowledge(db,business_id,fresh=True)}
         _assert_supported_steps(steps, allowed)
-        plan=await bind_media_plan(db,business_id,title,summary,steps,media_choices,cover_asset_id,cover_kind=cover_kind)
+        plan=await bind_media_plan(db,business_id,title,summary,steps,media_choices,cover_asset_id,cover_kind=cover_kind,automatic_cover_choice=automatic_cover_choice,public_video_only=public_video_only)
         snapshot=sorted({v for step in steps for v in step['sources']})
         row=Draft(business_id=uid(business_id),created_by=uid(user_id),title=title,summary=summary,steps=steps,knowledge_snapshot=snapshot,media_plan=plan,source_hash=source_hash(steps),status='draft',revision=1)
         db.add(row)
@@ -728,7 +728,7 @@ async def transition_draft(db,business_id,user_id,draft_id,target,revision):
             _restore_parked_draft_best_effort(row, parked, primary=primary)
         return row
 
-async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,steps,cover_asset_id=None,*,cover_specified=True,cover_kind=None,cover_kind_specified=False):
+async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,steps,cover_asset_id=None,*,cover_specified=True,cover_kind=None,cover_kind_specified=False,media_choices=None):
     await access(db,business_id,user_id,'editor')
     public_content(title,summary,*(s['question'] for s in steps),*(s['answer'] for s in steps))
     if len(steps)!=8: fail('eight_steps_required',422)
@@ -748,6 +748,12 @@ async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,st
             assert_draft_writer_identity(snap, row, business_id, draft_id)
         allowed={str(v.id):v for v in await published_knowledge(db,business_id,fresh=True)}
         _assert_supported_steps(steps, allowed)
+        # Older generation snapshots also pin metadata-only sources. This API
+        # has no re-attribution proof, so a revision can only add dependencies.
+        existing_sources = set(snap.knowledge_snapshot or [])
+        if not existing_sources.issubset(allowed):
+            fail("source_snapshot_unavailable", 409)
+        dependencies = existing_sources | {source for step in steps for source in step["sources"]}
         existing_kind = None
         if isinstance(snap.media_plan, dict):
             raw_kind = snap.media_plan.get("coverKind")
@@ -759,9 +765,20 @@ async def revise_draft(db,business_id,user_id,draft_id,revision,title,summary,st
         # Video and image are the only explicit transitions.
         if not (cover_kind_specified and cover_kind in {"video", "image"}) and existing_kind is not None:
             cover_kind = existing_kind
+        if media_choices is not None and len(media_choices) == len(steps):
+            previous = (snap.media_plan or {}).get("blocks") or []
+            media_choices = [
+                previous[index] if choice is None and index < len(previous)
+                and index < len(snap.steps) and step["sources"] == snap.steps[index]["sources"]
+                else choice
+                for index, (step, choice) in enumerate(zip(steps, media_choices))
+            ]
         row.title=title;row.summary=summary;row.steps=steps
-        row.media_plan=await bind_media_plan(db,business_id,title,summary,steps,cover_asset_id=cover_asset_id,cover_kind=cover_kind)
-        row.knowledge_snapshot=sorted({v for step in steps for v in step['sources']})
+        automatic_cover_choice = None
+        if media_choices is not None and not cover_specified and isinstance(snap.media_plan, dict) and snap.media_plan.get("coverMode") == "automatic":
+            automatic_cover_choice = snap.media_plan.get("coverAssetId") or ""
+        row.media_plan=await bind_media_plan(db,business_id,title,summary,steps,media_choices,cover_asset_id=cover_asset_id,cover_kind=cover_kind,automatic_cover_choice=automatic_cover_choice)
+        row.knowledge_snapshot=sorted(dependencies)
         row.source_hash=source_hash(steps)
         row.revision = snap.revision + 1
         await db.commit();await db.refresh(row);return row
