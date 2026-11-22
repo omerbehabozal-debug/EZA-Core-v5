@@ -22,6 +22,7 @@ const apiMocks = vi.hoisted(() => ({
   requestYansiV2ConversationProposal: vi.fn(),
   pollYansiV2ConversationProposal: vi.fn(),
   applyYansiV2ConversationProposal: vi.fn(),
+  uploadBrandImage: vi.fn(),
   fetchBrandAssetPreview: vi.fn().mockResolvedValue('blob:conv-preview'),
   isBusinessApiError: (error: unknown) =>
     !!error && typeof error === 'object' && (error as { name?: string }).name === 'BusinessApiError',
@@ -42,10 +43,19 @@ vi.mock('@/lib/eza/businessYansi', async () => {
     requestYansiV2ConversationProposal: apiMocks.requestYansiV2ConversationProposal,
     pollYansiV2ConversationProposal: apiMocks.pollYansiV2ConversationProposal,
     applyYansiV2ConversationProposal: apiMocks.applyYansiV2ConversationProposal,
+    uploadBrandImage: apiMocks.uploadBrandImage,
     fetchBrandAssetPreview: apiMocks.fetchBrandAssetPreview,
     isBusinessApiError: apiMocks.isBusinessApiError,
   };
 });
+
+async function openSourcePicker() {
+  const toggle = screen.getByTestId('biz-conv-bind');
+  if (toggle.getAttribute('aria-expanded') !== 'true') {
+    fireEvent.click(toggle);
+  }
+  await screen.findByTestId('biz-conv-bind-panel');
+}
 
 function image(partial: Partial<BrandAsset> = {}): BrandAsset {
   return {
@@ -137,6 +147,7 @@ describe('BusinessYansiConversationCreate', () => {
     apiMocks.requestYansiV2ConversationProposal.mockReset();
     apiMocks.pollYansiV2ConversationProposal.mockReset();
     apiMocks.applyYansiV2ConversationProposal.mockReset();
+    apiMocks.uploadBrandImage.mockReset();
     window.localStorage.clear();
   });
 
@@ -211,6 +222,7 @@ describe('BusinessYansiConversationCreate', () => {
     fireEvent.click(screen.getByTestId('biz-conv-flow-1'));
     await screen.findByTestId('biz-conv-step-select');
     fireEvent.click(screen.getByTestId('biz-conv-cover-' + ASSET));
+    await openSourcePicker();
     fireEvent.click(screen.getByTestId(`biz-conv-bind-${KV}`));
     fireEvent.click(screen.getByTestId('biz-conv-goto-manual'));
     await screen.findByTestId('biz-conv-section-chat');
@@ -353,11 +365,23 @@ describe('BusinessYansiConversationCreate', () => {
     fireEvent.click(screen.getByTestId('biz-conv-create-open'));
     await screen.findByTestId('biz-conv-step-select');
     expect(screen.queryByTestId('biz-conv-section-chat')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('biz-conv-bind-panel')).not.toBeInTheDocument();
+    await openSourcePicker();
     fireEvent.click(screen.getByTestId(`biz-conv-bind-${KV}`));
+    fireEvent.change(screen.getByTestId('biz-conv-topic-hint'), {
+      target: { value: 'Bilimsel bir olayı sade anlat' },
+    });
     fireEvent.click(screen.getByTestId('biz-conv-to-ai'));
     await screen.findByTestId('biz-conv-step-ai');
     fireEvent.click(screen.getByTestId('biz-conv-ai-generate'));
     await screen.findByTestId('biz-conv-proposal');
+    expect(apiMocks.requestYansiV2ConversationProposal).toHaveBeenCalledWith(
+      BIZ,
+      expect.objectContaining({
+        sourceVersionIds: [KV],
+        topicHint: 'Bilimsel bir olayı sade anlat',
+      }),
+    );
     expect(apiMocks.applyYansiV2ConversationProposal).not.toHaveBeenCalled();
     expect(apiMocks.createYansiV2ConversationDraft).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('biz-conv-ai-apply'));
@@ -395,6 +419,7 @@ describe('BusinessYansiConversationCreate', () => {
     );
     fireEvent.click(screen.getByTestId('biz-conv-create-open'));
     await screen.findByTestId('biz-conv-step-select');
+    await openSourcePicker();
     fireEvent.click(screen.getByTestId(`biz-conv-bind-${KV}`));
     fireEvent.click(screen.getByTestId('biz-conv-cover-' + ASSET));
     fireEvent.click(screen.getByTestId('biz-conv-to-ai'));
@@ -404,7 +429,7 @@ describe('BusinessYansiConversationCreate', () => {
     expect(apiMocks.applyYansiV2ConversationProposal).not.toHaveBeenCalled();
     fireEvent.click(screen.getByTestId('biz-conv-flow-1'));
     await screen.findByTestId('biz-conv-step-select');
-    // Selection survives AI failure (count on bind CTA; cover still pressed).
+    // Selection survives AI failure (count on bind summary; cover still pressed).
     expect(screen.getByTestId('biz-conv-bind')).toHaveTextContent('(1)');
     expect(screen.getByTestId('biz-conv-cover-' + ASSET)).toHaveAttribute('aria-pressed', 'true');
   });
@@ -546,5 +571,68 @@ describe('BusinessYansiConversationCreate', () => {
     );
     await screen.findByTestId('biz-conv-locked');
     expect(screen.queryByTestId('biz-conv-section-chat')).not.toBeInTheDocument();
+  });
+
+  it('uploads a cover via library validation and selects it', async () => {
+    const uploadedId = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+    apiMocks.uploadBrandImage.mockResolvedValue(
+      image({ id: uploadedId, title: 'Yeni Kapak', public_allowed: true, status: 'published' }),
+    );
+    const onAssetsChanged = vi.fn(async () => undefined);
+    const { rerender } = render(
+      <BusinessYansiConversationCreate
+        businessId={BIZ}
+        assets={[]}
+        knowledge={[knowledge()]}
+        role="owner"
+        canEdit
+        onAssetsChanged={onAssetsChanged}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('biz-conv-create-open'));
+    await screen.findByTestId('biz-conv-step-select');
+    expect(screen.getByTestId('biz-conv-media-empty')).toBeInTheDocument();
+    expect(screen.getByTestId('biz-conv-blocked-reason')).toBeInTheDocument();
+    const file = new File([new Uint8Array([1, 2, 3])], 'cover.png', { type: 'image/png' });
+    fireEvent.change(screen.getByTestId('biz-conv-cover-upload'), { target: { files: [file] } });
+    await waitFor(() => expect(apiMocks.uploadBrandImage).toHaveBeenCalledTimes(1));
+    expect(apiMocks.uploadBrandImage.mock.calls[0][2]).toEqual(
+      expect.objectContaining({ publicAllowed: true }),
+    );
+    await waitFor(() => expect(onAssetsChanged).toHaveBeenCalled());
+    rerender(
+      <BusinessYansiConversationCreate
+        businessId={BIZ}
+        assets={[image({ id: uploadedId, title: 'Yeni Kapak' })]}
+        knowledge={[knowledge()]}
+        role="owner"
+        canEdit
+        startOpen
+        onAssetsChanged={onAssetsChanged}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId(`biz-conv-cover-${uploadedId}`)).toHaveAttribute('aria-pressed', 'true'),
+    );
+    expect(screen.getByTestId('biz-conv-live-preview')).toBeInTheDocument();
+    expect(screen.queryByTestId('biz-conv-live-empty')).not.toBeInTheDocument();
+  });
+
+  it('keeps exit control outside the primary CTA group', async () => {
+    render(
+      <BusinessYansiConversationCreate
+        businessId={BIZ}
+        assets={[image()]}
+        knowledge={[knowledge()]}
+        role="owner"
+        canEdit
+        startOpen
+      />,
+    );
+    await screen.findByTestId('biz-conv-step-select');
+    expect(screen.getByTestId('biz-conv-exit')).toBeInTheDocument();
+    expect(screen.getByText("Yansı'nı Nasıl Hayal Ediyorsun?")).toBeInTheDocument();
+    expect(screen.getByTestId('biz-conv-direction-examples').querySelectorAll('button').length).toBeGreaterThan(3);
+    expect(screen.queryByRole('button', { name: 'Kapat' })).not.toBeInTheDocument();
   });
 });

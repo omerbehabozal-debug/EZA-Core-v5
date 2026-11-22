@@ -734,6 +734,7 @@ export default function SainaBusinessManager() {
                   key={t}
                   type="button"
                   className="biz-nav-btn"
+                  data-testid={`biz-nav-${t.toLocaleLowerCase('tr').replace(/\s+/g, '-')}`}
                   aria-current={t === tab ? 'page' : undefined}
                   onClick={() => goToTab(t)}
                   disabled={!business && brandLoading}
@@ -801,6 +802,7 @@ export default function SainaBusinessManager() {
                 sectionLoading.knowledge && !loadedSections.knowledge ? (
                   <SectionLoading label="Bilgi Havuzu yükleniyor…" />
                 ) : (
+                <>
                 <BusinessKnowledgePool
                   knowledge={knowledge}
                   canEdit={editor}
@@ -826,6 +828,44 @@ export default function SainaBusinessManager() {
                     });
                   }}
                 />
+                  {editor && (
+                    <div className="biz-engine-panel" data-testid="biz-engine-panel">
+                      <button
+                        type="button"
+                        className="biz-engine-toggle"
+                        aria-expanded={engineOpen}
+                        data-testid="biz-engine-toggle"
+                        onClick={() => setEngineOpen((open) => !open)}
+                      >
+                        <span>Bilgi motorunu test et</span>
+                        <span className="biz-engine-toggle-hint" aria-hidden>
+                          {engineOpen ? '−' : '+'}
+                        </span>
+                      </button>
+                      {engineOpen ? (
+                        <form
+                          className="biz-form biz-engine-form"
+                          data-testid="biz-engine-form"
+                          onSubmit={submit(async (data) => {
+                            const result = await api<{ assistant_answer: string; business_media?: unknown }>(`${base}/preview-answer`, 'POST', {
+                              question: data.question,
+                            });
+                            setAnswer(result.assistant_answer);
+                            setPreviewMedia(parseBusinessMediaBlocks(result.business_media));
+                          })}
+                        >
+                          <p className="biz-section-lead" style={{ marginBottom: 0 }}>
+                            Bu önizleme ziyaretçi mesaj hakkını harcamaz. Yansı oluşturma akışından bağımsızdır.
+                          </p>
+                          <input name="question" placeholder="Sorun" required />
+                          <button type="submit">Cevabı önizle</button>
+                          {answer && <p className="biz-copy">{answer}</p>}
+                          {previewMedia.length ? <BusinessMediaBlocks blocks={previewMedia} layout="desktop" /> : null}
+                        </form>
+                      ) : null}
+                    </div>
+                  )}
+                </>
                 )
               )}
 
@@ -881,6 +921,9 @@ export default function SainaBusinessManager() {
                     onKnowledgeChanged={async () => {
                       if (selected) await loadSection(selected, 'knowledge', { force: true });
                     }}
+                    onAssetsChanged={async () => {
+                      if (selected) await loadSection(selected, 'assets', { force: true });
+                    }}
                     onPublished={() => {
                       setNotice('Yansı yayımlandı. Keşfet ve Deneyimle üzerinden açabilirsiniz.');
                       if (selected) void load(selected);
@@ -890,44 +933,6 @@ export default function SainaBusinessManager() {
                       if (selected) void load(selected);
                     }}
                   />
-
-                  {editor && (
-                    <div className="biz-engine-panel" data-testid="biz-engine-panel">
-                      <button
-                        type="button"
-                        className="biz-engine-toggle"
-                        aria-expanded={engineOpen}
-                        data-testid="biz-engine-toggle"
-                        onClick={() => setEngineOpen((open) => !open)}
-                      >
-                        <span>Bilgi motorunu test et</span>
-                        <span className="biz-engine-toggle-hint" aria-hidden>
-                          {engineOpen ? '−' : '+'}
-                        </span>
-                      </button>
-                      {engineOpen ? (
-                        <form
-                          className="biz-form biz-engine-form"
-                          data-testid="biz-engine-form"
-                          onSubmit={submit(async (data) => {
-                            const result = await api<{ assistant_answer: string; business_media?: unknown }>(`${base}/preview-answer`, 'POST', {
-                              question: data.question,
-                            });
-                            setAnswer(result.assistant_answer);
-                            setPreviewMedia(parseBusinessMediaBlocks(result.business_media));
-                          })}
-                        >
-                          <p className="biz-section-lead" style={{ marginBottom: 0 }}>
-                            Bu önizleme ziyaretçi mesaj hakkını harcamaz. Yansı oluşturma akışından bağımsızdır.
-                          </p>
-                          <input name="question" placeholder="Sorun" required />
-                          <button type="submit">Cevabı önizle</button>
-                          {answer && <p className="biz-copy">{answer}</p>}
-                          {previewMedia.length ? <BusinessMediaBlocks blocks={previewMedia} layout="desktop" /> : null}
-                        </form>
-                      ) : null}
-                    </div>
-                  )}
                 </section>
               )
               )}

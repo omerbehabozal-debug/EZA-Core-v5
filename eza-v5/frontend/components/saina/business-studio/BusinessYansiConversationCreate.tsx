@@ -9,6 +9,7 @@ import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'rea
 import {
   type BrandAsset,
   type Knowledge,
+  BRAND_LIBRARY_IMAGE_MAX_BYTES,
   applyYansiV2ConversationProposal,
   createYansiV2ConversationDraft,
   fetchBrandAssetPreview,
@@ -22,6 +23,7 @@ import {
   requestYansiV2ConversationProposal,
   reviseYansiV2ConversationDraft,
   transitionYansiV2ConversationDraft,
+  uploadBrandImage,
   yansiV2PublicHref,
   type YansiV2ConversationDraftDto,
   type YansiV2ConversationProposalDto,
@@ -100,7 +102,22 @@ type Props = {
     publicAllowed: boolean;
   }) => Promise<void>;
   onKnowledgeChanged?: () => Promise<void> | void;
+  /** Refresh asset list after in-flow library upload (same validation path as İçerik Kütüphanesi). */
+  onAssetsChanged?: () => Promise<void> | void;
 };
+
+const DIRECTION_EXAMPLES = [
+  'Bilgi ve merak uyandıran bir keşif',
+  'Mimari detaylarla bir yerin ruhunu anlat',
+  'Kültür ve geleneklerin hikâyesini aç',
+  'Bilimsel bir olayı sade ve net anlat',
+  'Kısa bir hikâye gibi aktar',
+  'Keşfe çağıran bir yolculuk kur',
+] as const;
+
+function isLibraryImageFile(file: File) {
+  return ['image/png', 'image/jpeg', 'image/webp', 'image/jpg'].includes(file.type);
+}
 
 function newIdempotencyKey(prefix = 'conv'): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -221,8 +238,10 @@ export default function BusinessYansiConversationCreate({
   onOpenKnowledgePool,
   onSaveKnowledge,
   onKnowledgeChanged,
+  onAssetsChanged,
 }: Props) {
   const formId = useId();
+  const uploadInputId = useId();
   const isOwner = role === 'owner';
   const isViewer = role === 'viewer';
   const images = useMemo(() => publishableImageAssets(assets), [assets]);
@@ -235,9 +254,11 @@ export default function BusinessYansiConversationCreate({
   const [result, setResult] = useState<YansiV2ConversationPublishResult | null>(null);
   const [imageResult, setImageResult] = useState<YansiV2ImagePublishResult | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [sourceQuery, setSourceQuery] = useState('');
   const [addBusy, setAddBusy] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [topicHint, setTopicHint] = useState('');
   const [proposalJob, setProposalJob] = useState<YansiV2ConversationProposalDto | null>(null);
@@ -279,6 +300,11 @@ export default function BusinessYansiConversationCreate({
 
   const isImageOnly = readySourceIds.length === 0 && Boolean(draft.coverAssetId);
   const canContinueSelect = readySourceIds.length > 0 || Boolean(draft.coverAssetId);
+  const selectBlockedReason = !canContinueSelect
+    ? !knowledge.some((row) => row.status !== 'archived') && !images.length
+      ? 'Devam edilemiyor: henüz bilgi kaynağı veya yayınlanabilir görsel yok. Yeni kayıt ekleyin ya da görsel yükleyin.'
+      : 'Devam edilemiyor: en az bir hazır bilgi kaynağı seçin veya kapak görseli ekleyin.'
+    : null;
 
   const selectedCover = useMemo(
     () => images.find((row) => row.id === draft.coverAssetId) || null,
@@ -441,7 +467,9 @@ export default function BusinessYansiConversationCreate({
     setServer(null);
     setProposalJob(null);
     setAddOpen(false);
+    setSourcesOpen(false);
     setTopicHint('');
+    setUploadBusy(false);
     setAiBusy(false);
     setAiStatusLabel(null);
     setPreviewTab('discover');
@@ -480,7 +508,43 @@ export default function BusinessYansiConversationCreate({
       setPhase('compose');
       return;
     }
-    setError('Devam etmek için bilgi kaynağı veya kapak görseli seçin.');
+    setError(
+      selectBlockedReason ||
+        'Devam edilemiyor: en az bir hazır bilgi kaynağı seçin veya kapak görseli ekleyin.',
+    );
+  }
+
+  async function handleCoverUpload(fileList: FileList | null) {
+    const file = fileList?.[0];
+    if (!file || uploadBusy || busy || aiBusy || hydrateBusy || editLocked || phase === 'busy') return;
+    if (!isLibraryImageFile(file)) {
+      setError('Yalnızca PNG, JPEG veya WebP görseller yüklenebilir.');
+      return;
+    }
+    if (file.size > BRAND_LIBRARY_IMAGE_MAX_BYTES) {
+      setError('Görsel dosyası çok büyük (en fazla 15 MB).');
+      return;
+    }
+    setUploadBusy(true);
+    setError(null);
+    try {
+      const saved = await uploadBrandImage(businessId, file, {
+        title: file.name.replace(/\.[^.]+$/, '').slice(0, 120) || 'Kapak',
+        publicAllowed: true,
+      });
+      await onAssetsChanged?.();
+      persist({ ...draft, coverAssetId: saved.id });
+    } catch (err) {
+      setError(mapErrSafe(err));
+    } finally {
+      setUploadBusy(false);
+    }
+  }
+
+  function requestClose() {
+    if (dirty && !window.confirm('Kaydedilmemiş değişiklikler silinsin mi?')) return;
+    setOpen(false);
+    resetAll(false);
   }
 
   async function withLock<T>(fn: () => Promise<T>): Promise<T | undefined> {
@@ -802,10 +866,11 @@ export default function BusinessYansiConversationCreate({
   const status = server?.status || draft.status;
   const approvalDropped =
     Boolean(draft.draftId) && status === 'draft' && (draft.revision || 0) > 1;
-  const locked = phase === 'busy' || busy || aiBusy || hydrateBusy || editLocked;
+  const locked = phase === 'busy' || busy || aiBusy || hydrateBusy || editLocked || uploadBusy;
   const liveTitle = displayPlainText(draft.title);
   const liveCuriosity = displayPlainText(draft.turns[0]?.question || '');
   const hasLiveCopy = Boolean(liveTitle || liveCuriosity);
+  const showLiveCard = Boolean(coverPreviewUrl || hasLiveCopy);
 
   return (
     <div className="biz-yansi-workspace-block biz-conv-create" data-testid="biz-conv-create">
@@ -833,6 +898,19 @@ export default function BusinessYansiConversationCreate({
 
       {open ? (
         <div className="biz-studio-panel" data-testid="biz-conv-create-panel">
+          <div className="biz-conv-panel-head">
+            <p className="biz-studio-eyebrow">İçerik stüdyosu</p>
+            {phase !== 'done' ? (
+              <button
+                type="button"
+                className="biz-conv-exit"
+                data-testid="biz-conv-exit"
+                onClick={requestClose}
+              >
+                Çık
+              </button>
+            ) : null}
+          </div>
           <nav className="biz-conv-flow-rail" aria-label="Oluşturma adımları" data-testid="biz-conv-flow-rail">
             {(
               [
@@ -901,241 +979,313 @@ export default function BusinessYansiConversationCreate({
             <div className="biz-conv-step-panel biz-conv-step-select" data-testid="biz-conv-step-select">
               <div className="biz-conv-create-layout">
                 <div className="biz-conv-create-main">
-              <section className="biz-conv-pick-card" data-testid="biz-conv-section-knowledge">
-                <h3>Bilgi kaynakları</h3>
-                <p className="biz-card-meta">
-                  Yapay zekânın kullanacağı yayımlanmış kayıtlardan bir veya daha fazla seçin.
-                </p>
-                <p className="biz-card-meta" data-testid="biz-conv-bind">
-                  Seçili kaynak
-                  {draft.linkedKnowledgeIds.length
-                    ? ` (${draft.linkedKnowledgeIds.length})`
-                    : ' (0)'}
-                </p>
-                <div className="biz-actions">
-                  <button
-                    type="button"
-                    className="biz-btn-ghost"
-                    data-testid="biz-conv-add-knowledge"
-                    onClick={() => {
-                      setAddOpen((v) => !v);
-                      writeConversationDraftStorage(businessId, draft);
-                    }}
-                  >
-                    Yeni kayıt ekle
-                  </button>
-                </div>
-                <div className="biz-photo-create-bind" data-testid="biz-conv-bind-panel">
-                    <div className="biz-actions">
-                      <input
-                        data-testid="biz-conv-bind-search"
-                        placeholder="Kaynak ara…"
-                        value={sourceQuery}
-                        onChange={(e) => setSourceQuery(e.target.value)}
-                      />
-                      <select
-                        value={sourceFilter}
-                        onChange={(e) => setSourceFilter(e.target.value as SourceFilter)}
-                        data-testid="biz-conv-bind-filter"
-                      >
-                        <option value="all">Tümü</option>
-                        <option value="ready">AI + görünür</option>
-                        <option value="private_view">AI, görüntüleme kapalı</option>
-                        <option value="unavailable">Bağlanamaz</option>
-                      </select>
-                    </div>
-                    <div className="biz-photo-create-bind-list">
-                      {bindCandidates.map((row) => {
-                        const checked = draft.linkedKnowledgeIds.includes(row.id);
-                        const disabled = !row.aiReady;
-                        return (
-                          <label key={row.id} className={checked ? 'is-selected' : undefined}>
-                            <input
-                              type="checkbox"
-                              checked={checked}
-                              disabled={disabled}
-                              data-testid={`biz-conv-bind-${row.id}`}
-                              onChange={() => {
-                                if (disabled) return;
-                                const nextIds = checked
-                                  ? draft.linkedKnowledgeIds.filter((id) => id !== row.id)
-                                  : draft.linkedKnowledgeIds.length >=
-                                      YANSI_V2_PHOTO_MAX_LINKED_KNOWLEDGE
-                                    ? draft.linkedKnowledgeIds
-                                    : [...draft.linkedKnowledgeIds, row.id];
-                                persist({ ...draft, linkedKnowledgeIds: nextIds });
-                              }}
-                            />
-                            <span>
-                              {row.title}
-                              <small> · {row.aiStatusLabel}</small>
-                            </span>
-                          </label>
-                        );
-                      })}
-                      {!bindCandidates.length ? (
-                        <p className="biz-empty">Uygun kayıt yok. Bilgi Havuzu’na kayıt ekleyin.</p>
-                      ) : null}
-                    </div>
-                </div>
-                {addOpen && onSaveKnowledge ? (
-                  <form
-                    className="biz-photo-create-add biz-form"
-                    data-testid="biz-conv-add-panel"
-                    onSubmit={submitAddKnowledge}
-                  >
-                    <label>
-                      Başlık
-                      <input name="title" required maxLength={200} />
-                    </label>
-                    <label>
-                      Kategori
-                      <input name="category" maxLength={80} />
-                    </label>
-                    <label>
-                      İçerik
-                      <textarea name="content" required rows={4} maxLength={8000} />
-                    </label>
-                    <label>
-                      Kaynak
-                      <input name="source" maxLength={200} />
-                    </label>
-                    <label>
-                      <input type="checkbox" name="publicAllowed" /> Kamuya görünür
-                    </label>
-                    <button type="submit" className="biz-btn-primary" disabled={addBusy}>
-                      {addBusy ? 'Kaydediliyor…' : 'Kaydet'}
-                    </button>
-                  </form>
-                ) : null}
-              </section>
-
-              <section className="biz-conv-pick-card" data-testid="biz-conv-section-media">
-                <h3>Görsel ve kapak</h3>
-                <p className="biz-card-meta">İsteğe bağlı kapak. Yalnızca yayınlanabilir görseller listelenir.</p>
-                {!images.length ? (
-                  <p className="biz-empty">
-                    Yayımlanabilir görsel yok — kapaksız devam edebilirsiniz.
-                  </p>
-                ) : (
-                  <div className="biz-photo-create-grid" role="listbox" aria-label="Kapak görseli">
+                  <section className="biz-conv-pick-card" data-testid="biz-conv-section-knowledge">
+                    <h3>Bilgilerini Seç</h3>
+                    <p className="biz-card-meta">
+                      Yapay zekânın kullanacağı kayıtları kompakt seçicide toplayın.
+                    </p>
                     <button
                       type="button"
-                      className={`biz-photo-create-thumb${!draft.coverAssetId ? ' is-selected' : ''}`}
-                      data-testid="biz-conv-cover-none"
-                      aria-pressed={!draft.coverAssetId}
-                      onClick={() => persist({ ...draft, coverAssetId: '' })}
+                      className={`biz-conv-source-summary${sourcesOpen ? ' is-open' : ''}`}
+                      data-testid="biz-conv-bind"
+                      aria-expanded={sourcesOpen}
+                      onClick={() => setSourcesOpen((v) => !v)}
                     >
-                      <span className="biz-photo-create-thumb-fallback">—</span>
-                      <span className="biz-photo-create-thumb-label">Kapaksız</span>
+                      <span className="biz-conv-source-summary__count">
+                        Seçili kaynak ({draft.linkedKnowledgeIds.length})
+                      </span>
+                      <span className="biz-conv-source-summary__action">
+                        {sourcesOpen ? 'Kapat' : 'Kaynak seç'}
+                      </span>
                     </button>
-                    {images.map((asset) => (
-                      <CoverThumb
-                        key={asset.id}
-                        businessId={businessId}
-                        assetId={asset.id}
-                        title={asset.title}
-                        selected={draft.coverAssetId === asset.id}
-                        onSelect={() => persist({ ...draft, coverAssetId: asset.id })}
+                    {selectedKnowledge.length ? (
+                      <ul className="biz-conv-source-chips" data-testid="biz-conv-source-chips">
+                        {selectedKnowledge.map((row) => (
+                          <li key={row.id}>{displayPlainText(row.title)}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="biz-card-meta">Henüz kaynak seçilmedi.</p>
+                    )}
+                    {sourcesOpen ? (
+                      <div className="biz-photo-create-bind biz-conv-source-picker" data-testid="biz-conv-bind-panel">
+                        <div className="biz-actions">
+                          <input
+                            data-testid="biz-conv-bind-search"
+                            placeholder="Kaynak ara…"
+                            value={sourceQuery}
+                            onChange={(e) => setSourceQuery(e.target.value)}
+                          />
+                          <select
+                            value={sourceFilter}
+                            onChange={(e) => setSourceFilter(e.target.value as SourceFilter)}
+                            data-testid="biz-conv-bind-filter"
+                          >
+                            <option value="all">Tümü</option>
+                            <option value="ready">AI + görünür</option>
+                            <option value="private_view">AI, görüntüleme kapalı</option>
+                            <option value="unavailable">Bağlanamaz</option>
+                          </select>
+                        </div>
+                        <div className="biz-photo-create-bind-list">
+                          {bindCandidates.map((row) => {
+                            const checked = draft.linkedKnowledgeIds.includes(row.id);
+                            const disabled = !row.aiReady;
+                            return (
+                              <label key={row.id} className={checked ? 'is-selected' : undefined}>
+                                <input
+                                  type="checkbox"
+                                  checked={checked}
+                                  disabled={disabled}
+                                  data-testid={`biz-conv-bind-${row.id}`}
+                                  onChange={() => {
+                                    if (disabled) return;
+                                    const nextIds = checked
+                                      ? draft.linkedKnowledgeIds.filter((id) => id !== row.id)
+                                      : draft.linkedKnowledgeIds.length >=
+                                          YANSI_V2_PHOTO_MAX_LINKED_KNOWLEDGE
+                                        ? draft.linkedKnowledgeIds
+                                        : [...draft.linkedKnowledgeIds, row.id];
+                                    persist({ ...draft, linkedKnowledgeIds: nextIds });
+                                  }}
+                                />
+                                <span>
+                                  {row.title}
+                                  <small> · {row.aiStatusLabel}</small>
+                                </span>
+                              </label>
+                            );
+                          })}
+                          {!bindCandidates.length ? (
+                            <p className="biz-empty">Uygun kayıt yok. Bilgi Havuzu’na kayıt ekleyin.</p>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+                    <div className="biz-actions">
+                      <button
+                        type="button"
+                        className="biz-btn-ghost"
+                        data-testid="biz-conv-add-knowledge"
+                        onClick={() => {
+                          setAddOpen((v) => !v);
+                          setSourcesOpen(true);
+                          writeConversationDraftStorage(businessId, draft);
+                        }}
+                      >
+                        Yeni kayıt ekle
+                      </button>
+                      {onOpenKnowledgePool ? (
+                        <button type="button" className="biz-btn-ghost" onClick={onOpenKnowledgePool}>
+                          Bilgi Havuzu
+                        </button>
+                      ) : null}
+                    </div>
+                    {addOpen && onSaveKnowledge ? (
+                      <form
+                        className="biz-photo-create-add biz-form"
+                        data-testid="biz-conv-add-panel"
+                        onSubmit={submitAddKnowledge}
+                      >
+                        <label>
+                          Başlık
+                          <input name="title" required maxLength={200} />
+                        </label>
+                        <label>
+                          Kategori
+                          <input name="category" maxLength={80} />
+                        </label>
+                        <label>
+                          İçerik
+                          <textarea name="content" required rows={4} maxLength={8000} />
+                        </label>
+                        <label>
+                          Kaynak
+                          <input name="source" maxLength={200} />
+                        </label>
+                        <label>
+                          <input type="checkbox" name="publicAllowed" /> Kamuya görünür
+                        </label>
+                        <button type="submit" className="biz-btn-primary" disabled={addBusy}>
+                          {addBusy ? 'Kaydediliyor…' : 'Kaydet'}
+                        </button>
+                      </form>
+                    ) : null}
+                  </section>
+
+                  <section className="biz-conv-pick-card" data-testid="biz-conv-section-media">
+                    <h3>Görsel Ekle</h3>
+                    <p className="biz-card-meta">
+                      Yayınlanabilir kapak seçin veya İçerik Kütüphanesi doğrulamasıyla yeni görsel yükleyin.
+                    </p>
+                    <div className="biz-conv-media-actions">
+                      <label className="biz-btn-ghost biz-conv-upload-label" htmlFor={uploadInputId}>
+                        {uploadBusy ? 'Yükleniyor…' : 'Görsel yükle'}
+                      </label>
+                      <input
+                        id={uploadInputId}
+                        data-testid="biz-conv-cover-upload"
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/jpg"
+                        disabled={locked}
+                        className="biz-conv-upload-input"
+                        onChange={(e) => {
+                          void handleCoverUpload(e.target.files);
+                          e.target.value = '';
+                        }}
                       />
-                    ))}
+                      {onOpenLibrary ? (
+                        <button type="button" className="biz-btn-ghost" onClick={onOpenLibrary}>
+                          Kütüphane
+                        </button>
+                      ) : null}
+                    </div>
+                    {!images.length && !draft.coverAssetId && !uploadBusy ? (
+                      <p className="biz-empty" data-testid="biz-conv-media-empty">
+                        Henüz yayınlanabilir görsel yok. Yukarıdan yükleyin; kamuya açık olarak kaydedilir.
+                      </p>
+                    ) : (
+                      <div className="biz-photo-create-grid" role="listbox" aria-label="Kapak görseli">
+                        <button
+                          type="button"
+                          className={`biz-photo-create-thumb${!draft.coverAssetId ? ' is-selected' : ''}`}
+                          data-testid="biz-conv-cover-none"
+                          aria-pressed={!draft.coverAssetId}
+                          onClick={() => persist({ ...draft, coverAssetId: '' })}
+                        >
+                          <span className="biz-photo-create-thumb-fallback">—</span>
+                          <span className="biz-photo-create-thumb-label">Kapaksız</span>
+                        </button>
+                        {images.map((asset) => (
+                          <CoverThumb
+                            key={asset.id}
+                            businessId={businessId}
+                            assetId={asset.id}
+                            title={asset.title}
+                            selected={draft.coverAssetId === asset.id}
+                            onSelect={() => persist({ ...draft, coverAssetId: asset.id })}
+                          />
+                        ))}
+                        {draft.coverAssetId &&
+                        !images.some((asset) => asset.id === draft.coverAssetId) ? (
+                          <CoverThumb
+                            key={draft.coverAssetId}
+                            businessId={businessId}
+                            assetId={draft.coverAssetId}
+                            title="Yüklenen görsel"
+                            selected
+                            onSelect={() => persist({ ...draft, coverAssetId: draft.coverAssetId })}
+                          />
+                        ) : null}
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="biz-conv-pick-card" data-testid="biz-conv-section-intent">
+                    <h3>Yansı&apos;nı Nasıl Hayal Ediyorsun?</h3>
+                    <p className="biz-card-meta">
+                      İsteğe bağlı. Yazılan yön, AI öneri isteğine gerçekten aktarılır.
+                    </p>
+                    <label>
+                      Yönlendirme
+                      <textarea
+                        data-testid="biz-conv-topic-hint"
+                        value={topicHint}
+                        maxLength={500}
+                        rows={3}
+                        placeholder="Örn. kültür ve bilim arasında bir keşif anlat"
+                        onChange={(e) => setTopicHint(e.target.value)}
+                      />
+                    </label>
+                    <div className="biz-conv-direction-examples" data-testid="biz-conv-direction-examples">
+                      {DIRECTION_EXAMPLES.map((example) => (
+                        <button
+                          key={example}
+                          type="button"
+                          className="biz-conv-direction-chip"
+                          onClick={() => setTopicHint(example)}
+                        >
+                          {example}
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+
+                  {error ? (
+                    <p className="biz-error" role="alert" data-testid="biz-conv-error">
+                      {error}
+                    </p>
+                  ) : null}
+
+                  <div className="biz-conv-footer-actions">
+                    <button
+                      type="button"
+                      className="biz-btn-primary"
+                      data-testid="biz-conv-to-ai"
+                      disabled={!canContinueSelect}
+                      onClick={continueFromSelect}
+                    >
+                      {readySourceIds.length
+                        ? 'Devam · AI ile oluştur'
+                        : draft.coverAssetId
+                          ? 'Devam · İncele ve yayınla'
+                          : 'Devam'}
+                    </button>
+                    <button
+                      type="button"
+                      className="biz-btn-ghost biz-conv-secondary-action"
+                      data-testid="biz-conv-goto-manual"
+                      onClick={goToManualEdit}
+                    >
+                      Elle yaz
+                    </button>
                   </div>
-                )}
-              </section>
-
-              <section className="biz-conv-pick-card" data-testid="biz-conv-section-intent">
-                <h3>Ne anlatmak istiyorsun?</h3>
-                <p className="biz-card-meta">İsteğe bağlı. Yapay zekâya kısa yön verir.</p>
-                <label>
-                  Kısa yönlendirme
-                  <input
-                    data-testid="biz-conv-topic-hint"
-                    value={topicHint}
-                    maxLength={500}
-                    placeholder="Örn. ürün bakımı, açılış saatleri"
-                    onChange={(e) => setTopicHint(e.target.value)}
-                  />
-                </label>
-              </section>
-
-              {error ? (
-                <p className="biz-error" role="alert" data-testid="biz-conv-error">
-                  {error}
-                </p>
-              ) : null}
-
-              <div className="biz-actions biz-conv-primary-actions">
-                <button
-                  type="button"
-                  className="biz-btn-primary"
-                  data-testid="biz-conv-to-ai"
-                  disabled={!canContinueSelect}
-                  onClick={continueFromSelect}
-                >
-                  {readySourceIds.length
-                    ? 'Devam · AI ile oluştur'
-                    : draft.coverAssetId
-                      ? 'Devam · İncele ve yayınla'
-                      : 'Devam'}
-                </button>
-                <button
-                  type="button"
-                  className="biz-btn-ghost"
-                  data-testid="biz-conv-goto-manual"
-                  onClick={goToManualEdit}
-                >
-                  Elle yaz
-                </button>
-              </div>
-              {!canContinueSelect ? (
-                <p className="biz-card-meta">Devam için bilgi kaynağı veya kapak görseli seçin.</p>
-              ) : null}
-              {isImageOnly ? (
-                <p className="biz-card-meta" data-testid="biz-conv-photo-hint">
-                  Yalnızca görsel seçildi. Yapay zekâ adımı atlanır; inceleme ve yayın onayı gerekir.
-                </p>
-              ) : null}
+                  {selectBlockedReason ? (
+                    <p className="biz-notice" role="status" data-testid="biz-conv-blocked-reason">
+                      {selectBlockedReason}
+                    </p>
+                  ) : null}
+                  {isImageOnly ? (
+                    <p className="biz-card-meta" data-testid="biz-conv-photo-hint">
+                      Yalnızca görsel seçildi. Yapay zekâ adımı atlanır; inceleme ve yayın onayı gerekir.
+                    </p>
+                  ) : null}
                 </div>
 
                 <aside className="biz-conv-create-aside" data-testid="biz-conv-live-preview">
-                  <h3 className="biz-studio-panel-title">Keşfet önizlemesi</h3>
+                  <h3 className="biz-studio-panel-title">Canlı Keşfet Önizlemesi</h3>
                   <p className="biz-card-meta">
-                    Seçiminiz buraya yansır. İçerik yoksa örnek Yansı gösterilmez.
+                    Seçiminiz anında yansır. Boşken örnek içerik gösterilmez.
                   </p>
-                  {hasLiveCopy ? (
-                    <YansiProductCard
-                      title={liveTitle || 'Başlık henüz yok'}
-                      summary={liveCuriosity || 'Merak sorusu henüz yok'}
-                      sceneImageUrl={coverPreviewUrl}
-                      className="saina-discover-card--editorial"
-                      testIdPrefix="biz-conv-live-card"
-                      kicker={
-                        brandName ? (
-                          <p className="saina-discover-card__identity">{brandName}</p>
-                        ) : null
-                      }
-                      footer={
-                        <div className="saina-discover-card__actions">
-                          <button type="button" className="saina-discover-card__cta" disabled>
-                            <span className="saina-discover-card__cta-label">{SAINA_DISCOVER_OPEN_CTA}</span>
-                            <span className="saina-discover-card__cta-short" aria-hidden>
-                              {SAINA_DISCOVER_OPEN_CTA_SHORT}
-                            </span>
-                          </button>
-                        </div>
-                      }
-                    />
+                  {showLiveCard ? (
+                    <div className="biz-conv-live-device">
+                      <YansiProductCard
+                        title={liveTitle || 'Başlık henüz yok'}
+                        summary={liveCuriosity || 'Merak sorusu henüz yok'}
+                        sceneImageUrl={coverPreviewUrl}
+                        className="saina-discover-card--editorial"
+                        testIdPrefix="biz-conv-live-card"
+                        kicker={
+                          brandName ? (
+                            <p className="saina-discover-card__identity">{brandName}</p>
+                          ) : null
+                        }
+                        footer={
+                          <div className="saina-discover-card__actions">
+                            <button type="button" className="saina-discover-card__cta" disabled>
+                              <span className="saina-discover-card__cta-label">{SAINA_DISCOVER_OPEN_CTA}</span>
+                              <span className="saina-discover-card__cta-short" aria-hidden>
+                                {SAINA_DISCOVER_OPEN_CTA_SHORT}
+                              </span>
+                            </button>
+                          </div>
+                        }
+                      />
+                    </div>
                   ) : (
                     <div className="biz-conv-live-empty" data-testid="biz-conv-live-empty">
-                      {coverPreviewUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={coverPreviewUrl} alt="" className="biz-conv-live-empty-cover" />
-                      ) : (
-                        <p className="biz-empty">Kapak seçince görsel burada görünür.</p>
-                      )}
-                      <p className="biz-card-meta">
-                        Başlık veya merak sorusu oluşunca kart önizlemesi açılır.
-                      </p>
+                      <div className="biz-conv-live-empty-frame" aria-hidden />
+                      <p className="biz-empty">Kapak, başlık veya merak sorusu eklenince önizleme burada belirir.</p>
                     </div>
                   )}
                   <div className="biz-conv-live-meta" data-testid="biz-conv-live-meta">
@@ -1171,12 +1321,13 @@ export default function BusinessYansiConversationCreate({
                 içeriğe göre seçilir.
               </p>
               <label>
-                Kısa yönlendirme (isteğe bağlı)
-                <input
+                Yansı&apos;nı nasıl hayal ediyorsun? (isteğe bağlı)
+                <textarea
                   data-testid="biz-conv-topic-hint"
                   value={topicHint}
                   maxLength={500}
-                  placeholder="Örn. ürün bakımı"
+                  rows={2}
+                  placeholder="Örn. kültür ve bilim arasında bir keşif anlat"
                   onChange={(e) => setTopicHint(e.target.value)}
                 />
               </label>
@@ -1786,21 +1937,6 @@ export default function BusinessYansiConversationCreate({
             </div>
           ) : null}
 
-          {open && phase !== 'done' ? (
-            <div className="biz-actions">
-              <button
-                type="button"
-                className="biz-btn-ghost"
-                onClick={() => {
-                  if (dirty && !window.confirm('Kaydedilmemiş değişiklikler silinsin mi?')) return;
-                  setOpen(false);
-                  resetAll(false);
-                }}
-              >
-                Kapat
-              </button>
-            </div>
-          ) : null}
         </div>
       ) : null}
     </div>

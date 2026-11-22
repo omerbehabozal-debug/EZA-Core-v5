@@ -392,7 +392,9 @@ describe('Business management', () => {
     expect(screen.queryByRole('button', { name: 'Yayınlar' })).not.toBeInTheDocument();
     expect(screen.queryByTestId('biz-yansi-photo-secondary')).not.toBeInTheDocument();
     expect(screen.getByTestId('biz-conv-live-preview')).toBeInTheDocument();
-    const engineToggle = screen.getByTestId('biz-engine-toggle');
+    expect(screen.queryByTestId('biz-engine-toggle')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('biz-nav-bilgi-havuzu'));
+    const engineToggle = await screen.findByTestId('biz-engine-toggle');
     expect(engineToggle).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByTestId('biz-engine-form')).not.toBeInTheDocument();
     fireEvent.click(engineToggle);
