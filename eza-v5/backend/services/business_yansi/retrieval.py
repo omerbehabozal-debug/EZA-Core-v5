@@ -90,6 +90,22 @@ WHERE c.business_id = :business_id
   AND o.status = 'active'
   AND c.index_status = 'ready'
 """
+# Bundle-scoped V2 path: usageAllowed may include non-public knowledge. Tenant,
+# published, approved, and ready filters stay; public_allowed is not required.
+_JOINS_BUNDLE_SCOPED = """
+FROM business_knowledge_chunks c
+JOIN business_knowledge_versions k ON k.id = c.knowledge_version_id
+JOIN business_profiles p ON p.id = k.business_id
+JOIN production_organizations o ON o.id = k.business_id
+WHERE c.business_id = :business_id
+  AND k.business_id = :business_id
+  AND c.item_id = k.item_id
+  AND k.status = 'published'
+  AND k.approved_by IS NOT NULL
+  AND p.status = 'active'
+  AND o.status = 'active'
+  AND c.index_status = 'ready'
+"""
 _COLUMNS = "c.id AS chunk_id, c.business_id, c.item_id, c.knowledge_version_id, c.text, k.title"
 _FILTER = f"SELECT {_COLUMNS} {_JOINS}"
 
@@ -115,6 +131,59 @@ FULLTEXT_SQL = _FILTER + """
            c.id
   LIMIT :candidate_limit
 """
+
+
+def _normalize_version_allowlist(allowed_knowledge_version_ids):
+    """None keeps V1 business-wide search. Empty frozenset means no versions are eligible."""
+    if allowed_knowledge_version_ids is None:
+        return None
+    ids = []
+    for value in allowed_knowledge_version_ids:
+        try:
+            ids.append(_uuid(value))
+        except (TypeError, ValueError):
+            continue
+    return frozenset(ids)
+
+
+def _joins_for_allowlist(allowed_ids):
+    """Append a knowledge-version allowlist without widening V1 joins.
+
+    ``None`` keeps the public V1 join. A concrete allowlist switches to the
+    bundle-scoped join (no ``public_allowed`` requirement) and pins ``k.id``.
+    """
+    if allowed_ids is None:
+        return _JOINS, {}
+    return (
+        _JOINS_BUNDLE_SCOPED + " AND k.id IN :allowed_version_ids\n",
+        {"allowed_version_ids": list(allowed_ids)},
+    )
+
+
+def _sql_for_allowlist(allowed_ids):
+    joins, extra = _joins_for_allowlist(allowed_ids)
+    filtr = f"SELECT {_COLUMNS} {joins}"
+    vector = f"""
+SELECT chunk_id, business_id, item_id, knowledge_version_id, text, title
+FROM (
+    SELECT {_COLUMNS},
+           (c.embedding <=> CAST(:query_vector AS vector)) AS distance
+    {joins}
+      AND c.embedding IS NOT NULL
+      AND c.embedding_model = :embedding_model
+    ORDER BY c.embedding <=> CAST(:query_vector AS vector), c.id
+    LIMIT :candidate_limit
+) ranked
+WHERE ranked.distance <= :max_distance
+ORDER BY ranked.distance, ranked.chunk_id
+"""
+    fulltext = filtr + """
+  AND to_tsvector('simple', c.text) @@ plainto_tsquery('simple', :folded)
+  ORDER BY ts_rank(to_tsvector('simple', c.text), plainto_tsquery('simple', :folded)) DESC,
+           c.id
+  LIMIT :candidate_limit
+"""
+    return filtr, vector, fulltext, extra
 
 
 def fold_turkish(value):
@@ -266,7 +335,10 @@ def _row(mapping):
 
 
 async def _run(db, sql, params):
-    result = await db.execute(text(sql), params)
+    statement = text(sql)
+    if "allowed_version_ids" in (params or {}):
+        statement = statement.bindparams(bindparam("allowed_version_ids", expanding=True))
+    result = await db.execute(statement, params)
     return [_row(row) for row in result.mappings()]
 
 
@@ -300,9 +372,22 @@ def _vector_inputs(query, query_vector, query_model, client_result):
 
 
 async def search_public_knowledge(
-    db, business_id, query, *, client=None, query_vector=None, query_model=None, limit=None,
+    db,
+    business_id,
+    query,
+    *,
+    client=None,
+    query_vector=None,
+    query_model=None,
+    limit=None,
+    allowed_knowledge_version_ids=None,
 ):
-    """Search one tenant. Live answer endpoints do not call this."""
+    """Search one tenant. Live answer endpoints do not call this.
+
+    ``allowed_knowledge_version_ids`` is optional. When set (including empty),
+    every retrieval method is hard-scoped to that knowledge-version allowlist.
+    When omitted (None), V1 business-wide public search is unchanged.
+    """
     if not enabled():
         return _empty("flag_off")
     query = (query or "").strip()
@@ -313,9 +398,17 @@ async def search_public_knowledge(
     bind = db.get_bind()
     if bind is None or bind.dialect.name != "postgresql":
         return _empty("postgres_required")
+    allowlist = _normalize_version_allowlist(allowed_knowledge_version_ids)
+    if allowlist is not None and not allowlist:
+        return _empty("no_match")
     limit = result_limit(limit)
     business_id = _uuid(business_id)
-    params = {"business_id": business_id, "candidate_limit": METHOD_CANDIDATE_LIMIT}
+    filtr, vector_sql, fulltext_sql, allow_params = _sql_for_allowlist(allowlist)
+    params = {
+        "business_id": business_id,
+        "candidate_limit": METHOD_CANDIDATE_LIMIT,
+        **allow_params,
+    }
     rankings = {}
     errors = []
     notices = []
@@ -334,7 +427,7 @@ async def search_public_knowledge(
         errors.append(vector_error)
     if vector_text is not None:
         try:
-            rankings["vector"] = await _run(db, VECTOR_SQL, {
+            rankings["vector"] = await _run(db, vector_sql, {
                 **params,
                 "query_vector": vector_text,
                 "embedding_model": EMBEDDING_MODEL,
@@ -350,7 +443,7 @@ async def search_public_knowledge(
     folded = fold_turkish(query)
     if folded:
         try:
-            rankings["fulltext"] = await _run(db, FULLTEXT_SQL, {**params, "folded": folded})
+            rankings["fulltext"] = await _run(db, fulltext_sql, {**params, "folded": folded})
         except (ProgrammingError, OperationalError, DBAPIError) as exc:
             empty = await _guard(db, exc, errors)
             if empty is not None:
@@ -366,7 +459,7 @@ async def search_public_knowledge(
         try:
             rankings["lexical"] = await _run(
                 db,
-                _FILTER + f" AND {token_sql} ORDER BY c.id LIMIT :candidate_limit",
+                filtr + f" AND {token_sql} ORDER BY c.id LIMIT :candidate_limit",
                 {**params, **token_params},
             )
         except (ProgrammingError, OperationalError, DBAPIError) as exc:
@@ -388,7 +481,7 @@ async def search_public_knowledge(
         try:
             rankings["exact"] = await _run(
                 db,
-                _FILTER + f" AND ({' OR '.join(clauses)}) ORDER BY c.id LIMIT :candidate_limit",
+                filtr + f" AND ({' OR '.join(clauses)}) ORDER BY c.id LIMIT :candidate_limit",
                 {**params, **needle_params},
             )
         except (ProgrammingError, OperationalError, DBAPIError) as exc:
@@ -447,7 +540,13 @@ def sources_for_model(authorization):
     return list(authorization.get("sources") or [])
 
 
-async def authorize_retrieved_sources(db, business_id, sources):
+async def authorize_retrieved_sources(
+    db,
+    business_id,
+    sources,
+    *,
+    allowed_knowledge_version_ids=None,
+):
     """Re-read eligibility immediately before a model would see these sources.
 
     Retrieval is not an authorization decision. This issues one SELECT and
@@ -464,6 +563,9 @@ async def authorize_retrieved_sources(db, business_id, sources):
     knowledge ``source`` column does not. The chunk hash must still match the
     stored chunk text, and that text must be what would be sent. A failed
     check rejects that source. This path does not embed.
+
+    When ``allowed_knowledge_version_ids`` is set, versions outside that
+    allowlist are rejected even if they remain public for the business.
     """
     rejected = []
     if not enabled():
@@ -473,6 +575,13 @@ async def authorize_retrieved_sources(db, business_id, sources):
     bind = db.get_bind()
     if bind is None or bind.dialect.name != "postgresql":
         return {"sources": [], "rejected": [str(source.get("chunk_id")) for source in sources], "reason": "postgres_required"}
+    allowlist = _normalize_version_allowlist(allowed_knowledge_version_ids)
+    if allowlist is not None and not allowlist:
+        return {
+            "sources": [],
+            "rejected": [str(source.get("chunk_id")) for source in sources],
+            "reason": "empty",
+        }
     business_id = _uuid(business_id)
     requested = []
     for source in sources:
@@ -482,14 +591,18 @@ async def authorize_retrieved_sources(db, business_id, sources):
             rejected.append(str(source.get("chunk_id")))
     if not requested:
         return {"sources": [], "rejected": rejected, "reason": "empty"}
+    joins, allow_params = _joins_for_allowlist(allowlist)
     statement = text(
         f"SELECT {_COLUMNS}, c.content_hash, c.chunk_index, k.category AS category, "
-        f"k.content AS source_content {_JOINS} AND c.id IN :chunk_ids"
+        f"k.content AS source_content {joins} AND c.id IN :chunk_ids"
     ).bindparams(bindparam("chunk_ids", expanding=True))
+    if allowlist is not None:
+        statement = statement.bindparams(bindparam("allowed_version_ids", expanding=True))
     try:
         result = await db.execute(statement, {
             "business_id": business_id,
             "chunk_ids": [chunk_id for chunk_id, _text in requested],
+            **allow_params,
         })
     except (ProgrammingError, OperationalError, DBAPIError) as exc:
         await db.rollback()
@@ -505,6 +618,9 @@ async def authorize_retrieved_sources(db, business_id, sources):
             rejected.append(str(chunk_id))
             continue
         if row["business_id"] != business_id:
+            rejected.append(str(chunk_id))
+            continue
+        if allowlist is not None and row["knowledge_version_id"] not in allowlist:
             rejected.append(str(chunk_id))
             continue
         version_id = row["knowledge_version_id"]
@@ -531,13 +647,22 @@ async def authorize_retrieved_sources(db, business_id, sources):
     return {"sources": kept, "rejected": rejected, "reason": None}
 
 
-async def list_sibling_chunks(db, business_id, version_ids):
+async def list_sibling_chunks(
+    db,
+    business_id,
+    version_ids,
+    *,
+    allowed_knowledge_version_ids=None,
+):
     """List ready chunks of the given knowledge versions for one tenant.
 
     Uses the same publication and tenant filters as retrieval. The result is
     not authorization: the caller must pass it through
     ``authorize_retrieved_sources`` before a package can include it. This does
     not embed and does not read a version number as a priority.
+
+    When ``allowed_knowledge_version_ids`` is set, ``version_ids`` is intersected
+    with that allowlist before the sibling query runs.
     """
     if not enabled():
         return {"chunks": [], "reason": "flag_off"}
@@ -546,16 +671,21 @@ async def list_sibling_chunks(db, business_id, version_ids):
     bind = db.get_bind()
     if bind is None or bind.dialect.name != "postgresql":
         return {"chunks": [], "reason": "postgres_required"}
+    allowlist = _normalize_version_allowlist(allowed_knowledge_version_ids)
     ids = []
     for value in version_ids:
         try:
             ids.append(_uuid(value))
         except (TypeError, ValueError):
             continue
+    if allowlist is not None:
+        ids = [value for value in ids if value in allowlist]
     if not ids:
         return {"chunks": [], "reason": "empty"}
+    # Bundle allowlist uses the scoped join (no public_allowed requirement).
+    joins = _JOINS if allowlist is None else _JOINS_BUNDLE_SCOPED
     statement = text(
-        f"SELECT {_COLUMNS}, c.chunk_index {_JOINS} AND k.id IN :version_ids "
+        f"SELECT {_COLUMNS}, c.chunk_index {joins} AND k.id IN :version_ids "
         "ORDER BY c.chunk_index, c.id"
     ).bindparams(bindparam("version_ids", expanding=True))
     try:

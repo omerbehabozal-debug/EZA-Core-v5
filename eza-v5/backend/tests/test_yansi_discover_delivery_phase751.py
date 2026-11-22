@@ -44,6 +44,7 @@ BATCH = (
     "evaluate_strong_curiosity_candidates_batch"
 )
 LOAD = "backend.services.mirror_network.discover.load_discover_eligible_roots"
+MERGED = "backend.services.mirror_network.discover.load_merged_discover_eligible_nodes"
 METRICS = (
     "backend.services.mirror_network.yansi_metrics.get_yansi_public_metrics_batch"
 )
@@ -188,7 +189,7 @@ async def test_random_pages_stable_same_session_no_duplicates():
     db = _empty_execute()
     session = "session-fair-01"
     with (
-        patch(LOAD, new=AsyncMock(return_value=eligible)),
+        patch(MERGED, new=AsyncMock(return_value=eligible)),
         patch(METRICS, new=AsyncMock(return_value={})),
         patch(BATCH, new=AsyncMock(side_effect=AssertionError("gm_ranking_on_random"))),
     ):
@@ -217,7 +218,7 @@ async def test_newest_pages_chronological_no_duplicates():
     eligible = _eligible(slugs, newest=True)
     db = _empty_execute()
     with (
-        patch(LOAD, new=AsyncMock(return_value=eligible)),
+        patch(MERGED, new=AsyncMock(return_value=eligible)),
         patch(METRICS, new=AsyncMock(return_value={})),
         patch(BATCH, new=AsyncMock(side_effect=AssertionError("gm_ranking_on_newest"))),
     ):

@@ -41,6 +41,16 @@ FORBIDDEN_DISCOVER_KEYS = {
 }
 
 
+@pytest.fixture(autouse=True)
+def _empty_v2_discover_pool():
+    """V1 Discover unit fixtures — Stage 04B V2 merge covered in dedicated tests."""
+    with patch(
+        "backend.services.yansi.discover_v2.load_v2_discover_eligible_nodes",
+        new=AsyncMock(return_value=[]),
+    ):
+        yield
+
+
 def _eligible_node(
     *,
     slug: str,

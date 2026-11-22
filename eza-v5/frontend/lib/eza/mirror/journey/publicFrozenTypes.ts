@@ -26,6 +26,9 @@ export function parseBusinessPublisher(value: unknown): BusinessPublisher | unde
   const verified = row.verified === true;
   return { businessId: row.businessId, slug: row.slug, displayName: row.displayName.trim(), logoUrl: typeof row.logoUrl === 'string' ? row.logoUrl : null, verified, official: verified && row.official === true };
 }
+/** V1 sealed journey vs V2 sealed publication (Deneyimle hydrate). */
+export type PublicExperienceSourceKind = 'v1_frozen' | 'v2_publication';
+
 export type PublicFrozenJourneyArtifact = {
   businessPublisher?: BusinessPublisher;
   businessMedia?: PublicBusinessMedia;
@@ -47,6 +50,15 @@ export type PublicFrozenJourneyArtifact = {
   replayReady: boolean;
   experienceType?: YansiExperienceType;
   contentNature?: YansiContentNature;
+  /** Set by V2 mapper; V1 parser leaves undefined (treated as v1_frozen). */
+  sourceKind?: PublicExperienceSourceKind;
+  /** V2 content kind when hydrated from public V2 read. */
+  contentKind?: 'conversation' | 'image' | 'mixed' | null;
+  /**
+   * When false, Deneyimle must not offer V1 /sohbet live continue.
+   * V2 live continuation is out of scope for Stage 04C.
+   */
+  liveContinuationAvailable?: boolean;
 };
 
 function parseStep(raw: unknown): PublicFrozenJourneyStep | null {

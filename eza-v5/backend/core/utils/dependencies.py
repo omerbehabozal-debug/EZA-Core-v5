@@ -75,12 +75,20 @@ ALEMBIC_OWNED_TABLES = frozenset({
     "business_knowledge_chunks",
     "business_brand_assets",
     "business_knowledge_asset_links",
+    # Yansı V2 version history — must not be inventable via production create_all.
+    "yansi_publication_versions_v2",
+    "yansi_knowledge_bundles",
+    "yansi_knowledge_bundle_versions",
 })
 
 
 def startup_create_all_tables():
     """Tables a non-production bootstrap may ensure. Alembic-owned tables are never included."""
     import backend.models.business_brand_assets  # noqa: F401  registers metadata before the filter
+    # Register V2 bundle tables before sorted_tables resolves publication FKs.
+    # Both remain Alembic-owned and are filtered out of create_all.
+    import backend.models.yansi_knowledge_bundle  # noqa: F401
+    import backend.models.mirror_network  # noqa: F401
 
     return [table for table in Base.metadata.sorted_tables if table.name not in ALEMBIC_OWNED_TABLES]
 
@@ -115,9 +123,14 @@ async def init_db():
     )
     from backend.models.mirror_network import (
         MirrorNetworkNode,
+        YansiPublicationVersionV2,
         YansiContribution,
         YansiContributionReport,
         YansiReport,
+    )
+    from backend.models.yansi_knowledge_bundle import (  # noqa: F401
+        YansiKnowledgeBundle,
+        YansiKnowledgeBundleVersion,
     )
     from backend.models.behavioral import (
         BehavioralLog,

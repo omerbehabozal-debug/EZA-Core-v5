@@ -161,11 +161,26 @@ export async function fetchFrozenJourneyArtifact(input: {
   }
 }
 
-/** Typed public frozen read — fail closed when not replay-ready / malformed. */
-export async function fetchPublicFrozenJourneyArtifact(input: {
+/** V1-only public frozen read — fail closed when not replay-ready / malformed. */
+export async function fetchV1PublicFrozenJourneyArtifact(input: {
   slug: string;
   journeyVersion?: number | null;
 }): Promise<PublicFrozenJourneyArtifact | null> {
   const raw = await fetchFrozenJourneyArtifact(input);
   return parsePublicFrozenJourneyArtifact(raw);
+}
+
+/**
+ * Public Deneyimle hydrate (Stage 04C).
+ * V1 frozen and V2 sealed publications — see loadPublicExperienceArtifact.
+ */
+export async function fetchPublicFrozenJourneyArtifact(input: {
+  slug: string;
+  journeyVersion?: number | null;
+  contentKind?: 'conversation' | 'image' | 'mixed' | null;
+}): Promise<PublicFrozenJourneyArtifact | null> {
+  const { loadPublicExperienceArtifact } = await import(
+    '@/lib/eza/mirror/journey/loadPublicExperienceArtifact'
+  );
+  return loadPublicExperienceArtifact(input);
 }

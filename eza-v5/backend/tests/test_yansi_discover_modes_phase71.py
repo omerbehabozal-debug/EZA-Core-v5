@@ -112,6 +112,11 @@ def _ready(**metrics):
             "backend.services.mirror_network.yansi_metrics.get_yansi_public_metrics_batch",
             new=fake_batch,
         ),
+        # Stage 04B: keep V1 unit fixtures free of V2 pool side effects.
+        patch(
+            "backend.services.yansi.discover_v2.load_v2_discover_eligible_nodes",
+            new=AsyncMock(return_value=[]),
+        ),
     ):
         yield
 

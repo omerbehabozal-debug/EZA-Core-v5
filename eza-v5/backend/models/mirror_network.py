@@ -102,9 +102,74 @@ class MirrorNetworkNode(Base):
     )
     frozen_at = Column(DateTime(timezone=True), nullable=True)
 
+    # Yansı V2 — CACHE / current-version POINTER ONLY.
+    # Source of truth for publication history is yansi_publication_versions_v2
+    # (unique on node_id + publication_version). Never treat this pointer as history.
+    current_v2_publication_version = Column(Integer, nullable=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     published_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class YansiPublicationVersionV2(Base):
+    """Immutable V2 publication version row. One sealed manifest per (node, version).
+
+    This table is the authoritative publication history for Yansı V2.
+    MirrorNetworkNode.current_v2_publication_version is only a non-authoritative cache.
+    """
+
+    __tablename__ = "yansi_publication_versions_v2"
+    __table_args__ = (
+        UniqueConstraint(
+            "node_id",
+            "publication_version",
+            name="uq_yansi_publication_versions_v2_node_version",
+        ),
+        Index(
+            "ix_yansi_publication_versions_v2_node_created",
+            "node_id",
+            "created_at",
+        ),
+        CheckConstraint(
+            "response_policy IN ('open', 'grounded')",
+            name="ck_yansi_publication_versions_v2_policy",
+        ),
+        CheckConstraint(
+            "content_kind IN ('conversation', 'image', 'video', 'mixed')",
+            name="ck_yansi_publication_versions_v2_kind",
+        ),
+        CheckConstraint(
+            "publication_version >= 1",
+            name="ck_yansi_publication_versions_v2_version",
+        ),
+    )
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    node_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("mirror_network_nodes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    publication_version = Column(Integer, nullable=False)
+    contract_version = Column(String(64), nullable=False)
+    response_policy = Column(String(16), nullable=False)
+    content_kind = Column(String(16), nullable=False)
+    content_manifest = Column(JSON, nullable=False)
+    manifest_hash = Column(String(64), nullable=False)
+    contract_hash = Column(String(64), nullable=False)
+    # Contract seal string (UUID of YansiKnowledgeBundleVersion.id). Required for grounded.
+    knowledge_bundle_version_ref = Column(String(128), nullable=True)
+    # Optional FK mirror of the sealed ref — authoritative join for Stage 2A+.
+    knowledge_bundle_version_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("yansi_knowledge_bundle_versions.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
+    approval_metadata = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class MirrorJourneyStep(Base):

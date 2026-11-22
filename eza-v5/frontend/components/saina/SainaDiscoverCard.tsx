@@ -49,10 +49,17 @@ export default function SainaDiscoverCard({
 
   const handleOpenYansi = useCallback(() => {
     // PUSH — Discover → Reel depth. Pin journeyVersion when Discover provides it.
+    // V2 cards also pass contentKind so Deneyimle does not open the wrong family.
+    const contentKind =
+      item.contentKind === 'conversation' ||
+      item.contentKind === 'image' ||
+      item.contentKind === 'mixed'
+        ? item.contentKind
+        : null;
     router.push(
-      buildMirrorPublicPath(item.slug, { journeyVersion })
+      buildMirrorPublicPath(item.slug, { journeyVersion, contentKind })
     );
-  }, [item.slug, journeyVersion, router]);
+  }, [item.slug, journeyVersion, item.contentKind, router]);
 
   const identity = authorName ? (
     <div

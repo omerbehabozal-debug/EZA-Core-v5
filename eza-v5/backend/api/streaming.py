@@ -125,11 +125,12 @@ async def stream_standalone_response(
     - data: {"done": true, "assistant_score": 42, "user_score": 85}
     """
     from backend.services.business_yansi.answers import BusinessHistory, answer
+    from backend.services.yansi.continuation_v2 import YansiV2History
     analysis_model = coerce_public_chat_model(analysis_model)
-    if isinstance(chat_history, BusinessHistory):
+    if isinstance(chat_history, (BusinessHistory, YansiV2History)):
         data = await answer(query, chat_history, analysis_model, db=db_session)
         from sqlalchemy.ext.asyncio import AsyncSession
-        if isinstance(db_session, AsyncSession):
+        if isinstance(db_session, AsyncSession) and isinstance(chat_history, BusinessHistory):
             from backend.services.business_yansi.studio_media import answer_media, media_asset_ids
             shown = await answer_media(db_session, chat_history.business_id, data.get('assistant_answer') or '', data.get('sources') or [])
             if shown:

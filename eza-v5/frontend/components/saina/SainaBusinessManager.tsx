@@ -43,6 +43,20 @@ const BusinessYansiStudio = dynamic(() => import('@/components/saina/business-st
   ssr: false,
   loading: () => <SectionLoading label="Yansı Stüdyosu yükleniyor…" />,
 });
+const BusinessYansiPhotoCreate = dynamic(
+  () => import('@/components/saina/business-studio/BusinessYansiPhotoCreate'),
+  {
+    ssr: false,
+    loading: () => <SectionLoading label="Yeni Yansı yükleniyor…" />,
+  },
+);
+const BusinessYansiConversationCreate = dynamic(
+  () => import('@/components/saina/business-studio/BusinessYansiConversationCreate'),
+  {
+    ssr: false,
+    loading: () => <SectionLoading label="Esnek Yansı yükleniyor…" />,
+  },
+);
 const BusinessKnowledgePool = dynamic(() => import('@/components/saina/business-studio/BusinessKnowledgePool'), {
   ssr: false,
   loading: () => <SectionLoading label="Bilgi Havuzu yükleniyor…" />,
@@ -792,33 +806,99 @@ export default function SainaBusinessManager() {
                   <SectionLoading label="Yansı Stüdyosu yükleniyor…" />
                 ) : (
                 <section className="biz-yansi-workspace" data-testid="biz-yansi-workspace">
-                  <BusinessYansiStudio
-                    key={editDraft?.id || `studio-${selected}`}
+                  <BusinessYansiConversationCreate
                     businessId={selected}
-                    knowledge={knowledge}
-                    canEdit={editor}
-                    editDraft={editDraft}
-                    onClearEdit={() => setEditDraft(null)}
-                    brand={{
-                      name: business.name,
-                      logoUrl: business.logo_url,
-                      cacheBust: business.updated_at,
-                      verified: business.verified,
-                      official: business.official,
-                    }}
                     assets={assets}
-                    coverAiEnabled={coverAiEnabled}
+                    knowledge={knowledge}
+                    role={role}
+                    canEdit={editor}
+                    busy={busy}
+                    brandName={business.name}
+                    onOpenLibrary={() => goToTab('İçerik Kütüphanesi')}
                     onOpenKnowledgePool={() => goToTab('Bilgi Havuzu')}
-                    onDraftSaved={async () => {
-                      setEditDraft(null);
-                      if (selected) await load(selected);
-                      setNotice('Taslak kaydedildi. İncelemeye gönderme owner onayını atlamaz.');
+                    onSaveKnowledge={async (payload) => {
+                      await api(`${base}/knowledge`, 'POST', {
+                        title: payload.title,
+                        category: payload.category,
+                        content: payload.content,
+                        source: payload.source,
+                        publicAllowed: payload.publicAllowed,
+                      });
+                    }}
+                    onKnowledgeChanged={async () => {
+                      if (selected) await loadSection(selected, 'knowledge', { force: true });
+                    }}
+                    onPublished={() => {
+                      setNotice(
+                        'Yansı yayımlandı. Keşfet feed henüz birleşik değil; public slug bağlantısından açabilirsiniz.',
+                      );
+                      if (selected) void load(selected);
                     }}
                   />
+
+                  <details className="biz-yansi-secondary" data-testid="biz-yansi-photo-secondary">
+                    <summary>Fotoğraf Yansı (tek görsel)</summary>
+                    <BusinessYansiPhotoCreate
+                      businessId={selected}
+                      assets={assets}
+                      knowledge={knowledge}
+                      role={role}
+                      canEdit={editor}
+                      busy={busy}
+                      onOpenLibrary={() => goToTab('İçerik Kütüphanesi')}
+                      onOpenKnowledgePool={() => goToTab('Bilgi Havuzu')}
+                      onSaveKnowledge={async (payload) => {
+                        await api(`${base}/knowledge`, 'POST', {
+                          title: payload.title,
+                          category: payload.category,
+                          content: payload.content,
+                          source: payload.source,
+                          publicAllowed: payload.publicAllowed,
+                        });
+                      }}
+                      onKnowledgeChanged={async () => {
+                        if (selected) await loadSection(selected, 'knowledge', { force: true });
+                      }}
+                      onPublished={() => {
+                        setNotice(
+                          'Fotoğraf Yansı yayımlandı. Keşfet feed henüz V2 ile birleşik değil; public slug bağlantısından açabilirsiniz.',
+                        );
+                        if (selected) void load(selected);
+                      }}
+                    />
+                  </details>
+
+                  <details className="biz-yansi-secondary" data-testid="biz-yansi-v1-studio-secondary">
+                    <summary>Klasik 8 adımlı AI Studio (V1)</summary>
+                    <BusinessYansiStudio
+                      key={editDraft?.id || `studio-${selected}`}
+                      businessId={selected}
+                      knowledge={knowledge}
+                      canEdit={editor}
+                      editDraft={editDraft}
+                      onClearEdit={() => setEditDraft(null)}
+                      brand={{
+                        name: business.name,
+                        logoUrl: business.logo_url,
+                        cacheBust: business.updated_at,
+                        verified: business.verified,
+                        official: business.official,
+                      }}
+                      assets={assets}
+                      coverAiEnabled={coverAiEnabled}
+                      onOpenKnowledgePool={() => goToTab('Bilgi Havuzu')}
+                      onDraftSaved={async () => {
+                        setEditDraft(null);
+                        if (selected) await load(selected);
+                        setNotice('Taslak kaydedildi. İncelemeye gönderme owner onayını atlamaz.');
+                      }}
+                    />
+                  </details>
+
                   <div className="biz-yansi-workspace-block">
                     <h2 className="biz-section-title">Taslaklar</h2>
                     <p className="biz-section-lead">
-                      İnceleme, onay ve yayın mevcut Business kurallarıyla ilerler. AI üretim owner onayını atlamaz.
+                      İnceleme, onay ve yayın mevcut Business kurallarıyla ilerler. AI önerisi owner onayını atlamaz.
                     </p>
                     {!drafts.length && <p className="biz-empty">Henüz Yansı taslağı yok.</p>}
                     {drafts.map((d) => (

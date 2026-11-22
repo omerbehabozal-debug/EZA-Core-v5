@@ -151,13 +151,14 @@ async def enforce_standalone_message_quota(
     the per-brand allowance. The editor preview does not call this.
     """
     from backend.services.business_yansi.answers import BusinessHistory
+    from backend.services.yansi.continuation_v2 import YansiV2History
 
     subject = await resolve_account_subject(
         db,
         credentials=credentials,
         guest_token=guest_token,
     )
-    if isinstance(chat_history, BusinessHistory) and subject.is_authenticated:
+    if isinstance(chat_history, (BusinessHistory, YansiV2History)) and subject.is_authenticated:
         message = (message_text or "").strip()
         if not message:
             raise HTTPException(

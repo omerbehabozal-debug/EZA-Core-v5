@@ -366,6 +366,11 @@ describe('Business management', () => {
     await screen.findByText('BiligN', { selector: 'h2' });
     fireEvent.click(screen.getByRole('button', { name: 'Yansı Stüdyosu' }));
     expect(await screen.findByTestId('biz-yansi-workspace')).toBeInTheDocument();
+    // Primary path: V2 ConversationCreate (not three stacked heroes).
+    expect(await screen.findByTestId('biz-conv-create')).toBeInTheDocument();
+    expect(screen.getByTestId('biz-yansi-photo-secondary')).toBeInTheDocument();
+    expect(screen.getByTestId('biz-yansi-v1-studio-secondary')).toBeInTheDocument();
+    // V1 Studio kept under secondary details for compatibility.
     expect(await screen.findByTestId('biz-yansi-studio')).toHaveAttribute('data-phase', 'sources');
     expect(screen.getByTestId('biz-studio-step-rail')).toBeInTheDocument();
     expect(screen.getByTestId('biz-studio-no-sources')).toBeInTheDocument();

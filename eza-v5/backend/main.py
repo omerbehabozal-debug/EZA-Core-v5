@@ -365,7 +365,9 @@ app.include_router(experience_events_router)
 app.include_router(standalone_mirror.router)
 app.include_router(debug_openai.router)
 from backend.routers import business_yansi
+from backend.routers import yansi_v2
 app.include_router(business_yansi.router)
+app.include_router(yansi_v2.router)
 app.include_router(mirror_network.router)
 app.include_router(mirror_network.debug_router)
 from backend.routers import conversation_groups

@@ -313,6 +313,28 @@ export default function MirrorFrozenReplay({
 
   const continueHref = `/m/${encodeURIComponent(frozen.slug)}/sohbet`;
   const replayFinished = session.phase === 'completed' || session.replayCompleted;
+  const isV2Publication = artifact.sourceKind === 'v2_publication';
+  // V1 keeps /sohbet guest-trial handoff. V2 never uses that path (frozen gate).
+  const showSohbetContinueLink =
+    !isV2Publication && artifact.liveContinuationAvailable !== false;
+  // Stage 04D: V2 in-place composer → public /answer (pinned publication version).
+  const allowV2Composer =
+    isV2Publication && artifact.liveContinuationAvailable !== false;
+  const allowPersonalContinue = showSohbetContinueLink || allowV2Composer;
+  const v2SeedHistory = isV2Publication
+    ? turns
+        .filter((turn) => !turn.revealing)
+        .flatMap((turn) => [
+          { role: 'user' as const, content: turn.question },
+          { role: 'assistant' as const, content: turn.answer },
+        ])
+    : [];
+  const v2Continuation = allowV2Composer
+    ? {
+        publicationVersion: pinnedVersionRef.current,
+        seedHistory: v2SeedHistory,
+      }
+    : null;
 
   const handleExploreAnotherCuriosity = useCallback(() => {
     cancelYansiSpeech();
@@ -325,11 +347,17 @@ export default function MirrorFrozenReplay({
       reelHref: buildYansiPublicHref(frozen.slug, {
         journeyVersion: frozen.journeyVersion,
         mode: 'reel',
+        contentKind: artifact.contentKind ?? undefined,
       }),
     });
-  }, [onExploreAnotherCuriosity, frozen.slug, frozen.journeyVersion]);
+  }, [
+    onExploreAnotherCuriosity,
+    frozen.slug,
+    frozen.journeyVersion,
+    artifact.contentKind,
+  ]);
 
-  const continueLink = (
+  const continueLink = showSohbetContinueLink ? (
     <Link
       href={continueHref}
       onClick={() => {
@@ -346,7 +374,7 @@ export default function MirrorFrozenReplay({
     >
       {continueLabel}
     </Link>
-  );
+  ) : null;
 
   const followRevealGrowth = useCallback(() => {
     if (!desktopMode || userScrolledUp.current) return;
@@ -383,8 +411,12 @@ export default function MirrorFrozenReplay({
       data-step-index={nextStep.stepIndex} onClick={handleAskNext}><span>{nextStep.publicQuestion}</span>{mobilePresentation && session.completedStepCount === 0 ? <small className="yansi-question-hint">Yanıtı görmek için dokun</small> : null}</button>
       : <p role="status">Yanıt açılıyor…</p>;
     return <section className="yansi-desktop-replay" data-testid="mirror-frozen-replay" data-journey-version={pinnedVersionRef.current}
+      data-yansi-source-kind={artifact.sourceKind ?? 'v1_frozen'}
+      data-yansi-content-kind={artifact.contentKind ?? undefined}
       data-yansi-rhythm={experience?.rhythm ?? 'normal'} aria-label="Yansı deneyimi">
         <YansiDesktopExperience mobile={mobilePresentation} slug={frozen.slug} sceneImageUrl={businessCoverUrl(artifact.businessMedia) || artifact.sceneImageUrl} preserveBrandFrame={artifact.businessMedia?.cover?.type === 'image'} identity={desktopIdentity} scrollRef={scrollRootRef}
+          allowPersonalContinue={allowPersonalContinue}
+          v2Continuation={v2Continuation}
           replaySelection={{ slug: frozen.slug, journeyVersion: pinnedVersionRef.current, completedStepCount: session.completedStepCount }}
         replayAction={replayAction} messages={<><MessageList messages={messages} variant="saina" autoScroll={false}
           isLoading={false} ezaVisibilityEnabled={false}
@@ -408,6 +440,8 @@ export default function MirrorFrozenReplay({
       className={cn('flex min-h-0 w-full flex-1 flex-col', className)}
       data-testid="mirror-frozen-replay"
       data-journey-version={pinnedVersionRef.current}
+      data-yansi-source-kind={artifact.sourceKind ?? 'v1_frozen'}
+      data-yansi-content-kind={artifact.contentKind ?? undefined}
       data-yansi-rhythm={experience?.rhythm ?? 'normal'}
       aria-label="Yansı deneyimi"
     >

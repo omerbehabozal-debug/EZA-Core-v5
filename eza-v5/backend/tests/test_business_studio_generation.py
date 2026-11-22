@@ -744,3 +744,143 @@ async def test_crlf_and_original_evidence_whitespace_remain_exact(ready):
     for step in row.execution['result']['steps']:
         e=step['evidence'];assert s.knowledge.content[e['start']:e['end']]==e['text']
         assert step['answer']==e['text'].strip()
+
+
+def _topic_fault(passages, kind):
+    value = topics_output(passages)
+    eligible = [key for key, item in passages.items() if generation.answer_eligible(item)]
+    ineligible = [key for key, item in passages.items() if not generation.answer_eligible(item)]
+    titles = list(passages)
+    if kind == 'repeated_id':
+        value['topics'][0]['answerPassageIds'] = eligible[:7] + [eligible[0]]
+    elif kind == 'repeated_text':
+        twin = next(
+            key for key, item in passages.items()
+            if key != eligible[0] and item['text'].strip() == passages[eligible[0]]['text'].strip()
+        )
+        value['topics'][0]['answerPassageIds'] = [twin if key == eligible[1] else key for key in eligible[:8]]
+    elif kind == 'invalid':
+        value['topics'][0]['answerPassageIds'] = eligible[:7] + ['foreign-passage-id']
+    elif kind == 'subset':
+        value['topics'][0]['answerPassageIds'] = eligible[:7] + [ineligible[0]]
+    elif kind == 'ineligible_with_spare':
+        value['topics'][0]['answerPassageIds'] = eligible[:8] + [ineligible[0]]
+    value['topics'][0]['titlePassageId'] = titles[0]
+    value['topics'][0]['descriptionPassageId'] = eligible[0]
+    value['topics'][1]['titlePassageId'] = titles[2]
+    value['topics'][1]['descriptionPassageId'] = eligible[2]
+    value['topics'][1]['answerPassageIds'] = eligible[:8]
+    return value
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(('kind', 'subreason'), [
+    ('repeated_id', 'studio_repeated_passage_id'),
+    ('repeated_text', 'studio_repeated_answer_text'),
+    ('invalid', 'studio_invalid_passage'),
+    ('subset', 'studio_topic_source_subset'),
+    ('ineligible_with_spare', 'studio_ineligible_answer_passage'),
+])
+async def test_topic_source_failures_use_distinct_codes_and_safe_logs(ready, caplog, kind, subreason):
+    if kind == 'repeated_text':
+        ready.knowledge.content = (
+            'Brand workshop and design choices\n\n'
+            'Workshop product care and repairs\n\n'
+            + '\n\n'.join([
+                'The workshop selects durable materials for its verified product designs.',
+                'The workshop selects durable materials for its verified product designs.',
+                'The workshop uses reusable materials for its verified product range.',
+                'The design team checks each product before shipping from the workshop.',
+                'The repair service accepts the verified product range at the workshop.',
+                'Customers can request a product repair through the workshop service.',
+                'The packaging is designed for repeated use within the product range.',
+                'Product care instructions are supplied with each verified product.',
+                'The workshop publishes product care details in its printed guide.',
+            ])
+        )
+        await ready.db.commit()
+    job = await studio.create_job(ready.db, ready.business.id, ready.owner.id, request(ready), 'topics')
+    passages = generation.catalog(job.source_snapshot)
+    bad = reply(_topic_fault(passages, kind))
+    provider = fake(bad, bad)
+    row = await execution.execute(ready.db, job, router=provider)
+    assert row.status == 'failed' and row.attempts == 2 and row.error_code == 'studio_invalid_model_output'
+    assert provider.generate.await_count == 2
+    first, second = [call.kwargs for call in provider.generate.await_args_list]
+    assert second['prompt'] == first['prompt'] + '\nCorrection for this attempt: ' + execution._REPAIR_INSTRUCTIONS[subreason]
+    assert subreason in execution._REPAIR_INSTRUCTIONS
+    diagnostic = [
+        record.getMessage() for record in caplog.records
+        if record.name == execution.__name__ and 'studio_invalid_model_output' in record.getMessage()
+    ]
+    assert len(diagnostic) == 2
+    for message in diagnostic:
+        assert f'generation_id={row.id}' in message
+        assert f'subreason={subreason}' in message
+        assert 'finish_reason=stop' in message
+        assert ready.knowledge.content not in message
+        assert 'foreign-passage-id' not in message
+        assert bad['output'] not in message
+        assert first['prompt'] not in message
+    if subreason != 'studio_invalid_passage':
+        assert all('catalog_unique_eligible=' in message for message in diagnostic)
+        assert all('selected_ids=' in message for message in diagnostic)
+
+
+@pytest.mark.asyncio
+async def test_topic_repeated_passage_repairs_then_succeeds(ready):
+    job = await studio.create_job(ready.db, ready.business.id, ready.owner.id, request(ready), 'topics')
+    passages = generation.catalog(job.source_snapshot)
+    bad = reply(_topic_fault(passages, 'repeated_id'))
+    good = reply(topics_output(passages))
+    provider = fake(bad, good)
+    row = await execution.execute(ready.db, job, router=provider)
+    assert row.status == 'succeeded' and row.attempts == 2
+    assert len(row.execution['result']['topics']) >= 2
+    first, second = [call.kwargs for call in provider.generate.await_args_list]
+    assert second['prompt'].endswith(execution._REPAIR_INSTRUCTIONS['studio_repeated_passage_id'])
+    assert 'Select eight different passage IDs.' in second['prompt']
+    assert 'eight different answer texts' in second['prompt']
+
+
+@pytest.mark.asyncio
+async def test_topic_source_failures_exhaust_two_attempts(ready):
+    job = await studio.create_job(ready.db, ready.business.id, ready.owner.id, request(ready), 'topics')
+    passages = generation.catalog(job.source_snapshot)
+    bad = reply(_topic_fault(passages, 'repeated_id'))
+    provider = fake(bad, bad)
+    row = await execution.execute(ready.db, job, router=provider)
+    assert row.status == 'failed' and row.attempts == 2 and row.max_attempts == 2
+    assert provider.generate.await_count == 2
+    assert row.draft_id is None
+
+
+@pytest.mark.asyncio
+async def test_topic_source_validation_keeps_budget_and_source_guards(ready, monkeypatch):
+    monkeypatch.setattr(execution, 'input_token_count', lambda model, text, schema: (
+        1100 if 'Correction for this attempt:' in text else 1000
+    ))
+    job = await studio.create_job(
+        ready.db, ready.business.id, ready.owner.id,
+        request(ready, key='topic-budget-source-001'), 'topics',
+    )
+    passages = generation.catalog(job.source_snapshot)
+    bad = reply(_topic_fault(passages, 'repeated_id'))
+    bad['usage'] = {'prompt_tokens': 18950, 'completion_tokens': 100}
+    provider = fake(bad)
+    row = await execution.execute(ready.db, job, router=provider)
+    assert row.status == 'failed' and row.attempts == 1
+    assert provider.generate.await_count == 1
+    assert row.execution['reserveIn'] == 1000
+
+    denied = await studio.create_job(
+        ready.db, ready.business.id, ready.owner.id,
+        request(ready, key='topic-denied-002'), 'topics',
+    )
+    provider = fake(reply(_topic_fault(generation.catalog(denied.source_snapshot), 'repeated_id')))
+    ready.knowledge.public_allowed = False
+    await ready.db.commit()
+    row = await execution.execute(ready.db, denied, router=provider)
+    assert row.status in {'failed', 'blocked'}
+    assert row.draft_id is None
+    provider.generate.assert_not_awaited()

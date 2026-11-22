@@ -614,3 +614,451 @@ export async function fetchBrandAssetPreview(
   }
   return URL.createObjectURL(await response.blob());
 }
+
+/** V2 single-image grounded publish (Stage 3B/3C). Owner-only on the server. */
+export type YansiV2KnowledgeSourcePin = {
+  knowledgeVersionId: string;
+  expectedRevision: number;
+};
+
+export type YansiV2ImagePublishInput = {
+  assetId: string;
+  expectedAssetRevision: number;
+  title: string;
+  description?: string | null;
+  knowledgeNotes?: string[] | null;
+  knowledgeSources?: YansiV2KnowledgeSourcePin[] | null;
+  slug?: string | null;
+  nodeId?: string | null;
+  expectedCurrentVersion?: number | null;
+  idempotencyKey?: string | null;
+};
+
+export type YansiV2ImagePublishResult = {
+  status: string;
+  idempotent: boolean;
+  nodeId: string;
+  slug: string;
+  publicationVersion: number;
+  contractHash: string;
+  manifestHash: string;
+  bundleVersionId: string;
+  bundleHash: string;
+  assetId: string;
+  assetRevision: number;
+  public: {
+    slug: string;
+    contract: Record<string, unknown>;
+    bundle: Record<string, unknown>;
+    media: {
+      assetId: string;
+      contentPath: string;
+      title?: string | null;
+    };
+  };
+};
+
+export function buildYansiV2ImagePublishBody(input: YansiV2ImagePublishInput): Record<string, unknown> {
+  /** Only fields accepted by ImagePublishV2Body (extra=forbid). */
+  const body: Record<string, unknown> = {
+    assetId: input.assetId,
+    expectedAssetRevision: input.expectedAssetRevision,
+    title: input.title.trim(),
+  };
+  const description = (input.description ?? '').trim();
+  if (description) body.description = description;
+  const notes = (input.knowledgeNotes ?? [])
+    .map((note) => note.trim())
+    .filter(Boolean)
+    .slice(0, 8);
+  if (notes.length) body.knowledgeNotes = notes;
+  const sources = (input.knowledgeSources ?? [])
+    .filter((pin) => pin?.knowledgeVersionId && Number.isFinite(pin.expectedRevision))
+    .slice(0, 32)
+    .map((pin) => ({
+      knowledgeVersionId: pin.knowledgeVersionId,
+      expectedRevision: pin.expectedRevision,
+    }));
+  if (sources.length) body.knowledgeSources = sources;
+  const slug = (input.slug ?? '').trim();
+  if (slug) body.slug = slug;
+  if (input.nodeId) body.nodeId = input.nodeId;
+  if (input.expectedCurrentVersion !== undefined) {
+    body.expectedCurrentVersion = input.expectedCurrentVersion;
+  }
+  const key = (input.idempotencyKey ?? '').trim();
+  if (key) body.idempotencyKey = key;
+  return body;
+}
+
+export async function publishYansiV2Image(
+  businessId: string,
+  input: YansiV2ImagePublishInput,
+): Promise<YansiV2ImagePublishResult> {
+  return businessRequest<YansiV2ImagePublishResult>(
+    `/${businessId}/v2/publications/image`,
+    'POST',
+    buildYansiV2ImagePublishBody(input),
+  );
+}
+
+export function yansiV2PublicMediaPath(businessId: string, assetId: string): string {
+  return `/api/business-yansi/public-media/${businessId.toLowerCase()}/${assetId.toLowerCase()}`;
+}
+
+export function yansiV2PublicHref(
+  slug: string,
+  publicationVersion: number,
+  contentKind?: 'conversation' | 'image' | 'mixed' | null,
+): string {
+  const params = new URLSearchParams();
+  params.set('journeyVersion', String(publicationVersion));
+  if (
+    contentKind === 'conversation' ||
+    contentKind === 'image' ||
+    contentKind === 'mixed'
+  ) {
+    params.set('contentKind', contentKind);
+  }
+  return `/m/${encodeURIComponent(slug)}?${params.toString()}`;
+}
+
+/** V2 frozen conversation draft lifecycle (Stage 02A/02B). */
+export type YansiV2ConversationTurnMedia = {
+  type: 'image' | 'video';
+  assetId: string;
+  assetRevision: number;
+  title: string;
+};
+
+export type YansiV2ConversationTurn = {
+  stepIndex: number;
+  question: string;
+  answer: string;
+  media?: YansiV2ConversationTurnMedia[];
+};
+
+export type YansiV2ConversationDraftDto = {
+  id: string;
+  businessId: string;
+  title: string;
+  summary: string;
+  turns: YansiV2ConversationTurn[];
+  turnCount: number;
+  curiosityQuestion: string | null;
+  knowledgeSourcePins: YansiV2KnowledgeSourcePin[];
+  knowledgeNotes: string[];
+  coverAssetId: string | null;
+  coverAssetRevision: number | null;
+  contentDigest: string;
+  status: string;
+  revision: number;
+  approvedBy: string | null;
+  approvedAt: string | null;
+  approvedRevision: number | null;
+  approvedContentDigest: string | null;
+  approvalNote: string | null;
+  publishedNodeId: string | null;
+  publishedVersion: number | null;
+  createdBy: string;
+};
+
+export type YansiV2ConversationDraftInput = {
+  title: string;
+  summary?: string | null;
+  turns: YansiV2ConversationTurn[];
+  knowledgeNotes?: string[] | null;
+  knowledgeSources?: YansiV2KnowledgeSourcePin[] | null;
+  coverAssetId?: string | null;
+  coverAssetRevision?: number | null;
+};
+
+export type YansiV2ConversationPublishResult = {
+  status: string;
+  idempotent: boolean;
+  nodeId: string;
+  slug: string;
+  draftId: string;
+  publicationVersion: number;
+  contractHash: string;
+  manifestHash: string;
+  bundleVersionId: string;
+  bundleHash: string;
+  curiosityQuestion: string;
+  turnCount: number;
+  public: {
+    slug: string;
+    contract: Record<string, unknown>;
+    bundle: Record<string, unknown>;
+    conversation: {
+      turnCount: number;
+      curiosityQuestion: string;
+      turns: YansiV2ConversationTurn[];
+    };
+    cover?: { assetId: string; title?: string; contentPath: string } | null;
+  };
+};
+
+function buildConversationDraftBody(input: YansiV2ConversationDraftInput): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    title: input.title.trim(),
+    turns: input.turns.map((turn) => {
+      const item: Record<string, unknown> = {
+        stepIndex: turn.stepIndex,
+        question: turn.question.trim(),
+        answer: turn.answer.trim(),
+      };
+      const media = (turn.media || [])
+        .filter((m) => m.type === 'image' && m.assetId)
+        .map((m) => ({
+          type: 'image' as const,
+          assetId: m.assetId,
+          assetRevision: m.assetRevision,
+          title: (m.title || 'Görsel').trim().slice(0, 200),
+        }));
+      if (media.length) item.media = media;
+      return item;
+    }),
+  };
+  const summary = (input.summary ?? '').trim();
+  if (summary) body.summary = summary;
+  const notes = (input.knowledgeNotes ?? []).map((n) => n.trim()).filter(Boolean).slice(0, 8);
+  if (notes.length) body.knowledgeNotes = notes;
+  const sources = (input.knowledgeSources ?? [])
+    .filter((pin) => pin?.knowledgeVersionId && Number.isFinite(pin.expectedRevision))
+    .slice(0, 32)
+    .map((pin) => ({
+      knowledgeVersionId: pin.knowledgeVersionId,
+      expectedRevision: pin.expectedRevision,
+    }));
+  if (sources.length) body.knowledgeSources = sources;
+  if (input.coverAssetId) {
+    body.coverAssetId = input.coverAssetId;
+    body.coverAssetRevision = input.coverAssetRevision ?? 0;
+  }
+  return body;
+}
+
+export async function createYansiV2ConversationDraft(
+  businessId: string,
+  input: YansiV2ConversationDraftInput,
+): Promise<YansiV2ConversationDraftDto> {
+  return businessRequest<YansiV2ConversationDraftDto>(
+    `/${businessId}/v2/conversation-drafts`,
+    'POST',
+    buildConversationDraftBody(input),
+  );
+}
+
+export async function getYansiV2ConversationDraft(
+  businessId: string,
+  draftId: string,
+): Promise<YansiV2ConversationDraftDto> {
+  return businessRequest<YansiV2ConversationDraftDto>(
+    `/${businessId}/v2/conversation-drafts/${draftId}`,
+  );
+}
+
+export async function reviseYansiV2ConversationDraft(
+  businessId: string,
+  draftId: string,
+  input: YansiV2ConversationDraftInput & { expectedRevision: number },
+): Promise<YansiV2ConversationDraftDto> {
+  return businessRequest<YansiV2ConversationDraftDto>(
+    `/${businessId}/v2/conversation-drafts/${draftId}`,
+    'PATCH',
+    {
+      ...buildConversationDraftBody(input),
+      expectedRevision: input.expectedRevision,
+    },
+  );
+}
+
+export async function transitionYansiV2ConversationDraft(
+  businessId: string,
+  draftId: string,
+  input: {
+    target: 'draft' | 'review' | 'approved';
+    expectedRevision: number;
+    approvalNote?: string | null;
+  },
+): Promise<YansiV2ConversationDraftDto> {
+  const body: Record<string, unknown> = {
+    target: input.target,
+    expectedRevision: input.expectedRevision,
+  };
+  const note = (input.approvalNote ?? '').trim();
+  if (note) body.approvalNote = note;
+  return businessRequest<YansiV2ConversationDraftDto>(
+    `/${businessId}/v2/conversation-drafts/${draftId}/transition`,
+    'POST',
+    body,
+  );
+}
+
+export async function publishYansiV2ConversationDraft(
+  businessId: string,
+  draftId: string,
+  input: {
+    expectedDraftRevision: number;
+    slug?: string | null;
+    nodeId?: string | null;
+    expectedCurrentVersion?: number | null;
+    idempotencyKey?: string | null;
+  },
+): Promise<YansiV2ConversationPublishResult> {
+  const body: Record<string, unknown> = {
+    expectedDraftRevision: input.expectedDraftRevision,
+  };
+  const slug = (input.slug ?? '').trim();
+  if (slug) body.slug = slug;
+  if (input.nodeId) body.nodeId = input.nodeId;
+  if (input.expectedCurrentVersion !== undefined) {
+    body.expectedCurrentVersion = input.expectedCurrentVersion;
+  }
+  const key = (input.idempotencyKey ?? '').trim();
+  if (key) body.idempotencyKey = key;
+  return businessRequest<YansiV2ConversationPublishResult>(
+    `/${businessId}/v2/conversation-drafts/${draftId}/publish`,
+    'POST',
+    body,
+  );
+}
+
+/** Stage 03B — V2 AI conversation proposal (separate from publish; explicit apply). */
+export type YansiV2ProposalWarning = {
+  code: string;
+  message: string;
+  turnIndex?: number | null;
+};
+
+export type YansiV2ProposalTurn = {
+  stepIndex: number;
+  question: string;
+  answer: string;
+  claimSafety?: 'grounded' | 'unsupported' | string;
+  evidence?: Array<Record<string, unknown>>;
+  mediaSuggestions?: Array<{ assetId: string; type?: string; reason?: string }>;
+};
+
+export type YansiV2ProposalResult = {
+  title: string;
+  summary?: string;
+  curiosityQuestion: string;
+  turns: YansiV2ProposalTurn[];
+  coverSuggestion?: { assetId: string; type?: string; reason?: string } | null;
+  knowledgeSourcePins?: Array<{
+    knowledgeVersionId: string;
+    expectedRevision?: number | null;
+    contentDigest?: string;
+    version?: number;
+  }>;
+  rationale?: string;
+};
+
+export type YansiV2ConversationProposalDto = {
+  generationId: string;
+  businessId: string;
+  kind: 'v2_prop' | string;
+  status: string;
+  snapshotHash?: string;
+  promptVersion?: string;
+  model?: string | null;
+  errorCode?: string | null;
+  proposal: {
+    insufficientSources?: boolean;
+    schemaVersion?: string;
+    promptVersion?: string;
+    warnings?: YansiV2ProposalWarning[];
+    result?: YansiV2ProposalResult | null;
+  } | null;
+  appliedDraftId?: string | null;
+  sources?: Array<{ versionId: string; version: number; contentHash: string }>;
+};
+
+export type YansiV2ProposalApplyResult = {
+  status: string;
+  generationId: string;
+  draft: YansiV2ConversationDraftDto;
+  curiosityQuestion?: string | null;
+  warnings?: YansiV2ProposalWarning[];
+};
+
+/** Matches backend TopicsRequest / proposal_public_dto statuses. */
+export function isTerminalYansiV2ProposalStatus(status: string | null | undefined): boolean {
+  return (
+    status === 'completed' ||
+    status === 'succeeded' ||
+    status === 'failed' ||
+    status === 'blocked' ||
+    status === 'expired' ||
+    status === 'cancelled'
+  );
+}
+
+export function isSuccessYansiV2ProposalStatus(status: string | null | undefined): boolean {
+  return status === 'completed' || status === 'succeeded';
+}
+
+export async function requestYansiV2ConversationProposal(
+  businessId: string,
+  body: { idempotencyKey: string; sourceVersionIds: string[]; topicHint?: string },
+): Promise<YansiV2ConversationProposalDto> {
+  // TopicsRequest sorts/dedupes sourceVersionIds server-side; send sorted for stable idempotency.
+  const sourceVersionIds = [...body.sourceVersionIds].map(String).sort();
+  return businessRequest<YansiV2ConversationProposalDto>(
+    `/${businessId}/v2/ai/conversation-proposals`,
+    'POST',
+    {
+      idempotencyKey: body.idempotencyKey,
+      sourceVersionIds,
+      topicHint: (body.topicHint || '').slice(0, 500),
+    },
+  );
+}
+
+export async function getYansiV2ConversationProposal(
+  businessId: string,
+  generationId: string,
+): Promise<YansiV2ConversationProposalDto> {
+  return businessRequest<YansiV2ConversationProposalDto>(
+    `/${businessId}/v2/ai/conversation-proposals/${generationId}`,
+  );
+}
+
+/** Poll GET until terminal (same pattern as pollStudioGeneration). */
+export async function pollYansiV2ConversationProposal(
+  businessId: string,
+  generationId: string,
+  options?: { intervalMs?: number; timeoutMs?: number; signal?: AbortSignal },
+): Promise<YansiV2ConversationProposalDto> {
+  const intervalMs = options?.intervalMs ?? 1500;
+  const timeoutMs = options?.timeoutMs ?? 90_000;
+  const started = Date.now();
+  let last = await getYansiV2ConversationProposal(businessId, generationId);
+  while (!isTerminalYansiV2ProposalStatus(last.status)) {
+    if (options?.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    if (Date.now() - started > timeoutMs) {
+      throw new BusinessApiError(408, { code: 'studio_timeout' });
+    }
+    await new Promise((r) => setTimeout(r, intervalMs));
+    last = await getYansiV2ConversationProposal(businessId, generationId);
+  }
+  return last;
+}
+
+export async function applyYansiV2ConversationProposal(
+  businessId: string,
+  generationId: string,
+  input: { draftId?: string | null; expectedRevision?: number | null } = {},
+): Promise<YansiV2ProposalApplyResult> {
+  // ConversationProposalApplyBody: draftId?, expectedRevision? (ge=1)
+  const body: Record<string, unknown> = {};
+  if (input.draftId) body.draftId = input.draftId;
+  if (input.expectedRevision != null) body.expectedRevision = input.expectedRevision;
+  return businessRequest<YansiV2ProposalApplyResult>(
+    `/${businessId}/v2/ai/conversation-proposals/${generationId}/apply`,
+    'POST',
+    body,
+  );
+}

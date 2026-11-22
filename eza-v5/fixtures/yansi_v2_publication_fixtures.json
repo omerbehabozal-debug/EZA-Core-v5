@@ -1,0 +1,85 @@
+{
+  "meta": {
+    "contractVersion": "yansi-publication-v2",
+    "hashAuthority": "backend compute_manifest_hash / compute_contract_hash are canonical; clients must not redefine",
+    "limits": {
+      "maxBlocks": 32,
+      "maxTurns": 64,
+      "maxTurnText": 8000,
+      "maxTitle": 200
+    }
+  },
+  "nodeId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+  "imageAssetId": "22222222-2222-2222-2222-222222222222",
+  "imageContentPath": "/api/business-yansi/public-media/11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222",
+  "validImageManifest": {
+    "blocks": [
+      {
+        "type": "image",
+        "assetId": "22222222-2222-2222-2222-222222222222",
+        "title": "Kiln",
+        "contentPath": "/api/business-yansi/public-media/11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222"
+      }
+    ]
+  },
+  "validVideoManifest": {
+    "blocks": [
+      {
+        "type": "video",
+        "assetId": "33333333-3333-3333-3333-333333333333",
+        "title": "Firing",
+        "href": "https://cdn.example.com/videos/firing.mp4"
+      }
+    ]
+  },
+  "validConversationManifest": {
+    "blocks": [
+      {
+        "type": "conversation",
+        "turns": [
+          { "role": "user", "text": "How durable is the glaze?" },
+          { "role": "assistant", "text": "The workshop fires glaze for daily use." }
+        ]
+      }
+    ]
+  },
+  "invalidPrivatePathManifest": {
+    "blocks": [
+      {
+        "type": "image",
+        "assetId": "22222222-2222-2222-2222-222222222222",
+        "title": "Kiln",
+        "contentPath": "/data/brand_assets/secret.png"
+      }
+    ]
+  },
+  "invalidUnsafeUrlManifest": {
+    "blocks": [
+      {
+        "type": "video",
+        "assetId": "33333333-3333-3333-3333-333333333333",
+        "title": "Bad",
+        "href": "javascript:alert(1)"
+      }
+    ]
+  },
+  "invalidUnknownContractVersion": {
+    "contractVersion": "yansi-publication-v9",
+    "nodeId": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    "responsePolicy": "open",
+    "contentKind": "image",
+    "contentManifest": {
+      "blocks": [
+        {
+          "type": "image",
+          "assetId": "22222222-2222-2222-2222-222222222222",
+          "title": "Kiln",
+          "contentPath": "/api/business-yansi/public-media/11111111-1111-1111-1111-111111111111/22222222-2222-2222-2222-222222222222"
+        }
+      ]
+    },
+    "manifestHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "contractHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "publicationVersion": 1
+  }
+}

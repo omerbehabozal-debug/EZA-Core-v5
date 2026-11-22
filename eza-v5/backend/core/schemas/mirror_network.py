@@ -190,6 +190,8 @@ class DiscoverMirrorItem(BaseModel):
     publicAvatarRevision: int = 0
     experienceType: Optional[Literal["knowledge", "fun", "story", "discussion", "life"]] = None
     contentNature: Optional[Literal["real", "fiction", "mixed"]] = None
+    # V2 Discover only — omitted for V1 journey cards.
+    contentKind: Optional[Literal["conversation", "image", "video", "mixed"]] = None
 
 
 class DiscoverMirrorListResponse(BaseModel):

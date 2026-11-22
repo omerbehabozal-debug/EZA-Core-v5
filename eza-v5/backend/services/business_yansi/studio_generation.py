@@ -2,12 +2,36 @@
 import json
 import re
 import unicodedata
+from fastapi import HTTPException
 from pydantic import Field
 from backend.core.schemas.business_studio import Strict
 from .studio_validation import digest, safe_content, validate_candidate
 from .service import fail
 
 PROMPT_VERSION = 'business-studio-extractive-v4'
+
+# Safe integer-only diagnostic fields for topic source rejection (never text/prompt/output).
+_TOPIC_SOURCE_COUNT_KEYS = frozenset({
+    'catalog_eligible',
+    'catalog_unique_eligible',
+    'selected_ids',
+    'selected_unique_ids',
+    'selected_eligible',
+    'selected_unique_texts',
+})
+
+
+def _topic_source_reject(code, **counts):
+    detail = {'code': code}
+    for key, value in counts.items():
+        if key in _TOPIC_SOURCE_COUNT_KEYS and isinstance(value, int) and value >= 0:
+            detail[key] = value
+    raise HTTPException(422, detail=detail)
+
+
+def catalog_eligible_counts(passages):
+    eligible = [e for e in passages.values() if answer_eligible(e)]
+    return len(eligible), len({e['text'].strip() for e in eligible})
 
 
 class Topic(Strict):
@@ -129,24 +153,48 @@ def passage(passages, key, maximum=4000):
 
 def validate_topics(value, passages):
     output = TopicsOutput.model_validate(value)
+    catalog_eligible, catalog_unique_eligible = catalog_eligible_counts(passages)
     topics, seen = [], set()
     for item in output.topics:
         title = passage(passages, item.titlePassageId, 200)
         description = passage(passages, item.descriptionPassageId, 500)
         safe_content(title['text'], description['text'])
-        keys = list(dict.fromkeys(item.answerPassageIds))
-        answers = [passage(passages, key) for key in keys]
-        if not all(answer_eligible(e) for e in answers):
-            fail('studio_insufficient_topic_sources', 422)
+        raw_ids = list(item.answerPassageIds)
+        selected_ids = len(raw_ids)
+        selected_unique_ids = len(set(raw_ids))
+        counts = {
+            'catalog_eligible': catalog_eligible,
+            'catalog_unique_eligible': catalog_unique_eligible,
+            'selected_ids': selected_ids,
+            'selected_unique_ids': selected_unique_ids,
+        }
+        if selected_unique_ids != selected_ids:
+            _topic_source_reject('studio_repeated_passage_id', **counts)
+        answers = [passage(passages, key) for key in raw_ids]
+        selected_eligible = sum(1 for evidence in answers if answer_eligible(evidence))
+        selected_unique_texts = len({evidence['text'].strip() for evidence in answers})
+        selected_unique_eligible_texts = len({
+            evidence['text'].strip() for evidence in answers if answer_eligible(evidence)
+        })
+        counts.update(selected_eligible=selected_eligible, selected_unique_texts=selected_unique_texts)
+        if selected_eligible < selected_ids:
+            # Adequate catalog + ineligible picks that leave fewer than eight usable answers → bad subset.
+            if catalog_unique_eligible >= 8 and selected_unique_eligible_texts < 8:
+                _topic_source_reject('studio_topic_source_subset', **counts)
+            _topic_source_reject('studio_ineligible_answer_passage', **counts)
         identity = normalized(title['text'])
         if len(identity.split()) < 2 or identity in seen:
             continue
-        if len({e['text'].strip() for e in answers}) < 8:
-            fail('studio_insufficient_topic_sources', 422)
+        if selected_unique_texts < 8:
+            if selected_unique_ids > selected_unique_texts:
+                _topic_source_reject('studio_repeated_answer_text', **counts)
+            if catalog_unique_eligible >= 8:
+                _topic_source_reject('studio_topic_source_subset', **counts)
+            _topic_source_reject('studio_ineligible_answer_passage', **counts)
         seen.add(identity)
         topics.append({'id': 'topic-' + str(len(topics) + 1), 'title': title['text'].strip(),
                        'description': description['text'].strip(), 'titlePassageId': item.titlePassageId,
-                       'descriptionPassageId': item.descriptionPassageId, 'answerPassageIds': keys,
+                       'descriptionPassageId': item.descriptionPassageId, 'answerPassageIds': raw_ids,
                        'evidence': [title, description] + answers})
     if len(topics) < 2:
         fail('studio_insufficient_topics', 422)

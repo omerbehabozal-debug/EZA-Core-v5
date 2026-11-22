@@ -43,6 +43,8 @@ export type DiscoverMirror = {
   experienceType?: YansiExperienceType | null;
   contentNature?: YansiContentNature | null;
   publicAvatarRevision?: number | null;
+  /** V2 Discover only — omitted for V1 journey cards. */
+  contentKind?: 'conversation' | 'image' | 'video' | 'mixed' | null;
 };
 
 export type DiscoverMirrorListResponse = {
@@ -130,6 +132,13 @@ export function parseDiscoverItem(raw: unknown): DiscoverMirror | null {
     publicAvatarRevision: parsePublicAvatarRevision(row.publicAvatarRevision),
     experienceType: parseExperienceType(row.experienceType),
     contentNature: parseContentNature(row.contentNature),
+    contentKind:
+      row.contentKind === 'conversation' ||
+      row.contentKind === 'image' ||
+      row.contentKind === 'video' ||
+      row.contentKind === 'mixed'
+        ? row.contentKind
+        : null,
   };
 }
 

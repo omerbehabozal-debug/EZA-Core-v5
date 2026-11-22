@@ -53,6 +53,34 @@ describe('Reel experience invitation', () => {
     render(<YansiReelExperienceInvite artifact={artifact()} />);
     expect(screen.getByRole('button', { name: 'Deneyime Başla' })).toBeDisabled();
   });
+  it('accepts V2 1–8 mapped conversation without the V1 6–8 parser gate', () => {
+    const v2: PublicFrozenJourneyArtifact = {
+      ...artifact(2),
+      sourceKind: 'v2_publication',
+      contentKind: 'conversation',
+      liveContinuationAvailable: false,
+    };
+    render(<YansiReelExperienceInvite artifact={v2} onOpenChat={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Deneyime Başla' })).toBeEnabled();
+    expect(screen.getByText('2 soruluk sohbet')).toBeInTheDocument();
+  });
+  it('shows image-only V2 as cover experience without chat CTA', () => {
+    const imageOnly: PublicFrozenJourneyArtifact = {
+      slug: 'photo',
+      journeyId: 'photo',
+      journeyVersion: 1,
+      authorUserId: 'biz',
+      replayReady: true,
+      selectedCount: 0,
+      steps: [],
+      sourceKind: 'v2_publication',
+      contentKind: 'image',
+      liveContinuationAvailable: false,
+    };
+    render(<YansiReelExperienceInvite artifact={imageOnly} onOpenChat={vi.fn()} />);
+    expect(screen.queryByRole('button')).toBeNull();
+    expect(screen.getByText('Görsel Yansı')).toBeInTheDocument();
+  });
   it('keeps responsive touch/focus/motion styles scoped to the invitation', () => {
     const css = readFileSync(resolve(process.cwd(), 'styles/yansi-reel-responsive.css'), 'utf8').split('/* Reel invitation')[1];
     expect(css).toContain('min-height: 44px'); expect(css).toContain('flex-wrap: wrap');

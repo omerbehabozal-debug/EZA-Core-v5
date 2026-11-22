@@ -39,7 +39,7 @@ class BusinessStudioGeneration(Base):
     updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
     __table_args__ = (
         UniqueConstraint('business_id', 'idempotency_key', name='uq_business_studio_idempotency'),
-        CheckConstraint("kind IN ('topics','draft')", name='ck_studio_kind'),
+        CheckConstraint("kind IN ('topics','draft','v2_prop')", name='ck_studio_kind'),
         CheckConstraint("status IN ('blocked','pending','running','validated','succeeded','failed','cancelled','expired')", name='ck_studio_status'),
         CheckConstraint('attempts >= 0 AND attempts <= max_attempts AND max_attempts > 0', name='ck_studio_attempts'),
         CheckConstraint('input_tokens >= 0 AND input_tokens <= reserved_input_tokens AND output_tokens >= 0 AND output_tokens <= reserved_output_tokens', name='ck_studio_tokens'),

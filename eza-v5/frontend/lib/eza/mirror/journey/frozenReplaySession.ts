@@ -66,7 +66,9 @@ export function startReplaySession(
     0,
     Math.min(max, resumed?.completedStepCount ?? 0)
   );
-  const completedDone = resumed?.replayCompleted === true && completed >= max;
+  // Image-only V2 (0 steps) is cover-complete — never leave the UI waiting for Q/A.
+  const completedDone =
+    max === 0 || (resumed?.replayCompleted === true && completed >= max);
   return {
     slug: artifact.slug,
     journeyVersion: artifact.journeyVersion,

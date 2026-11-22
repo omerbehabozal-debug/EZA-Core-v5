@@ -31,8 +31,11 @@ import {
 } from '@/lib/eza/mirror-network/yansiSaveStore';
 import { saveYansi } from '@/lib/eza/mirror-network/yansiSaveApi';
 import {
+  buildYansiPublicHref,
+  parsePinnedContentKind,
   parsePinnedJourneyVersion,
   parseYansiPublicDepth,
+  replaceYansiPublicUrl,
   type YansiPublicDepth,
 } from '@/lib/eza/mirror-network/yansiPublicDepth';
 
@@ -59,6 +62,10 @@ export default function MirrorLandingExperience({
   const [depth, setDepth] = useState<YansiPublicDepth>(urlDepth);
   const pinnedJourneyVersion = useMemo(
     () => parsePinnedJourneyVersion(searchParams),
+    [searchParams]
+  );
+  const pinnedContentKind = useMemo(
+    () => parsePinnedContentKind(searchParams),
     [searchParams]
   );
 
@@ -116,6 +123,7 @@ export default function MirrorLandingExperience({
       const artifact = await fetchPublicFrozenJourneyArtifact({
         slug: surface.slug,
         journeyVersion: pinnedJourneyVersion,
+        contentKind: pinnedContentKind,
       });
       if (!artifact) {
         setFrozenState({ status: 'unavailable' });
@@ -129,12 +137,33 @@ export default function MirrorLandingExperience({
         return;
       }
       // Exact node pin: reject latest substitution when URL pins a version.
+      // For V2, journeyVersion carries publication_version (not V1 journey_version).
       if (
         pinnedJourneyVersion != null &&
         artifact.journeyVersion !== pinnedJourneyVersion
       ) {
         setFrozenState({ status: 'unavailable' });
         return;
+      }
+      // Stage 04E: if V2 opened without ?journeyVersion=, pin the resolved
+      // publication version in the URL so later /answer cannot float to current.
+      if (
+        artifact.sourceKind === 'v2_publication' &&
+        pinnedJourneyVersion == null &&
+        artifact.journeyVersion >= 1
+      ) {
+        replaceYansiPublicUrl(
+          buildYansiPublicHref(artifact.slug, {
+            journeyVersion: artifact.journeyVersion,
+            contentKind:
+              artifact.contentKind === 'conversation' ||
+              artifact.contentKind === 'image' ||
+              artifact.contentKind === 'mixed'
+                ? artifact.contentKind
+                : pinnedContentKind,
+            mode: depth === 'chat' ? 'chat' : undefined,
+          })
+        );
       }
       setFrozenState({ status: 'ready', artifact });
     } catch {
@@ -143,7 +172,7 @@ export default function MirrorLandingExperience({
         reportOpsFailure('frozen_replay_load_failed', 'FROZEN_ARTIFACT_INVALID');
       });
     }
-  }, [surface.slug, pinnedJourneyVersion]);
+  }, [surface.slug, pinnedJourneyVersion, pinnedContentKind, depth]);
 
   useEffect(() => {
     void loadFrozen();

@@ -5,7 +5,12 @@ from decimal import Decimal, InvalidOperation
 import os
 
 from sqlalchemy import select, func
-from backend.core.schemas.business_studio import GenerationRequest, GenerationResponse, PROMPT_VERSION
+from backend.core.schemas.business_studio import (
+    GenerationRequest,
+    GenerationResponse,
+    TopicsRequest,
+    PROMPT_VERSION,
+)
 from backend.models.business_studio import BusinessStudioGeneration as Job, BusinessStudioUsage as Usage
 from backend.models.business_yansi import BusinessProfile
 from backend.services.business_yansi import service as business
@@ -72,7 +77,11 @@ async def lock_business(db, business_id, user_id, role):
 
 async def create_job(db, business_id, user_id, body, kind, limits=Limits()):
     """Caller owns rollback on error; lock serializes keys and daily reservations."""
-    if kind not in {'topics', 'draft'} or (kind == 'draft' and not isinstance(body, GenerationRequest)):
+    if kind not in {'topics', 'draft', 'v2_prop'}:
+        business.fail('studio_invalid_request', 422)
+    if kind == 'draft' and not isinstance(body, GenerationRequest):
+        business.fail('studio_invalid_request', 422)
+    if kind == 'v2_prop' and not isinstance(body, TopicsRequest):
         business.fail('studio_invalid_request', 422)
     await lock_business(db, business_id, user_id, 'editor')
     safe_content(body.topicHint)

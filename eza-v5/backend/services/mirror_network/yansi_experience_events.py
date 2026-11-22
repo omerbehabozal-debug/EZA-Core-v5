@@ -113,6 +113,55 @@ def payload_has_forbidden_fields(payload: dict[str, Any] | None) -> bool:
     return False
 
 
+async def _require_public_v2_publication(
+    db: AsyncSession, *, slug: str, publication_version: int
+) -> dict[str, Any]:
+    """Stage 04E: accept V2 sealed publications for experience ingest.
+
+    ``journey_version`` on the event payload carries publication_version for V2
+    (same Discover/Deneyimle pin contract). Does not invent BusinessPublication.
+    """
+    from backend.services.yansi.public_read import PublicReadError, read_public_v2_publication
+
+    try:
+        data = await read_public_v2_publication(
+            db, slug=slug, publication_version=publication_version
+        )
+    except PublicReadError as exc:
+        raise YansiExperienceIngestError(
+            getattr(exc, "code", None) or "frozen_journey_not_found",
+            status_code=404,
+        ) from exc
+
+    pinned = int(data.get("publicationVersion") or 0)
+    if pinned != publication_version:
+        raise YansiExperienceIngestError("wrong_journey_version", status_code=404)
+
+    kind = str(data.get("contentKind") or "").lower()
+    public_dto = data.get("public") if isinstance(data.get("public"), dict) else {}
+    if kind == "image":
+        selected = 0
+    elif kind in {"conversation", "mixed"}:
+        conversation = public_dto.get("conversation")
+        conversation = conversation if isinstance(conversation, dict) else {}
+        selected = int(conversation.get("turnCount") or 0)
+        if selected < 1 or selected > 8:
+            raise YansiExperienceIngestError(
+                "malformed_frozen_artifact", status_code=400
+            )
+    else:
+        raise YansiExperienceIngestError("malformed_frozen_artifact", status_code=400)
+
+    return {
+        "slug": data.get("slug") or slug,
+        "journeyVersion": pinned,
+        "selectedCount": selected,
+        "replayReady": True,
+        "sourceKind": "v2_publication",
+        "contentKind": kind,
+    }
+
+
 async def _require_public_frozen(
     db: AsyncSession, *, slug: str, journey_version: int
 ) -> dict[str, Any]:
@@ -120,7 +169,9 @@ async def _require_public_frozen(
         db, slug=slug, journey_version=journey_version
     )
     if public is None:
-        raise YansiExperienceIngestError("frozen_journey_not_found", status_code=404)
+        return await _require_public_v2_publication(
+            db, slug=slug, publication_version=journey_version
+        )
     if int(public.get("journeyVersion") or 0) != journey_version:
         raise YansiExperienceIngestError("wrong_journey_version", status_code=404)
     selected = int(public.get("selectedCount") or 0)
@@ -308,7 +359,11 @@ async def ingest_yansi_experience_event(
     if event_type == YANSI_EXPERIENCE_STARTED:
         if completed_step_count is None:
             completed_step_count = 0
-        if completed_step_count < 0 or completed_step_count >= selected_count:
+        # Image-only V2 (selectedCount=0): start must be exactly 0.
+        if selected_count == 0:
+            if completed_step_count != 0:
+                raise YansiExperienceIngestError("invalid_completed_step_count")
+        elif completed_step_count < 0 or completed_step_count >= selected_count:
             raise YansiExperienceIngestError("invalid_completed_step_count")
         if destination:
             raise YansiExperienceIngestError("unexpected_destination")

@@ -7,6 +7,10 @@ export type YansiPublicDepth = 'reel' | 'chat';
 
 export const YANSI_PUBLIC_DEPTH_QUERY = 'mode';
 export const YANSI_PUBLIC_VERSION_QUERY = 'journeyVersion';
+/** Keşfet → Deneyimle V2 kind hint (conversation | image | mixed). */
+export const YANSI_PUBLIC_CONTENT_KIND_QUERY = 'contentKind';
+
+export type YansiPublicContentKind = 'conversation' | 'image' | 'mixed';
 
 export function parseYansiPublicDepth(
   search: string | URLSearchParams | null | undefined
@@ -37,9 +41,27 @@ export function parsePinnedJourneyVersion(
   return n;
 }
 
+export function parsePinnedContentKind(
+  search: string | URLSearchParams | null | undefined
+): YansiPublicContentKind | null {
+  const params =
+    typeof search === 'string'
+      ? new URLSearchParams(search.startsWith('?') ? search.slice(1) : search)
+      : search instanceof URLSearchParams
+        ? search
+        : null;
+  const raw = (params?.get(YANSI_PUBLIC_CONTENT_KIND_QUERY) || '')
+    .trim()
+    .toLowerCase();
+  if (raw === 'conversation' || raw === 'image' || raw === 'mixed') return raw;
+  return null;
+}
+
 export type BuildMirrorPublicPathOptions = {
   journeyVersion?: number | null;
   mode?: YansiPublicDepth;
+  /** V2 Discover cards pass content kind so /m does not open the wrong family. */
+  contentKind?: YansiPublicContentKind | null;
 };
 
 /**
@@ -64,6 +86,10 @@ export function buildYansiPublicHref(
   }
   if (options?.mode === 'chat') {
     params.set(YANSI_PUBLIC_DEPTH_QUERY, 'chat');
+  }
+  const kind = options?.contentKind;
+  if (kind === 'conversation' || kind === 'image' || kind === 'mixed') {
+    params.set(YANSI_PUBLIC_CONTENT_KIND_QUERY, kind);
   }
   const q = params.toString();
   return q ? `/m/${safe}?${q}` : `/m/${safe}`;

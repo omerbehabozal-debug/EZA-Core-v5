@@ -303,6 +303,22 @@ def _discover_public_avatar_revision(author: Any) -> int:
         return 0
 
 
+def _is_v2_discover_card(node: MirrorNetworkNode) -> bool:
+    """True when this Discover row is a V2 publication (never coerce to journey_v1)."""
+    from backend.services.yansi.discover_v2 import is_v2_discover_node_structure
+
+    return is_v2_discover_node_structure(node)
+
+
+def discover_card_pin_version(node: MirrorNetworkNode) -> int:
+    """V1 → journey_version; V2 → publication_version (never confuse the two)."""
+    if _is_v2_discover_card(node):
+        from backend.services.yansi.discover_v2 import v2_discover_publication_version
+
+        return v2_discover_publication_version(node)
+    return int(getattr(node, "journey_version", None) or 1)
+
+
 def _to_discover_item(
     node: MirrorNetworkNode,
     *,
@@ -317,8 +333,46 @@ def _to_discover_item(
     public_honorific: str | None = None,
     public_avatar_url: str | None = None,
     public_avatar_revision: int = 0,
+    content_kind: str | None = None,
 ) -> DiscoverMirrorItem:
     payload = node.public_payload if isinstance(node.public_payload, dict) else {}
+    is_v2 = _is_v2_discover_card(node)
+    if is_v2:
+        from backend.services.yansi.discover_v2 import (
+            v2_discover_content_kind,
+            v2_discover_curiosity_question,
+            v2_discover_publication_version,
+        )
+
+        title = (node.card_title or "").strip() or node.slug
+        description = v2_discover_curiosity_question(node)
+        version = (
+            int(journey_version)
+            if journey_version is not None
+            else v2_discover_publication_version(node)
+        )
+        kind = content_kind or v2_discover_content_kind(node)
+        return DiscoverMirrorItem(
+            slug=node.slug,
+            title=title,
+            description=description,
+            sceneImageUrl=scene_url,
+            yansiCount=yansi_count,
+            createdAt=_published_iso(node),
+            journeyVersion=version,
+            experienceStartedCount=experience_started_count,
+            directChildYansiCount=direct_child_yansi_count,
+            visibleVerificationCount=max(0, int(visible_verification_count or 0)),
+            contentVisibleCount=max(0, int(content_visible_count or 0)),
+            authorDisplayName=author_display_name,
+            publicHonorific=public_honorific,
+            publicAvatarUrl=public_avatar_url,
+            publicAvatarRevision=public_avatar_revision,
+            experienceType=None,
+            contentNature=None,
+            contentKind=kind,  # type: ignore[arg-type]
+        )
+
     frozen_title, frozen_summary, _ = _frozen_public_fields(node)
     public_title = (
         frozen_title
@@ -343,9 +397,10 @@ def _to_discover_item(
         read_content_identity,
     )
 
+    private = getattr(node, "private_payload", None)
     identity = read_content_identity(
         read_frozen_journey_artifact_from_private(
-            node.private_payload if isinstance(node.private_payload, dict) else None
+            private if isinstance(private, dict) else None
         )
     )
     return DiscoverMirrorItem(
@@ -366,6 +421,7 @@ def _to_discover_item(
         publicAvatarRevision=public_avatar_revision,
         experienceType=identity.get("experienceType"),
         contentNature=identity.get("contentNature"),
+        contentKind=None,
     )
 
 
@@ -542,6 +598,81 @@ async def load_discover_eligible_nodes(
 load_discover_eligible_roots = load_discover_eligible_nodes
 
 
+async def load_merged_discover_eligible_nodes(
+    db: AsyncSession,
+) -> list[tuple[MirrorNetworkNode, str]]:
+    """V1 pool unchanged, then append V2-eligible nodes. Deduplicate by slug (V1 wins).
+
+    Never rewrites V2 into FREEZE_STATUS_FROZEN / journey_v1. Ordering is applied
+    by the caller after merge so offset/limit stay consistent across the combined pool.
+    """
+    from backend.services.yansi.discover_v2 import load_v2_discover_eligible_nodes
+
+    v1_pool = await load_discover_eligible_nodes(db)
+    v2_pool = await load_v2_discover_eligible_nodes(
+        db, limit=MAX_DISCOVER_ELIGIBLE_LOAD
+    )
+    by_slug: dict[str, tuple[MirrorNetworkNode, str]] = {}
+    for node, scene in v1_pool:
+        key = (getattr(node, "slug", "") or "").strip().lower()
+        if key:
+            by_slug[key] = (node, scene)
+    for node, scene in v2_pool:
+        key = (getattr(node, "slug", "") or "").strip().lower()
+        if not key or key in by_slug:
+            continue
+        by_slug[key] = (node, scene)
+    return list(by_slug.values())
+
+
+async def _resolve_v2_business_brand(
+    db: AsyncSession, node: MirrorNetworkNode
+) -> dict[str, Any] | None:
+    """Reliable brand from sealed knowledge bundle — never invents BusinessPublication."""
+    from backend.models.business_yansi import BusinessProfile
+    from backend.models.mirror_network import YansiPublicationVersionV2
+    from backend.models.production import Organization
+    from backend.models.yansi_knowledge_bundle import (
+        YansiKnowledgeBundle,
+        YansiKnowledgeBundleVersion,
+    )
+    from backend.services.business_yansi.publication import enabled, publisher
+
+    if not enabled():
+        return None
+    version = discover_card_pin_version(node)
+    node_id = getattr(node, "id", None)
+    if node_id is None or version < 1:
+        return None
+    result = await db.execute(
+        select(YansiPublicationVersionV2).where(
+            YansiPublicationVersionV2.node_id == node_id,
+            YansiPublicationVersionV2.publication_version == version,
+        )
+    )
+    publication = result.scalar_one_or_none()
+    if publication is None or publication.knowledge_bundle_version_id is None:
+        return None
+    bundle_version = await db.get(
+        YansiKnowledgeBundleVersion, publication.knowledge_bundle_version_id
+    )
+    if bundle_version is None:
+        return None
+    bundle = await db.get(YansiKnowledgeBundle, bundle_version.bundle_id)
+    if bundle is None or bundle.business_id is None:
+        return None
+    profile = await db.get(BusinessProfile, bundle.business_id)
+    organization = await db.get(Organization, bundle.business_id)
+    if (
+        not profile
+        or profile.status != "active"
+        or not organization
+        or organization.status != "active"
+    ):
+        return None
+    return publisher(profile)
+
+
 async def _project_discover_page(
     db: AsyncSession,
     page: list[tuple[MirrorNetworkNode, str]],
@@ -554,10 +685,7 @@ async def _project_discover_page(
         yansi_by_parent = _batch_yansi_counts(children)
 
     pairs = [
-        (
-            node.slug.strip().lower(),
-            int(getattr(node, "journey_version", None) or 1),
-        )
+        (node.slug.strip().lower(), discover_card_pin_version(node))
         for node, _ in page
     ]
     metrics_by_key: dict[tuple[str, int], dict[str, int]] = {}
@@ -584,7 +712,7 @@ async def _project_discover_page(
 
     items = []
     for node, scene_url in page:
-        version = int(getattr(node, "journey_version", None) or 1)
+        version = discover_card_pin_version(node)
         key = (node.slug.strip().lower(), version)
         row = metrics_by_key.get(key)
         katki_counts = katki_counts_by_key.get(
@@ -593,39 +721,48 @@ async def _project_discover_page(
         )
         author = _author_for_node(authors_by_id, getattr(node, "user_id", None))
         items.append(
-            _to_discover_item(
+            (
                 node,
-                scene_url=scene_url,
-                yansi_count=yansi_by_parent.get(node.slug.lower(), 0),
-                journey_version=version,
-                experience_started_count=(
-                    row.get("experienceStartedCount") if row else None
+                _to_discover_item(
+                    node,
+                    scene_url=scene_url,
+                    yansi_count=yansi_by_parent.get(node.slug.lower(), 0),
+                    journey_version=version,
+                    experience_started_count=(
+                        row.get("experienceStartedCount") if row else None
+                    ),
+                    direct_child_yansi_count=(
+                        row.get("directChildYansiCount") if row else None
+                    ),
+                    visible_verification_count=katki_counts.get(
+                        "visibleVerificationCount", 0
+                    ),
+                    content_visible_count=katki_counts.get("contentVisibleCount", 0),
+                    author_display_name=resolve_public_display_name(author),
+                    public_honorific=resolve_public_honorific(author),
+                    public_avatar_url=_discover_public_avatar_url(author),
+                    public_avatar_revision=_discover_public_avatar_revision(author),
                 ),
-                direct_child_yansi_count=(
-                    row.get("directChildYansiCount") if row else None
-                ),
-                visible_verification_count=katki_counts.get(
-                    "visibleVerificationCount", 0
-                ),
-                content_visible_count=katki_counts.get("contentVisibleCount", 0),
-                author_display_name=resolve_public_display_name(author),
-                public_honorific=resolve_public_honorific(author),
-                public_avatar_url=_discover_public_avatar_url(author),
-                public_avatar_revision=_discover_public_avatar_revision(author),
             )
         )
     from backend.services.business_yansi.publication import public_publisher
     from fastapi import HTTPException
 
     public_items = []
-    for item in items:
+    for node, item in items:
         brand = None
-        try:
-            brand = await public_publisher(db, item.slug, item.journeyVersion)
-        except HTTPException as exc:
-            # No business publication — keep personal/author Discover card.
-            if exc.status_code != 404:
-                raise
+        if _is_v2_discover_card(node):
+            try:
+                brand = await _resolve_v2_business_brand(db, node)
+            except Exception:
+                brand = None
+        else:
+            try:
+                brand = await public_publisher(db, item.slug, item.journeyVersion)
+            except HTTPException as exc:
+                # No business publication — keep personal/author Discover card.
+                if exc.status_code != 404:
+                    raise
         if brand:
             item = item.model_copy(
                 update={
@@ -802,7 +939,9 @@ async def list_discover_mirrors(
             )
         )
 
-    eligible = await load_discover_eligible_roots(db)
+    # Random / newest: merge V1 + V2 before order/slice so pagination is stable.
+    # Strong curiosity stays V1-only (frozen policy) via the branch above.
+    eligible = await load_merged_discover_eligible_nodes(db)
     eligible = _order_eligible(
         eligible, mode=parsed_mode, random_session=session or ""
     )

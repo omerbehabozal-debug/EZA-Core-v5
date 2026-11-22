@@ -42,7 +42,7 @@ class SourceIdentity(Strict):
 class GenerationResponse(Strict):
     generationId: UUID
     businessId: UUID
-    kind: Literal['topics', 'draft']
+    kind: Literal['topics', 'draft', 'v2_prop']
     status: State
     executionAvailable: bool = False
     result: dict | None = None

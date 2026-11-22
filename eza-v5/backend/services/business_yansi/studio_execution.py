@@ -17,6 +17,10 @@ from .studio_validation import canonical_hash
 
 logger = logging.getLogger(__name__)
 
+_DISTINCT_TOPIC_PASSAGE_REPAIR = (
+    'Select eight different passage IDs. Use eight different answer texts. '
+    'Choose only from allowed eligible catalog passages.'
+)
 _REPAIR_INSTRUCTIONS = {
     'malformed_json': 'Return one complete JSON object matching the schema, without markdown.',
     'truncated_output': 'Use concise questions and return the complete JSON object within the output limit.',
@@ -30,7 +34,24 @@ _REPAIR_INSTRUCTIONS = {
     'studio_duplicate_question': 'Write eight distinct questions; punctuation or casing alone is not a difference.',
     'studio_insufficient_topics': 'Select distinct supported topics with different titles of at least two words.',
     'studio_insufficient_topic_sources': 'Support each topic with at least eight distinct eligible answer passages.',
+    'studio_repeated_passage_id': _DISTINCT_TOPIC_PASSAGE_REPAIR,
+    'studio_repeated_answer_text': _DISTINCT_TOPIC_PASSAGE_REPAIR,
+    'studio_ineligible_answer_passage': (
+        'Choose only eligible answer passages from the catalog: full factual sentences that meet length rules.'
+    ),
+    'studio_topic_source_subset': (
+        'The catalog has enough eligible passages. Select eight different eligible passage IDs '
+        'with eight different answer texts from that allowed set.'
+    ),
 }
+_SAFE_DIAGNOSTIC_INT_KEYS = frozenset({
+    'catalog_eligible',
+    'catalog_unique_eligible',
+    'selected_ids',
+    'selected_unique_ids',
+    'selected_eligible',
+    'selected_unique_texts',
+})
 _NON_RETRYABLE_VALIDATION = frozenset({
     'studio_invalid_snapshot', 'studio_invalid_candidate', 'studio_unsafe_content',
     'studio_invalid_evidence', 'studio_incomplete_passage', 'studio_unsupported_metadata',
@@ -57,6 +78,9 @@ def parse_output(result, finish, job, passages, topic, media):
         value = json.loads(result['output'])
     except (ValueError, KeyError, TypeError):
         raise InvalidOutput('malformed_json') from None
+    if job.kind == 'v2_prop':
+        from backend.services.yansi import ai_conversation_proposal_v2 as v2ai
+        return v2ai.validate_proposal(value, passages, job.source_snapshot, media)
     value = generation.unwrap(job.kind, value)
     if value is None:
         return None
@@ -142,27 +166,49 @@ async def prepare(db, job, limits):
         return job, None
     try:
         await studio.revalidate(db, job)
-        passages = generation.catalog(job.source_snapshot)
-        topic = await selected_topic(db, job)
-        media = {}
-        if topic is not None:
+        if job.kind == 'v2_prop':
+            from backend.services.yansi import ai_conversation_proposal_v2 as v2ai
             from .studio_media import studio_media_catalog
 
+            passages = v2ai.catalog_v2(job.source_snapshot)
+            topic = None
             media = await studio_media_catalog(
-                db, job.business_id,
-                {passages[key]['versionId'] for key in topic['answerPassageIds']},
+                db,
+                job.business_id,
+                {passages[key]['versionId'] for key in passages},
             )
-        rates = configuration(job.model)
-        text = generation.prompt(job.kind, passages, job.request_payload.get('topicHint', ''), topic, media)
-        schema = generation.output_schema(job.kind, passages, topic, media)
+            rates = configuration(job.model)
+            text = v2ai.prompt(passages, job.request_payload.get('topicHint', ''), media)
+            schema = v2ai.output_schema(passages, media)
+            prompt_version = v2ai.PROMPT_VERSION
+        else:
+            passages = generation.catalog(job.source_snapshot)
+            topic = await selected_topic(db, job)
+            media = {}
+            if topic is not None:
+                from .studio_media import studio_media_catalog
+
+                media = await studio_media_catalog(
+                    db, job.business_id,
+                    {passages[key]['versionId'] for key in topic['answerPassageIds']},
+                )
+            rates = configuration(job.model)
+            text = generation.prompt(job.kind, passages, job.request_payload.get('topicHint', ''), topic, media)
+            schema = generation.output_schema(job.kind, passages, topic, media)
+            prompt_version = generation.PROMPT_VERSION
         # One attempt must fit the existing job caps. The repair attempt is gated later.
         reserve_in = input_token_count(job.model, text, schema)
         reserve_out = job.reserved_output_tokens // job.max_attempts
         reserve_cost = cost(reserve_in, reserve_out, rates)
         if media and (reserve_in > job.reserved_input_tokens or reserve_cost > job.cost_limit_usd):
             media = {}
-            text = generation.prompt(job.kind, passages, job.request_payload.get('topicHint', ''), topic)
-            schema = generation.output_schema(job.kind, passages, topic)
+            if job.kind == 'v2_prop':
+                from backend.services.yansi import ai_conversation_proposal_v2 as v2ai
+                text = v2ai.prompt(passages, job.request_payload.get('topicHint', ''), None)
+                schema = v2ai.output_schema(passages, None)
+            else:
+                text = generation.prompt(job.kind, passages, job.request_payload.get('topicHint', ''), topic)
+                schema = generation.output_schema(job.kind, passages, topic)
             reserve_in = input_token_count(job.model, text, schema)
             reserve_cost = cost(reserve_in, reserve_out, rates)
         if reserve_in > job.reserved_input_tokens or reserve_out > job.reserved_output_tokens or reserve_cost > job.cost_limit_usd:
@@ -171,12 +217,12 @@ async def prepare(db, job, limits):
         job.error_code = error.detail['code']
         await db.flush(); await db.refresh(job); db.expunge(job); await db.commit()
         return job, None
-    execution = {'promptVersion': generation.PROMPT_VERSION, 'rates': rates, 'reserveIn': reserve_in,
+    execution = {'promptVersion': prompt_version, 'rates': rates, 'reserveIn': reserve_in,
                  'reserveOut': reserve_out, 'reserveCost': str(reserve_cost), 'usageEstimated': False}
     now = datetime.now(timezone.utc)
     claimed = await db.execute(update(Job).where(Job.id == job.id, Job.status == 'blocked', Job.attempts == 0,
         Job.error_code == 'studio_execution_not_implemented').values(status='pending', attempts=0,
-        prompt_version=generation.PROMPT_VERSION, error_code=None, execution=execution,
+        prompt_version=prompt_version, error_code=None, execution=execution,
         deadline_at=now + timedelta(seconds=limits.timeout_seconds)).execution_options(synchronize_session=False))
     if claimed.rowcount != 1:
         await db.refresh(job); db.expunge(job); await db.commit()
@@ -243,6 +289,11 @@ async def settle(db, snapshot, result, parsed, error, *, retry_input_tokens=None
             business.fail('studio_deadline_exceeded', 409)
         if not error and job.kind == 'draft':
             candidate, draft_data = parsed
+        elif not error and job.kind == 'v2_prop':
+            # Proposal only — never auto-create V1 or V2 drafts here.
+            if not isinstance(parsed, dict) or parsed.get('insufficientSources'):
+                error = 'studio_insufficient_sources'
+                parsed = {'insufficientSources': True, 'result': None, 'warnings': []}
     except HTTPException as failure:
         # Keep interruption/cancellation diagnostics while still forbidding retry.
         error = error if error in {'studio_execution_interrupted', 'studio_request_cancelled'} else failure.detail['code']
@@ -263,7 +314,10 @@ async def settle(db, snapshot, result, parsed, error, *, retry_input_tokens=None
         except HTTPException as failure:
             error = failure.detail['code']
     if not error:
-        execution['result'] = candidate if job.kind == 'draft' else parsed
+        if job.kind == 'draft':
+            execution['result'] = candidate
+        else:
+            execution['result'] = parsed
     execution['usageEstimated'] = execution.get('usageEstimated', False) or estimated
     outcome = 'failed' if error else 'validated'
     db.add(Usage(generation_id=job.id, attempt=job.attempts, settlement_hash=canonical_hash({
@@ -321,6 +375,7 @@ async def execute(db, job, *, router=None, limits=studio.Limits()):
         router.available_models.append(job.model)
     while job.status == 'running':
         result, parsed, error, subreason = None, None, None, None
+        safe_counts = {}
         finish = 'missing'
         try:
             deadline = job.deadline_at.replace(tzinfo=timezone.utc) if job.deadline_at.tzinfo is None else job.deadline_at
@@ -347,11 +402,17 @@ async def execute(db, job, *, router=None, limits=studio.Limits()):
         except ValidationError:
             subreason = 'schema_mismatch'
         except HTTPException as failure:
-            code = failure.detail.get('code') if isinstance(failure.detail, dict) else None
+            detail = failure.detail if isinstance(failure.detail, dict) else None
+            code = detail.get('code') if detail else None
             if code == 'studio_invalid_model_output':
                 subreason = 'invalid_envelope'
             elif isinstance(code, str) and (code in _REPAIR_INSTRUCTIONS or code in _NON_RETRYABLE_VALIDATION):
                 subreason = code
+                if detail:
+                    for key in _SAFE_DIAGNOSTIC_INT_KEYS:
+                        value = detail.get(key)
+                        if isinstance(value, int) and value >= 0:
+                            safe_counts[key] = value
             else:
                 subreason = 'validation_rejected'
         except (ValueError, KeyError, TypeError):
@@ -363,9 +424,14 @@ async def execute(db, job, *, router=None, limits=studio.Limits()):
         retry_text, retry_input_tokens = None, None
         if subreason:
             error = 'studio_invalid_model_output'
+            count_parts = ' '.join(f'{key}={safe_counts[key]}' for key in sorted(safe_counts))
             logger.warning(
-                'studio_invalid_model_output generation_id=%s attempt=%d subreason=%s finish_reason=%s',
-                job.id, job.attempts, subreason, finish,
+                'studio_invalid_model_output generation_id=%s attempt=%d subreason=%s finish_reason=%s%s',
+                job.id,
+                job.attempts,
+                subreason,
+                finish,
+                f' {count_parts}' if count_parts else '',
             )
             instruction = _REPAIR_INSTRUCTIONS.get(subreason)
             if instruction and job.attempts < job.max_attempts:

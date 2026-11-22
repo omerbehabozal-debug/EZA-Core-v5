@@ -133,7 +133,14 @@ async def guest_history(db, row, request):
         from sqlalchemy import select
         from backend.services.business_yansi.answers import bind_business_history
         node=await db.scalar(select(MirrorNetworkNode).where(MirrorNetworkNode.slug==row.source_slug))
-        if node: return await bind_business_history(db,row.source_slug,node.journey_version,history,request.query_value)
+        if node:
+            # V2 image pubs keep journey_version at 1; bind against publication version.
+            bind_version = (
+                node.current_v2_publication_version
+                if node.current_v2_publication_version is not None
+                else node.journey_version
+            )
+            return await bind_business_history(db,row.source_slug,bind_version,history,request.query_value)
     return history
 
 async def record_trial_continuation(db, row, token):

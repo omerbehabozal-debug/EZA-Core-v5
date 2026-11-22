@@ -322,6 +322,7 @@ export {
   hydratePublishedJourneysFromServer,
   fetchFrozenJourneyArtifact,
   fetchPublicFrozenJourneyArtifact,
+  fetchV1PublicFrozenJourneyArtifact,
   type OwnerPublishedJourneyServerItem,
   type OwnerPublishedJourneysResponse,
 } from './hydratePublishedJourneysFromServer';
@@ -330,7 +331,25 @@ export {
   parsePublicFrozenJourneyArtifact,
   type PublicFrozenJourneyArtifact,
   type PublicFrozenJourneyStep,
+  type PublicExperienceSourceKind,
 } from './publicFrozenTypes';
+
+export {
+  fetchYansiV2PublicPublication,
+  parseYansiV2PublicPublication,
+  type YansiV2PublicPublication,
+} from './fetchYansiV2Public';
+
+export { mapV2PublicToFrozenArtifact } from './mapV2PublicToFrozenArtifact';
+
+export { loadPublicExperienceArtifact } from './loadPublicExperienceArtifact';
+
+export {
+  answerYansiV2Public,
+  parseYansiV2AnswerResponse,
+  type YansiV2AnswerResult,
+  type YansiV2AnswerHistoryTurn,
+} from './answerYansiV2Public';
 
 export {
   readYansiAtomicIdentity,

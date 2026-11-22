@@ -22,14 +22,18 @@ async def bind_business_history(db, slug, version, history, question):
     from .publication import enabled
     if not enabled(): return history
     binding=await db.get(BusinessPublication,(slug,int(version)))
-    if not binding: return history
-    profile=await db.get(BusinessProfile,binding.business_id)
-    organization=await db.get(Organization,binding.business_id)
-    if not profile or profile.status!='active' or not profile.verified or not organization or organization.status!='active':
-        return BusinessHistory(history,binding.business_id,[])
-    rows=await published_knowledge(db,binding.business_id,binding.knowledge_snapshot)
-    sources=[{'id':str(row.id),'title':row.title,'text':row.content,'source':row.source,'version':row.version} for row in rank_sources(question,rows)]
-    return BusinessHistory(history,binding.business_id,sources)
+    if binding:
+        profile=await db.get(BusinessProfile,binding.business_id)
+        organization=await db.get(Organization,binding.business_id)
+        if not profile or profile.status!='active' or not profile.verified or not organization or organization.status!='active':
+            return BusinessHistory(history,binding.business_id,[])
+        rows=await published_knowledge(db,binding.business_id,binding.knowledge_snapshot)
+        sources=[{'id':str(row.id),'title':row.title,'text':row.content,'source':row.source,'version':row.version} for row in rank_sources(question,rows)]
+        return BusinessHistory(history,binding.business_id,sources)
+    # V2 grounded publications are not BusinessPublication rows — bind separately.
+    from backend.services.yansi.continuation_v2 import bind_yansi_v2_history
+    v2 = await bind_yansi_v2_history(db, slug, version, history)
+    return v2 if v2 is not None else history
 
 def validate_quotes(output,sources):
     try:
@@ -81,6 +85,33 @@ def _flag(name):
 
 async def _orchestrated(question, history, provider, db):
     from .business_rag_orchestrator import run_business_rag
+    from backend.services.yansi.continuation_v2 import YansiV2History, answer_yansi_v2_continuation
+    if isinstance(history, YansiV2History):
+        # Server-side V2 context only — never accept client bundle/policy overrides.
+        if db is None:
+            return {
+                'assistant_answer': NO_INFORMATION,
+                'sources': [],
+                'business_grounded': True,
+                'yansi_v2_grounded': True,
+                'reason': 'db_required',
+            }
+        produced = await answer_yansi_v2_continuation(
+            db,
+            question,
+            history,
+            provider=provider,
+            lexical_only=provider is None,
+        )
+        return {
+            'assistant_answer': produced.get('assistant_answer') or produced.get('answer') or NO_INFORMATION,
+            'sources': produced.get('display_sources') or produced.get('sources') or [],
+            'business_grounded': True,
+            'yansi_v2_grounded': True,
+            'reason': produced.get('reason'),
+            'status': produced.get('status'),
+            'publication': produced.get('publication'),
+        }
     if not isinstance(history, BusinessHistory):
         return {'assistant_answer': NO_INFORMATION, 'sources': [], 'business_grounded': True, 'reason': 'not_business'}
     flags_open = _flag('BILIGN_BUSINESS_RAG_ENABLED') and _flag('BILIGN_BUSINESS_RAG_ANSWERS_ENABLED')
@@ -101,7 +132,8 @@ async def _orchestrated(question, history, provider, db):
     }
 
 async def run_business_or_standard_pipeline(*,user_input,mode,chat_history=None,**kwargs):
-    if mode!='standalone' or not isinstance(chat_history,BusinessHistory):
+    from backend.services.yansi.continuation_v2 import YansiV2History
+    if mode!='standalone' or not isinstance(chat_history,(BusinessHistory,YansiV2History)):
         from backend.api.pipeline_runner import run_full_pipeline
         return await run_full_pipeline(user_input=user_input,mode=mode,chat_history=chat_history,**kwargs)
     from backend.core.schemas.pipeline import PipelineResponse
