@@ -850,6 +850,41 @@ export async function createYansiV2ConversationDraft(
   );
 }
 
+export type YansiV2ConversationDraftSummary = {
+  id: string;
+  businessId: string;
+  title: string;
+  status: string;
+  revision: number;
+  turnCount: number;
+  coverAssetId: string | null;
+  publishedNodeId: string | null;
+  publishedVersion: number | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+};
+
+export type YansiV2ConversationDraftList = {
+  items: YansiV2ConversationDraftSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export async function listYansiV2ConversationDrafts(
+  businessId: string,
+  opts: { status?: string; limit?: number; offset?: number } = {},
+): Promise<YansiV2ConversationDraftList> {
+  const params = new URLSearchParams();
+  if (opts.status) params.set('status', opts.status);
+  if (opts.limit != null) params.set('limit', String(opts.limit));
+  if (opts.offset != null) params.set('offset', String(opts.offset));
+  const qs = params.toString();
+  return businessRequest<YansiV2ConversationDraftList>(
+    `/${businessId}/v2/conversation-drafts${qs ? `?${qs}` : ''}`,
+  );
+}
+
 export async function getYansiV2ConversationDraft(
   businessId: string,
   draftId: string,

@@ -9,7 +9,7 @@ import os
 import uuid
 from typing import Any, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.auth.deps import get_current_user
@@ -305,6 +305,30 @@ async def create_conversation_draft(
             knowledge_sources=_pins_payload(body.knowledgeSources),
             cover_asset_id=str(body.coverAssetId) if body.coverAssetId else None,
             cover_asset_revision=body.coverAssetRevision,
+        )
+    except conv_drafts.ConversationDraftV2Error as exc:
+        raise_draft_http(exc)
+
+
+@router.get("/{business_id}/v2/conversation-drafts")
+async def list_conversation_drafts(
+    business_id: uuid.UUID,
+    db=Depends(get_db),
+    claims=Depends(get_current_user),
+    status: Optional[str] = Query(None, description="Optional status filter"),
+    limit: int = Query(50, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+):
+    """Member list of V2 conversation drafts for this Business (summary rows only)."""
+    user = await svc.actor(db, claims)
+    try:
+        return await conv_drafts.list_conversation_drafts_v2(
+            db,
+            business_id=str(business_id),
+            actor_user_id=str(user.id),
+            status=status,
+            limit=limit,
+            offset=offset,
         )
     except conv_drafts.ConversationDraftV2Error as exc:
         raise_draft_http(exc)

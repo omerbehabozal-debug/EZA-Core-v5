@@ -565,7 +565,7 @@ export default function BusinessYansiStudio({
   return (
     <div className="biz-studio" data-testid="biz-yansi-studio" data-phase={phase}>
       <div className="biz-studio-hero">
-        <p className="biz-studio-eyebrow">AI Yansı Stüdyosu</p>
+        <p className="biz-studio-eyebrow">Taslak düzenleyici</p>
         <h2 className="biz-section-title">Kaynaklardan sohbet üret</h2>
         <p className="biz-section-lead">
           Adım adım ilerleyin. Kullanıcılara açıklanmasına izin verilen Bilgi Havuzu kayıtları kullanılır; owner onayı

@@ -2,7 +2,7 @@
 
 /**
  * Primary Yansı create flow: Select → AI propose → Review & publish.
- * Reuses V2 draft HTTP + Stage 03B conversation-proposals. V1 Studio / PhotoCreate stay secondary.
+ * Image-only reuses publishYansiV2Image contract inside the same UI (no separate product screen).
  */
 
 import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
@@ -12,11 +12,13 @@ import {
   applyYansiV2ConversationProposal,
   createYansiV2ConversationDraft,
   fetchBrandAssetPreview,
+  getYansiV2ConversationDraft,
   isBusinessApiError,
   isSuccessYansiV2ProposalStatus,
   isTerminalYansiV2ProposalStatus,
   pollYansiV2ConversationProposal,
   publishYansiV2ConversationDraft,
+  publishYansiV2Image,
   requestYansiV2ConversationProposal,
   reviseYansiV2ConversationDraft,
   transitionYansiV2ConversationDraft,
@@ -24,6 +26,7 @@ import {
   type YansiV2ConversationDraftDto,
   type YansiV2ConversationProposalDto,
   type YansiV2ConversationPublishResult,
+  type YansiV2ImagePublishResult,
 } from '@/lib/eza/businessYansi';
 import {
   addTurn,
@@ -46,11 +49,25 @@ import {
   type YansiV2ConversationLocalDraft,
 } from '@/lib/eza/yansiV2ConversationCreate';
 import {
+  isConversationDraftEditable,
+  isConversationDraftLocked,
+  upsertConversationDraftIndex,
+} from '@/lib/eza/yansiV2ConversationDraftIndex';
+import {
+  buildKnowledgeSourcePins,
+  buildPhotoPreviewManifest,
   knowledgeAiAvailability,
+  normalizePhotoDraft,
   publishableImageAssets,
   YANSI_V2_PHOTO_MAX_LINKED_KNOWLEDGE,
+  YANSI_V2_PHOTO_MAX_TITLE,
 } from '@/lib/eza/yansiV2PhotoCreate';
+import YansiProductCard from '@/components/mirror/YansiProductCard';
 import YansiStudioDraftPreview from './YansiStudioDraftPreview';
+import {
+  SAINA_DISCOVER_OPEN_CTA,
+  SAINA_DISCOVER_OPEN_CTA_SHORT,
+} from '@/lib/eza/mirror-network/discoverCopy';
 
 type Phase = 'compose' | 'preview' | 'busy' | 'done';
 type FlowStep = 1 | 2 | 3;
@@ -65,7 +82,14 @@ type Props = {
   canEdit: boolean;
   busy?: boolean;
   brandName?: string | null;
+  /** When true, open the three-step create panel immediately (Business hub). */
+  startOpen?: boolean;
+  /** Hydrate this conversation draft via GET (same business only). */
+  resumeDraftId?: string | null;
+  onResumeConsumed?: () => void;
+  onConversationDraftIndexed?: (draft: YansiV2ConversationDraftDto) => void;
   onPublished?: (result: YansiV2ConversationPublishResult) => void;
+  onImagePublished?: (result: YansiV2ImagePublishResult) => void;
   onOpenLibrary?: () => void;
   onOpenKnowledgePool?: () => void;
   onSaveKnowledge?: (payload: {
@@ -96,6 +120,15 @@ function revokeObjectUrl(url: string | null | undefined) {
   }
 }
 
+/** Display-only: strip common markdown emphasis without mutating stored values. */
+function displayPlainText(value: string | null | undefined): string {
+  return String(value || '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/`(.+?)`/g, '$1')
+    .trim();
+}
+
 function statusLabel(status: string | null | undefined): string {
   switch (status) {
     case 'draft':
@@ -109,6 +142,11 @@ function statusLabel(status: string | null | undefined): string {
     default:
       return status || 'Yeni';
   }
+}
+
+function mapErrSafe(err: unknown): string {
+  if (isBusinessApiError(err)) return conversationErrorMessage(err);
+  return conversationErrorMessage(err);
 }
 
 function CoverThumb({
@@ -173,7 +211,12 @@ export default function BusinessYansiConversationCreate({
   canEdit,
   busy = false,
   brandName = null,
+  startOpen = false,
+  resumeDraftId = null,
+  onResumeConsumed,
+  onConversationDraftIndexed,
   onPublished,
+  onImagePublished,
   onOpenLibrary,
   onOpenKnowledgePool,
   onSaveKnowledge,
@@ -183,14 +226,14 @@ export default function BusinessYansiConversationCreate({
   const isOwner = role === 'owner';
   const isViewer = role === 'viewer';
   const images = useMemo(() => publishableImageAssets(assets), [assets]);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(Boolean(startOpen));
   const [flowStep, setFlowStep] = useState<FlowStep>(1);
   const [phase, setPhase] = useState<Phase>('compose');
   const [draft, setDraft] = useState<YansiV2ConversationLocalDraft>(emptyConversationLocalDraft);
   const [server, setServer] = useState<YansiV2ConversationDraftDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<YansiV2ConversationPublishResult | null>(null);
-  const [bindOpen, setBindOpen] = useState(false);
+  const [imageResult, setImageResult] = useState<YansiV2ImagePublishResult | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [sourceQuery, setSourceQuery] = useState('');
@@ -201,10 +244,16 @@ export default function BusinessYansiConversationCreate({
   const [aiBusy, setAiBusy] = useState(false);
   const [aiStatusLabel, setAiStatusLabel] = useState<string | null>(null);
   const [previewTab, setPreviewTab] = useState<PreviewTab>('discover');
+  const [publishKind, setPublishKind] = useState<'conversation' | 'image'>('conversation');
+  const [imageConfirm, setImageConfirm] = useState(false);
+  const [hydrateBusy, setHydrateBusy] = useState(false);
+  const [editLocked, setEditLocked] = useState(false);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
   const idempotencyRef = useRef(newIdempotencyKey('publish'));
   const proposeKeyRef = useRef(newIdempotencyKey('v2prop'));
   const actionLock = useRef(false);
   const proposeAbortRef = useRef<AbortController | null>(null);
+  const resumeHandledRef = useRef<string | null>(null);
 
   const preview = useMemo(
     () => buildConversationPreview(draft, assets, knowledge),
@@ -220,18 +269,135 @@ export default function BusinessYansiConversationCreate({
     [draft.linkedKnowledgeIds, knowledge],
   );
 
+  const selectedKnowledge = useMemo(
+    () =>
+      draft.linkedKnowledgeIds
+        .map((id) => knowledge.find((row) => row.id === id))
+        .filter((row): row is Knowledge => Boolean(row)),
+    [draft.linkedKnowledgeIds, knowledge],
+  );
+
+  const isImageOnly = readySourceIds.length === 0 && Boolean(draft.coverAssetId);
+  const canContinueSelect = readySourceIds.length > 0 || Boolean(draft.coverAssetId);
+
+  const selectedCover = useMemo(
+    () => images.find((row) => row.id === draft.coverAssetId) || null,
+    [images, draft.coverAssetId],
+  );
+
+  const photoDraft = useMemo(
+    () =>
+      normalizePhotoDraft({
+        assetId: draft.coverAssetId,
+        title: draft.title,
+        description: draft.summary,
+        knowledgeNotes: draft.knowledgeNotes,
+        linkedKnowledgeIds: [],
+        slug: draft.slug,
+      }),
+    [draft],
+  );
+
+  const photoPreview = useMemo(() => {
+    if (!selectedCover || publishKind !== 'image') return null;
+    return buildPhotoPreviewManifest(businessId, selectedCover, photoDraft, knowledge);
+  }, [businessId, selectedCover, photoDraft, knowledge, publishKind]);
+
   const proposalResult = proposalJob?.proposal?.result ?? null;
   const proposalWarnings = proposalJob?.proposal?.warnings || [];
 
+  function rememberDraft(dto: YansiV2ConversationDraftDto) {
+    upsertConversationDraftIndex(businessId, dto);
+    onConversationDraftIndexed?.(dto);
+  }
+
   useEffect(() => {
+    if (resumeDraftId) return;
     const stored = readConversationDraftStorage(businessId);
-    if (stored && (stored.title || stored.turns.some((t) => t.question || t.answer))) {
+    if (stored && (stored.title || stored.turns.some((t) => t.question || t.answer) || stored.coverAssetId)) {
       setDraft(stored);
       setOpen(true);
-      setFlowStep(3);
-      setDirty(true);
+      setFlowStep(stored.draftId || stored.title || stored.turns.some((t) => t.question) ? 3 : 1);
+      setPublishKind(stored.linkedKnowledgeIds.length ? 'conversation' : stored.coverAssetId ? 'image' : 'conversation');
+      setDirty(Boolean(stored.draftId));
     }
-  }, [businessId]);
+  }, [businessId, resumeDraftId]);
+
+  useEffect(() => {
+    if (!resumeDraftId || resumeHandledRef.current === resumeDraftId) return;
+    let cancelled = false;
+    resumeHandledRef.current = resumeDraftId;
+    setHydrateBusy(true);
+    setError(null);
+    void getYansiV2ConversationDraft(businessId, resumeDraftId)
+      .then((dto) => {
+        if (cancelled) return;
+        if (
+          dto.businessId &&
+          dto.businessId.toLowerCase() !== businessId.toLowerCase()
+        ) {
+          setOpen(true);
+          setFlowStep(1);
+          setError('Bu taslak bu markaya ait değil.');
+          onResumeConsumed?.();
+          return;
+        }
+        const permanentlyLocked = isConversationDraftLocked(dto.status, dto.publishedNodeId);
+        const canEditContent = isConversationDraftEditable(dto.status, dto.publishedNodeId);
+        const merged = applyServerDraft(emptyConversationLocalDraft(), dto);
+        setDraft(merged);
+        writeConversationDraftStorage(businessId, merged);
+        setServer(dto);
+        rememberDraft(dto);
+        setOpen(true);
+        setPublishKind('conversation');
+        setFlowStep(3);
+        setPhase(canEditContent ? 'compose' : 'preview');
+        setEditLocked(permanentlyLocked);
+        setDirty(false);
+        onResumeConsumed?.();
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setOpen(true);
+        setFlowStep(1);
+        setError(mapErrSafe(err));
+        onResumeConsumed?.();
+      })
+      .finally(() => {
+        if (!cancelled) setHydrateBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // mapErrSafe is stable below; intentionally omit rememberDraft.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeDraftId, businessId]);
+
+  useEffect(() => {
+    if (!draft.coverAssetId) {
+      setCoverPreviewUrl(null);
+      return;
+    }
+    let revoked: string | null = null;
+    let cancelled = false;
+    void fetchBrandAssetPreview(businessId, draft.coverAssetId, 'thumb')
+      .then((url) => {
+        if (cancelled) {
+          revokeObjectUrl(url);
+          return;
+        }
+        revoked = url;
+        setCoverPreviewUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setCoverPreviewUrl(null);
+      });
+    return () => {
+      cancelled = true;
+      revokeObjectUrl(revoked);
+    };
+  }, [businessId, draft.coverAssetId]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -271,14 +437,17 @@ export default function BusinessYansiConversationCreate({
     setPhase('compose');
     setError(null);
     setResult(null);
+    setImageResult(null);
     setServer(null);
     setProposalJob(null);
-    setBindOpen(false);
     setAddOpen(false);
     setTopicHint('');
     setAiBusy(false);
     setAiStatusLabel(null);
     setPreviewTab('discover');
+    setPublishKind('conversation');
+    setImageConfirm(false);
+    setEditLocked(false);
     actionLock.current = false;
     idempotencyRef.current = newIdempotencyKey('publish');
     proposeKeyRef.current = newIdempotencyKey('v2prop');
@@ -291,9 +460,27 @@ export default function BusinessYansiConversationCreate({
   }
 
   function goToManualEdit() {
+    setPublishKind('conversation');
     setFlowStep(3);
     setPhase('compose');
     setError(null);
+  }
+
+  function continueFromSelect() {
+    setError(null);
+    if (readySourceIds.length) {
+      setPublishKind('conversation');
+      setFlowStep(2);
+      return;
+    }
+    if (draft.coverAssetId) {
+      setPublishKind('image');
+      setImageConfirm(false);
+      setFlowStep(3);
+      setPhase('compose');
+      return;
+    }
+    setError('Devam etmek için bilgi kaynağı veya kapak görseli seçin.');
   }
 
   async function withLock<T>(fn: () => Promise<T>): Promise<T | undefined> {
@@ -307,8 +494,7 @@ export default function BusinessYansiConversationCreate({
   }
 
   function mapErr(err: unknown): string {
-    if (isBusinessApiError(err)) return conversationErrorMessage(err);
-    return conversationErrorMessage(err);
+    return mapErrSafe(err);
   }
 
   async function runAiPropose(repropose = false) {
@@ -388,7 +574,9 @@ export default function BusinessYansiConversationCreate({
         const merged = applyServerDraft({ ...draft, slug: draft.slug }, applied.draft);
         persist(merged);
         setServer(applied.draft);
+        rememberDraft(applied.draft);
         setDirty(false);
+        setPublishKind('conversation');
         setFlowStep(3);
         setPhase('compose');
       } catch (err) {
@@ -399,6 +587,10 @@ export default function BusinessYansiConversationCreate({
   }
 
   async function saveDraft(): Promise<YansiV2ConversationDraftDto | null> {
+    if (editLocked) {
+      setError('Bu taslak kilitli; düzenlenemez.');
+      return null;
+    }
     const composeError = validateConversationCompose(draft);
     if (composeError) {
       setError(composeError);
@@ -421,7 +613,9 @@ export default function BusinessYansiConversationCreate({
       if (draft.slug) merged.slug = draft.slug;
       persist(merged);
       setServer(saved);
+      rememberDraft(saved);
       setDirty(false);
+      setPublishKind('conversation');
       setFlowStep(3);
       setPhase('preview');
       return saved;
@@ -430,6 +624,57 @@ export default function BusinessYansiConversationCreate({
       setPhase('compose');
       return null;
     }
+  }
+
+  async function publishImageOnly() {
+    if (!isOwner) {
+      setError('Yayın yalnızca owner tarafından yapılır.');
+      return;
+    }
+    if (!imageConfirm) {
+      setError('Yayınlamak için onayı işaretleyin.');
+      return;
+    }
+    if (!selectedCover) {
+      setError('Yayımlanabilir bir kapak görseli seçin.');
+      return;
+    }
+    const normalized = normalizePhotoDraft(photoDraft);
+    if (!normalized.title) {
+      setError('Başlık gerekli.');
+      return;
+    }
+    if (!buildPhotoPreviewManifest(businessId, selectedCover, normalized, knowledge)) {
+      setError('Önizleme oluşturulamadı.');
+      return;
+    }
+    await withLock(async () => {
+      setPhase('busy');
+      setError(null);
+      try {
+        const pins = buildKnowledgeSourcePins(normalized, knowledge);
+        const published = await publishYansiV2Image(businessId, {
+          assetId: selectedCover.id,
+          expectedAssetRevision: selectedCover.revision,
+          title: normalized.title,
+          description: normalized.description || null,
+          knowledgeNotes: normalized.knowledgeNotes,
+          ...(pins.length ? { knowledgeSources: pins } : {}),
+          slug: normalized.slug || null,
+          expectedCurrentVersion: null,
+          idempotencyKey: idempotencyRef.current,
+        });
+        setImageResult(published);
+        setResult(null);
+        setPhase('done');
+        clearConversationDraftStorage(businessId);
+        setDirty(false);
+        onImagePublished?.(published);
+      } catch (err) {
+        setError(mapErr(err));
+        setPhase('compose');
+      }
+    });
   }
 
   async function submitReview() {
@@ -451,6 +696,7 @@ export default function BusinessYansiConversationCreate({
         });
         persist(applyServerDraft({ ...draft, slug: draft.slug }, next));
         setServer(next);
+        rememberDraft(next);
         setDirty(false);
         setPhase('preview');
       } catch (err) {
@@ -481,6 +727,7 @@ export default function BusinessYansiConversationCreate({
         });
         persist(applyServerDraft({ ...draft, slug: draft.slug }, next));
         setServer(next);
+        rememberDraft(next);
         setDirty(false);
         setPhase('preview');
       } catch (err) {
@@ -555,16 +802,17 @@ export default function BusinessYansiConversationCreate({
   const status = server?.status || draft.status;
   const approvalDropped =
     Boolean(draft.draftId) && status === 'draft' && (draft.revision || 0) > 1;
-  const locked = phase === 'busy' || busy || aiBusy;
+  const locked = phase === 'busy' || busy || aiBusy || hydrateBusy || editLocked;
+  const liveTitle = displayPlainText(draft.title);
+  const liveCuriosity = displayPlainText(draft.turns[0]?.question || '');
+  const hasLiveCopy = Boolean(liveTitle || liveCuriosity);
 
   return (
     <div className="biz-yansi-workspace-block biz-conv-create" data-testid="biz-conv-create">
       <div className="biz-studio-hero">
-        <p className="biz-studio-eyebrow">Yansı Stüdyosu</p>
         <h2 className="biz-section-title">Yansı Oluştur</h2>
         <p className="biz-section-lead">
-          Kaynaklarını seç, AI ile sohbet önerisi al, incele ve yayınla. Video Yansı ve Keşfet
-          birleşimi bu sürümde yok.
+          Bilgilerini ve görsellerini seç. Yapay zekâ Yansı&apos;nı hazırlasın. Sen incele ve yayınla.
         </p>
         {!open ? (
           <div className="biz-actions">
@@ -579,11 +827,6 @@ export default function BusinessYansiConversationCreate({
             >
               Yansı Oluştur
             </button>
-            {onOpenLibrary ? (
-              <button type="button" className="biz-btn-ghost" onClick={onOpenLibrary}>
-                İçerik Kütüphanesi
-              </button>
-            ) : null}
           </div>
         ) : null}
       </div>
@@ -607,9 +850,15 @@ export default function BusinessYansiConversationCreate({
                 data-testid={`biz-conv-flow-${step}`}
                 data-state={flowStep === step ? 'active' : flowStep > step ? 'done' : 'upcoming'}
                 onClick={() => {
-                  if (phase === 'done') return;
+                  if (phase === 'done' || editLocked) return;
+                  if (step === 2 && isImageOnly && !readySourceIds.length) {
+                    setError('AI için önce bilgi kaynağı seçin. Yalnızca görsel için 3. adıma geçin.');
+                    return;
+                  }
                   setFlowStep(step);
                   if (step < 3) setPhase('compose');
+                  if (step === 3 && isImageOnly) setPublishKind('image');
+                  if (step === 3 && readySourceIds.length) setPublishKind('conversation');
                 }}
               >
                 <span className="biz-conv-flow-index">{step}</span>
@@ -618,9 +867,21 @@ export default function BusinessYansiConversationCreate({
             ))}
           </nav>
 
+          {hydrateBusy ? (
+            <p className="biz-notice" role="status" data-testid="biz-conv-hydrate">
+              Taslak yükleniyor…
+            </p>
+          ) : null}
+
           {!isOwner ? (
             <p className="biz-notice" role="status">
-              Editor taslak oluşturup incelemeye gönderebilir; onay ve yayın owner yetkisidir.
+              Editör taslak hazırlayabilir; onay ve yayın owner yetkisidir.
+            </p>
+          ) : null}
+
+          {editLocked ? (
+            <p className="biz-notice" role="status" data-testid="biz-conv-locked">
+              Bu taslak kilitli veya yayında; yalnızca görüntülenebilir.
             </p>
           ) : null}
 
@@ -637,96 +898,38 @@ export default function BusinessYansiConversationCreate({
           ) : null}
 
           {flowStep === 1 ? (
-            <div className="biz-conv-step-panel" data-testid="biz-conv-step-select">
-              <section data-testid="biz-conv-section-media">
-                <h3>Kapak görseli</h3>
-                <p className="biz-card-meta">İsteğe bağlı. Video yayın bu akışta yok.</p>
-                {!images.length ? (
-                  <p className="biz-empty">
-                    Yayımlanabilir görsel yok — kapaksız devam edebilirsiniz.
-                  </p>
-                ) : (
-                  <div className="biz-photo-create-grid" role="listbox" aria-label="Kapak görseli">
-                    <button
-                      type="button"
-                      className={`biz-photo-create-thumb${!draft.coverAssetId ? ' is-selected' : ''}`}
-                      data-testid="biz-conv-cover-none"
-                      aria-pressed={!draft.coverAssetId}
-                      onClick={() => persist({ ...draft, coverAssetId: '' })}
-                    >
-                      <span className="biz-photo-create-thumb-fallback">—</span>
-                      <span className="biz-photo-create-thumb-label">Kapaksız</span>
-                    </button>
-                    {images.map((asset) => (
-                      <CoverThumb
-                        key={asset.id}
-                        businessId={businessId}
-                        assetId={asset.id}
-                        title={asset.title}
-                        selected={draft.coverAssetId === asset.id}
-                        onSelect={() => persist({ ...draft, coverAssetId: asset.id })}
-                      />
-                    ))}
-                  </div>
-                )}
-              </section>
-
-              <section data-testid="biz-conv-section-knowledge">
+            <div className="biz-conv-step-panel biz-conv-step-select" data-testid="biz-conv-step-select">
+              <div className="biz-conv-create-layout">
+                <div className="biz-conv-create-main">
+              <section className="biz-conv-pick-card" data-testid="biz-conv-section-knowledge">
                 <h3>Bilgi kaynakları</h3>
                 <p className="biz-card-meta">
-                  AI önerisi için yayımlanmış Bilgi Havuzu kayıtları gerekir.
+                  Yapay zekânın kullanacağı yayımlanmış kayıtlardan bir veya daha fazla seçin.
+                </p>
+                <p className="biz-card-meta" data-testid="biz-conv-bind">
+                  Seçili kaynak
+                  {draft.linkedKnowledgeIds.length
+                    ? ` (${draft.linkedKnowledgeIds.length})`
+                    : ' (0)'}
                 </p>
                 <div className="biz-actions">
-                  <button
-                    type="button"
-                    className="biz-btn-ghost"
-                    data-testid="biz-conv-bind"
-                    onClick={() => {
-                      setBindOpen((v) => !v);
-                      setAddOpen(false);
-                    }}
-                  >
-                    Kaynak bağla
-                    {draft.linkedKnowledgeIds.length
-                      ? ` (${draft.linkedKnowledgeIds.length})`
-                      : ''}
-                  </button>
                   <button
                     type="button"
                     className="biz-btn-ghost"
                     data-testid="biz-conv-add-knowledge"
                     onClick={() => {
                       setAddOpen((v) => !v);
-                      setBindOpen(false);
                       writeConversationDraftStorage(businessId, draft);
                     }}
                   >
                     Yeni kayıt ekle
                   </button>
-                  {onOpenKnowledgePool ? (
-                    <button
-                      type="button"
-                      className="biz-btn-ghost"
-                      onClick={() => {
-                        writeConversationDraftStorage(businessId, draft);
-                        onOpenKnowledgePool();
-                      }}
-                    >
-                      Havuzu aç
-                    </button>
-                  ) : null}
-                  {onOpenLibrary ? (
-                    <button type="button" className="biz-btn-ghost" onClick={onOpenLibrary}>
-                      Medya kütüphanesi
-                    </button>
-                  ) : null}
                 </div>
-                {bindOpen ? (
-                  <div className="biz-photo-create-bind" data-testid="biz-conv-bind-panel">
+                <div className="biz-photo-create-bind" data-testid="biz-conv-bind-panel">
                     <div className="biz-actions">
                       <input
                         data-testid="biz-conv-bind-search"
-                        placeholder="Ara…"
+                        placeholder="Kaynak ara…"
                         value={sourceQuery}
                         onChange={(e) => setSourceQuery(e.target.value)}
                       />
@@ -746,7 +949,7 @@ export default function BusinessYansiConversationCreate({
                         const checked = draft.linkedKnowledgeIds.includes(row.id);
                         const disabled = !row.aiReady;
                         return (
-                          <label key={row.id}>
+                          <label key={row.id} className={checked ? 'is-selected' : undefined}>
                             <input
                               type="checkbox"
                               checked={checked}
@@ -771,11 +974,10 @@ export default function BusinessYansiConversationCreate({
                         );
                       })}
                       {!bindCandidates.length ? (
-                        <p className="biz-empty">Uygun kayıt yok.</p>
+                        <p className="biz-empty">Uygun kayıt yok. Bilgi Havuzu’na kayıt ekleyin.</p>
                       ) : null}
                     </div>
-                  </div>
-                ) : null}
+                </div>
                 {addOpen && onSaveKnowledge ? (
                   <form
                     className="biz-photo-create-add biz-form"
@@ -808,23 +1010,73 @@ export default function BusinessYansiConversationCreate({
                 ) : null}
               </section>
 
+              <section className="biz-conv-pick-card" data-testid="biz-conv-section-media">
+                <h3>Görsel ve kapak</h3>
+                <p className="biz-card-meta">İsteğe bağlı kapak. Yalnızca yayınlanabilir görseller listelenir.</p>
+                {!images.length ? (
+                  <p className="biz-empty">
+                    Yayımlanabilir görsel yok — kapaksız devam edebilirsiniz.
+                  </p>
+                ) : (
+                  <div className="biz-photo-create-grid" role="listbox" aria-label="Kapak görseli">
+                    <button
+                      type="button"
+                      className={`biz-photo-create-thumb${!draft.coverAssetId ? ' is-selected' : ''}`}
+                      data-testid="biz-conv-cover-none"
+                      aria-pressed={!draft.coverAssetId}
+                      onClick={() => persist({ ...draft, coverAssetId: '' })}
+                    >
+                      <span className="biz-photo-create-thumb-fallback">—</span>
+                      <span className="biz-photo-create-thumb-label">Kapaksız</span>
+                    </button>
+                    {images.map((asset) => (
+                      <CoverThumb
+                        key={asset.id}
+                        businessId={businessId}
+                        assetId={asset.id}
+                        title={asset.title}
+                        selected={draft.coverAssetId === asset.id}
+                        onSelect={() => persist({ ...draft, coverAssetId: asset.id })}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              <section className="biz-conv-pick-card" data-testid="biz-conv-section-intent">
+                <h3>Ne anlatmak istiyorsun?</h3>
+                <p className="biz-card-meta">İsteğe bağlı. Yapay zekâya kısa yön verir.</p>
+                <label>
+                  Kısa yönlendirme
+                  <input
+                    data-testid="biz-conv-topic-hint"
+                    value={topicHint}
+                    maxLength={500}
+                    placeholder="Örn. ürün bakımı, açılış saatleri"
+                    onChange={(e) => setTopicHint(e.target.value)}
+                  />
+                </label>
+              </section>
+
               {error ? (
                 <p className="biz-error" role="alert" data-testid="biz-conv-error">
                   {error}
                 </p>
               ) : null}
 
-              <div className="biz-actions">
+              <div className="biz-actions biz-conv-primary-actions">
                 <button
                   type="button"
                   className="biz-btn-primary"
                   data-testid="biz-conv-to-ai"
-                  onClick={() => {
-                    setError(null);
-                    setFlowStep(2);
-                  }}
+                  disabled={!canContinueSelect}
+                  onClick={continueFromSelect}
                 >
-                  Devam · AI ile oluştur
+                  {readySourceIds.length
+                    ? 'Devam · AI ile oluştur'
+                    : draft.coverAssetId
+                      ? 'Devam · İncele ve yayınla'
+                      : 'Devam'}
                 </button>
                 <button
                   type="button"
@@ -835,18 +1087,91 @@ export default function BusinessYansiConversationCreate({
                   Elle yaz
                 </button>
               </div>
+              {!canContinueSelect ? (
+                <p className="biz-card-meta">Devam için bilgi kaynağı veya kapak görseli seçin.</p>
+              ) : null}
+              {isImageOnly ? (
+                <p className="biz-card-meta" data-testid="biz-conv-photo-hint">
+                  Yalnızca görsel seçildi. Yapay zekâ adımı atlanır; inceleme ve yayın onayı gerekir.
+                </p>
+              ) : null}
+                </div>
+
+                <aside className="biz-conv-create-aside" data-testid="biz-conv-live-preview">
+                  <h3 className="biz-studio-panel-title">Keşfet önizlemesi</h3>
+                  <p className="biz-card-meta">
+                    Seçiminiz buraya yansır. İçerik yoksa örnek Yansı gösterilmez.
+                  </p>
+                  {hasLiveCopy ? (
+                    <YansiProductCard
+                      title={liveTitle || 'Başlık henüz yok'}
+                      summary={liveCuriosity || 'Merak sorusu henüz yok'}
+                      sceneImageUrl={coverPreviewUrl}
+                      className="saina-discover-card--editorial"
+                      testIdPrefix="biz-conv-live-card"
+                      kicker={
+                        brandName ? (
+                          <p className="saina-discover-card__identity">{brandName}</p>
+                        ) : null
+                      }
+                      footer={
+                        <div className="saina-discover-card__actions">
+                          <button type="button" className="saina-discover-card__cta" disabled>
+                            <span className="saina-discover-card__cta-label">{SAINA_DISCOVER_OPEN_CTA}</span>
+                            <span className="saina-discover-card__cta-short" aria-hidden>
+                              {SAINA_DISCOVER_OPEN_CTA_SHORT}
+                            </span>
+                          </button>
+                        </div>
+                      }
+                    />
+                  ) : (
+                    <div className="biz-conv-live-empty" data-testid="biz-conv-live-empty">
+                      {coverPreviewUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={coverPreviewUrl} alt="" className="biz-conv-live-empty-cover" />
+                      ) : (
+                        <p className="biz-empty">Kapak seçince görsel burada görünür.</p>
+                      )}
+                      <p className="biz-card-meta">
+                        Başlık veya merak sorusu oluşunca kart önizlemesi açılır.
+                      </p>
+                    </div>
+                  )}
+                  <div className="biz-conv-live-meta" data-testid="biz-conv-live-meta">
+                    <p className="biz-card-meta">
+                      Kaynak: {selectedKnowledge.length}
+                      {selectedKnowledge.length
+                        ? ` · ${selectedKnowledge
+                            .slice(0, 3)
+                            .map((row) => displayPlainText(row.title))
+                            .join(', ')}${selectedKnowledge.length > 3 ? '…' : ''}`
+                        : ''}
+                    </p>
+                    <p className="biz-card-meta">
+                      Kapak: {selectedCover ? displayPlainText(selectedCover.title) : 'seçilmedi'}
+                    </p>
+                  </div>
+                </aside>
+              </div>
             </div>
           ) : null}
 
           {flowStep === 2 ? (
             <div className="biz-conv-step-panel" data-testid="biz-conv-step-ai">
               <h3>AI ile Yansı Oluştur</h3>
+              {!readySourceIds.length ? (
+                <p className="biz-notice" role="status" data-testid="biz-conv-ai-need-sources">
+                  Yapay zekâ için bilgi kaynağı gerekli. Yalnızca görselle ilerlemek için 1. adıma
+                  dönüp kapak seçin ve incelemeye geçin.
+                </p>
+              ) : null}
               <p className="biz-card-meta">
-                Öneri ayrı tutulur; “Taslağa uygula” demeden draft yazılmaz. Soru sayısı 1–8
-                arasında içeriğe göre seçilir. Video medya önerisi yok.
+                Öneri ayrı tutulur; “Taslağa uygula” demeden taslağa yazılmaz. 1–8 soru-cevap
+                içeriğe göre seçilir.
               </p>
               <label>
-                İpucu (isteğe bağlı)
+                Kısa yönlendirme (isteğe bağlı)
                 <input
                   data-testid="biz-conv-topic-hint"
                   value={topicHint}
@@ -857,6 +1182,7 @@ export default function BusinessYansiConversationCreate({
               </label>
               <p className="biz-card-meta">
                 Seçili kaynak: {readySourceIds.length || 'yok'}
+                {draft.coverAssetId ? ' · kapak seçili' : ''}
               </p>
               {aiStatusLabel ? (
                 <p
@@ -895,7 +1221,7 @@ export default function BusinessYansiConversationCreate({
               {proposalResult ? (
                 <article className="biz-conv-proposal" data-testid="biz-conv-proposal">
                   <p className="biz-studio-eyebrow">Öneri · henüz uygulanmadı</p>
-                  <h4>{proposalResult.title}</h4>
+                  <h4>{displayPlainText(proposalResult.title)}</h4>
                   {proposalResult.summary ? (
                     <p className="biz-copy">{proposalResult.summary}</p>
                   ) : null}
@@ -968,9 +1294,134 @@ export default function BusinessYansiConversationCreate({
             </div>
           ) : null}
 
-          {flowStep === 3 && phase !== 'done' ? (
+          {flowStep === 3 && phase !== 'done' && publishKind === 'image' ? (
+            <div className="biz-conv-step-panel biz-conv-review-workspace" data-testid="biz-conv-step-review-image">
+              <div className="biz-conv-create-layout">
+                <div className="biz-conv-create-main">
+                  <h3>İncele ve Yayınla</h3>
+                  <p className="biz-card-meta">
+                    Görsel Yansı. Yapay zekâ önerisi gerekmez. Yayın owner onayı ister.
+                  </p>
+                  <form
+                    id={`${formId}-image`}
+                    className="biz-form"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void publishImageOnly();
+                    }}
+                  >
+                    <label>
+                      Başlık
+                      <input
+                        data-testid="biz-conv-image-title"
+                        value={draft.title}
+                        maxLength={YANSI_V2_PHOTO_MAX_TITLE}
+                        required
+                        disabled={editLocked}
+                        onChange={(e) => persist({ ...draft, title: e.target.value })}
+                      />
+                    </label>
+                    <label>
+                      Açıklama (isteğe bağlı)
+                      <textarea
+                        data-testid="biz-conv-image-description"
+                        value={draft.summary}
+                        maxLength={8000}
+                        rows={3}
+                        disabled={editLocked}
+                        onChange={(e) => persist({ ...draft, summary: e.target.value })}
+                      />
+                    </label>
+                    <label>
+                      Yayın adresi (isteğe bağlı)
+                      <input
+                        data-testid="biz-conv-image-slug"
+                        value={draft.slug}
+                        maxLength={80}
+                        disabled={editLocked}
+                        onChange={(e) => persist({ ...draft, slug: e.target.value })}
+                      />
+                    </label>
+                    <p className="biz-card-meta">
+                      Kapak: {selectedCover ? displayPlainText(selectedCover.title) : 'seçilmedi'}
+                    </p>
+                    {error ? (
+                      <p className="biz-error" role="alert" data-testid="biz-conv-error">
+                        {error}
+                      </p>
+                    ) : null}
+                    {isOwner && !editLocked ? (
+                      <label className="biz-conv-image-confirm">
+                        <input
+                          type="checkbox"
+                          data-testid="biz-conv-image-confirm"
+                          checked={imageConfirm}
+                          onChange={(e) => setImageConfirm(e.target.checked)}
+                        />{' '}
+                        Bu görsel Yansı&apos;yı yayınlamayı onaylıyorum.
+                      </label>
+                    ) : null}
+                    <div className="biz-actions">
+                      <button
+                        type="button"
+                        className="biz-btn-ghost"
+                        data-testid="biz-conv-image-back"
+                        onClick={() => setFlowStep(1)}
+                      >
+                        İçeriğe dön
+                      </button>
+                      {isOwner && !editLocked ? (
+                        <button
+                          type="submit"
+                          className="biz-btn-primary"
+                          data-testid="biz-conv-image-publish"
+                          disabled={locked || !imageConfirm || !selectedCover}
+                        >
+                          {phase === 'busy' ? 'Yayımlanıyor…' : 'Yayınla'}
+                        </button>
+                      ) : (
+                        <p className="biz-card-meta">Yayın yalnızca owner tarafından yapılır.</p>
+                      )}
+                    </div>
+                  </form>
+                </div>
+                <aside className="biz-conv-create-aside">
+                  <h3 className="biz-studio-panel-title">Keşfet önizlemesi</h3>
+                  {photoPreview && hasLiveCopy ? (
+                    <YansiStudioDraftPreview
+                      mode="discover"
+                      businessId={businessId}
+                      brandName={brandName}
+                      preview={{
+                        title: photoPreview.title,
+                        summary: photoPreview.description,
+                        curiosityQuestion: photoPreview.description || photoPreview.title,
+                        turnCount: 0,
+                        turns: [],
+                        coverTitle: selectedCover?.title || null,
+                        linkedKnowledge: photoPreview.linkedKnowledge,
+                        knowledgeNotes: photoPreview.knowledgeNotes,
+                        mediaOptional: true,
+                      }}
+                      coverAssetId={draft.coverAssetId || null}
+                    />
+                  ) : (
+                    <div className="biz-conv-live-empty" data-testid="biz-conv-image-preview-empty">
+                      {coverPreviewUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={coverPreviewUrl} alt="" className="biz-conv-live-empty-cover" />
+                      ) : null}
+                      <p className="biz-card-meta">Başlık girince kart önizlemesi oluşur.</p>
+                    </div>
+                  )}
+                </aside>
+              </div>
+            </div>
+          ) : null}
+
+          {flowStep === 3 && phase !== 'done' && publishKind === 'conversation' ? (
             <div className="biz-conv-step-panel biz-conv-review-workspace" data-testid="biz-conv-step-review">
-              {phase === 'compose' ? (
+              {phase === 'compose' && !editLocked ? (
                 <form
                   id={formId}
                   className="biz-form biz-conv-form"
@@ -982,7 +1433,7 @@ export default function BusinessYansiConversationCreate({
                   }}
                 >
                   <section data-testid="biz-conv-section-chat">
-                    <h3>Sohbet düzenleme</h3>
+                    <h3>İncele ve düzenle</h3>
                     <div data-testid="biz-conv-review-cover">
                       <p className="biz-card-meta">Kapak</p>
                       <div className="biz-photo-create-grid" role="listbox" aria-label="Kapak">
@@ -1285,25 +1736,42 @@ export default function BusinessYansiConversationCreate({
             </div>
           ) : null}
 
-          {phase === 'done' && result ? (
+          {phase === 'done' && (result || imageResult) ? (
             <div className="biz-conv-done" data-testid="biz-conv-done">
               <h3>Yayınlandı</h3>
               <p className="biz-copy">
-                Sohbet mühürlendi. Keşfet birleşimi henüz yok — public bağlantıyı paylaşın.
+                Yansı yayımlandı. Public bağlantıyı paylaşabilir veya Keşfet / Deneyimle üzerinden
+                açabilirsiniz.
               </p>
-              <ul data-testid="biz-conv-publish-meta">
-                <li>Slug: {result.slug}</li>
-                <li>Tur: {result.turnCount}</li>
-                <li>
-                  Public URL:{' '}
-                  <a
-                    href={yansiV2PublicHref(result.slug, result.publicationVersion)}
-                    data-testid="biz-conv-public-url"
-                  >
-                    {yansiV2PublicHref(result.slug, result.publicationVersion)}
-                  </a>
-                </li>
-              </ul>
+              {result ? (
+                <ul data-testid="biz-conv-publish-meta">
+                  <li>Adres: {result.slug}</li>
+                  <li>Soru-cevap: {result.turnCount}</li>
+                  <li>
+                    Public URL:{' '}
+                    <a
+                      href={yansiV2PublicHref(result.slug, result.publicationVersion)}
+                      data-testid="biz-conv-public-url"
+                    >
+                      {yansiV2PublicHref(result.slug, result.publicationVersion)}
+                    </a>
+                  </li>
+                </ul>
+              ) : null}
+              {imageResult ? (
+                <ul data-testid="biz-conv-image-publish-meta">
+                  <li>Adres: {imageResult.slug}</li>
+                  <li>
+                    Public URL:{' '}
+                    <a
+                      href={yansiV2PublicHref(imageResult.slug, imageResult.publicationVersion, 'image')}
+                      data-testid="biz-conv-image-public-url"
+                    >
+                      {yansiV2PublicHref(imageResult.slug, imageResult.publicationVersion, 'image')}
+                    </a>
+                  </li>
+                </ul>
+              ) : null}
               <button
                 type="button"
                 className="biz-btn-primary"

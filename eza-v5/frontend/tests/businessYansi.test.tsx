@@ -16,7 +16,23 @@ const auth = vi.hoisted(() => ({
 
 vi.mock('@/lib/eza/businessYansi', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/eza/businessYansi')>();
-  return { ...actual, businessRequest: api, uploadBusinessLogo };
+  return {
+    ...actual,
+    businessRequest: api,
+    uploadBusinessLogo,
+    // Route through mocked businessRequest so Manager list uses the same api spy.
+    listYansiV2ConversationDrafts: (
+      businessId: string,
+      opts: { status?: string; limit?: number; offset?: number } = {},
+    ) => {
+      const params = new URLSearchParams();
+      if (opts.status) params.set('status', opts.status);
+      if (opts.limit != null) params.set('limit', String(opts.limit));
+      if (opts.offset != null) params.set('offset', String(opts.offset));
+      const qs = params.toString();
+      return api(`/${businessId}/v2/conversation-drafts${qs ? `?${qs}` : ''}`);
+    },
+  };
 });
 vi.mock('@/context/AuthContext', () => ({ useAuth: () => auth }));
 vi.mock('next/navigation', () => ({
@@ -46,6 +62,9 @@ beforeEach(() => {
     if (path === '/applications/mine') return { items: [] };
     if (path === '/applications') return { items: [] };
     if (String(path).endsWith('/overview')) return { business, role: 'viewer', publications: [] };
+    if (String(path).includes('/v2/conversation-drafts')) {
+      return { items: [], total: 0, limit: 50, offset: 0 };
+    }
     return { items: [] };
   });
 });
@@ -355,7 +374,7 @@ describe('Business management', () => {
     });
   });
 
-  it('opens stepped Yansı Stüdyosu without default eight-step manual form', async () => {
+  it('opens single Yansı Oluştur flow without stacked product cards', async () => {
     api.mockImplementation(async (path = '') => {
       if (path === '') return { items: [business], canProvision: false };
       if (path === '/applications/mine') return { items: [] };
@@ -364,19 +383,15 @@ describe('Business management', () => {
     });
     render(<SainaBusinessManager />);
     await screen.findByText('BiligN', { selector: 'h2' });
-    fireEvent.click(screen.getByRole('button', { name: 'Yansı Stüdyosu' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yansı Oluştur' }));
     expect(await screen.findByTestId('biz-yansi-workspace')).toBeInTheDocument();
-    // Primary path: V2 ConversationCreate (not three stacked heroes).
     expect(await screen.findByTestId('biz-conv-create')).toBeInTheDocument();
-    expect(screen.getByTestId('biz-yansi-photo-secondary')).toBeInTheDocument();
-    expect(screen.getByTestId('biz-yansi-v1-studio-secondary')).toBeInTheDocument();
-    // V1 Studio kept under secondary details for compatibility.
-    expect(await screen.findByTestId('biz-yansi-studio')).toHaveAttribute('data-phase', 'sources');
-    expect(screen.getByTestId('biz-studio-step-rail')).toBeInTheDocument();
-    expect(screen.getByTestId('biz-studio-no-sources')).toBeInTheDocument();
-    expect(screen.getByTestId('biz-studio-goto-knowledge')).toBeInTheDocument();
-    expect(screen.queryByTestId('biz-studio-manual-form')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Onayla' })).not.toBeInTheDocument();
+    expect(await screen.findByTestId('biz-conv-create-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('biz-conv-flow-rail')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Yansı Stüdyosu' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Yayınlar' })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('biz-yansi-photo-secondary')).not.toBeInTheDocument();
+    expect(screen.getByTestId('biz-conv-live-preview')).toBeInTheDocument();
     const engineToggle = screen.getByTestId('biz-engine-toggle');
     expect(engineToggle).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryByTestId('biz-engine-form')).not.toBeInTheDocument();
@@ -387,7 +402,7 @@ describe('Business management', () => {
     expect(screen.queryByTestId('biz-engine-form')).not.toBeInTheDocument();
   });
 
-  it('shows the selected cover and step media before publish', async () => {
+  it('shows draft cover media under Yansılarım', async () => {
     api.mockImplementation(async (path = '') => {
       if (path === '') return { items: [business], canProvision: false };
       if (path === '/applications/mine') return { items: [] };
@@ -395,11 +410,14 @@ describe('Business management', () => {
       if (String(path).endsWith('/assets')) {
         return { items: [{ id: 'asset-cover', asset_type: 'image', title: 'Seramik atolyesi', caption: '', locator: null, latitude: null, longitude: null, public_allowed: true, status: 'published', revision: 1, links: [] }] };
       }
+      if (String(path).includes('/v2/conversation-drafts')) {
+        return { items: [], total: 0, limit: 50, offset: 0 };
+      }
       if (String(path).endsWith('/drafts')) {
         return {
           items: [{
             id: 'draft-1',
-            title: 'Seramik Yansisi',
+            title: '**Seramik Yansisi**',
             summary: 'Ozet',
             status: 'approved',
             revision: 2,
@@ -413,11 +431,87 @@ describe('Business management', () => {
     });
     render(<SainaBusinessManager />);
     await screen.findByText('BiligN', { selector: 'h2' });
-    fireEvent.click(screen.getByRole('button', { name: 'Yansı Stüdyosu' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yansılarım' }));
+    expect(await screen.findByTestId('biz-yansi-mine')).toBeInTheDocument();
     expect(await screen.findByTestId('biz-draft-cover')).toHaveTextContent('Kapak: Seramik atolyesi');
+    expect(screen.getByRole('heading', { name: 'Seramik Yansisi' })).toBeInTheDocument();
     fireEvent.click(screen.getByText('Soru-cevap önizlemesi'));
     expect(screen.getByText('Görsel: Seramik atolyesi')).toBeInTheDocument();
     expect(screen.queryByText(/fiyat|stok|sepet/i)).not.toBeInTheDocument();
+  });
+
+  it('shows retry when V2 draft list fails without pretending empty', async () => {
+    api.mockImplementation(async (path = '') => {
+      if (path === '') return { items: [business], canProvision: false };
+      if (path === '/applications/mine') return { items: [] };
+      if (String(path).endsWith('/overview')) return { business, role: 'owner', publications: [] };
+      if (String(path).includes('/v2/conversation-drafts')) {
+        throw new BusinessApiError(500, 'list_unavailable');
+      }
+      if (String(path).endsWith('/drafts')) {
+        return { items: [] };
+      }
+      return { items: [] };
+    });
+    render(<SainaBusinessManager />);
+    await screen.findByText('BiligN', { selector: 'h2' });
+    fireEvent.click(screen.getByRole('button', { name: 'Yansılarım' }));
+    expect(await screen.findByTestId('biz-v2-drafts-error')).toBeInTheDocument();
+    expect(screen.getByTestId('biz-v2-drafts-retry')).toBeInTheDocument();
+    expect(screen.queryByTestId('biz-v2-draft-v2-draft-1')).not.toBeInTheDocument();
+  });
+
+  it('lists server V2 drafts with V1 in Yansılarım and resumes create flow', async () => {
+    api.mockImplementation(async (path = '') => {
+      if (path === '') return { items: [business], canProvision: false };
+      if (path === '/applications/mine') return { items: [] };
+      if (String(path).endsWith('/overview')) return { business, role: 'owner', publications: [] };
+      if (String(path).includes('/v2/conversation-drafts')) {
+        return {
+          items: [{
+            id: 'v2-draft-1',
+            businessId: business.id,
+            title: 'Sohbet taslağı',
+            status: 'draft',
+            revision: 1,
+            turnCount: 2,
+            coverAssetId: null,
+            publishedNodeId: null,
+            publishedVersion: null,
+            createdAt: '2026-11-22T00:00:00Z',
+            updatedAt: '2026-11-22T01:00:00Z',
+          }],
+          total: 1,
+          limit: 50,
+          offset: 0,
+        };
+      }
+      if (String(path).endsWith('/drafts')) {
+        return {
+          items: [{
+            id: 'draft-1',
+            title: 'Klasik taslak',
+            summary: '',
+            status: 'draft',
+            revision: 1,
+            conversation_id: null,
+            steps: [{ question: 'Q?', answer: 'A', sources: [] }],
+            media_plan: null,
+          }],
+        };
+      }
+      return { items: [] };
+    });
+    render(<SainaBusinessManager />);
+    await screen.findByText('BiligN', { selector: 'h2' });
+    fireEvent.click(screen.getByRole('button', { name: 'Yansılarım' }));
+    expect(await screen.findByTestId('biz-yansi-mine-draft')).toBeInTheDocument();
+    expect(screen.getByTestId('biz-v2-draft-v2-draft-1')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Sohbet taslağı' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Klasik taslak' })).toBeInTheDocument();
+    expect(screen.getByTestId('biz-draft-edit-draft-1')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('biz-draft-resume-v2-v2-draft-1'));
+    expect(await screen.findByTestId('biz-yansi-workspace')).toBeInTheDocument();
   });
 
   it('shows simplified BiligN welcome for anonymous users', async () => {

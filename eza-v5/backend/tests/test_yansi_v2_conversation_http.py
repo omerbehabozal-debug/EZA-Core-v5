@@ -499,3 +499,87 @@ async def test_postgres_concurrent_conversation_same_idempotency_key():
         assert {r["publicationVersion"] for r in oks} == {1}
         assert oks[0]["contractHash"] == oks[1]["contractHash"]
         assert sum(1 for r in oks if r["idempotent"]) >= 1
+
+
+@pytest.mark.asyncio
+async def test_list_conversation_drafts_member_only_and_paginated(sample):
+    await _ensure_tables(sample.db)
+    owner_app = _app(sample.db, str(sample.owner.id))
+    async with httpx.AsyncClient(app=owner_app, base_url="http://test") as client:
+        empty = await client.get(
+            f"/api/business-yansi/{sample.business.id}/v2/conversation-drafts",
+        )
+        assert empty.status_code == 200, empty.text
+        assert empty.json() == {"items": [], "total": 0, "limit": 50, "offset": 0}
+
+        created_ids = []
+        for title in ("Alpha", "Beta", "Gamma"):
+            created = await _create_draft(client, sample.business.id, {
+                "title": title,
+                "turns": _turns(1),
+            })
+            assert created.status_code == 200, created.text
+            created_ids.append(created.json()["id"])
+
+        listed = await client.get(
+            f"/api/business-yansi/{sample.business.id}/v2/conversation-drafts",
+            params={"limit": 2, "offset": 0},
+        )
+        assert listed.status_code == 200, listed.text
+        body = listed.json()
+        assert body["total"] == 3
+        assert body["limit"] == 2
+        assert body["offset"] == 0
+        assert len(body["items"]) == 2
+        for item in body["items"]:
+            assert set(item.keys()) >= {
+                "id", "businessId", "title", "status", "revision",
+                "turnCount", "updatedAt", "createdAt",
+            }
+            assert "turns" not in item
+            assert "knowledgeSourcePins" not in item
+            assert "contentDigest" not in item
+            assert item["businessId"] == str(sample.business.id).lower()
+
+        page2 = await client.get(
+            f"/api/business-yansi/{sample.business.id}/v2/conversation-drafts",
+            params={"limit": 2, "offset": 2},
+        )
+        assert page2.status_code == 200
+        assert page2.json()["total"] == 3
+        assert len(page2.json()["items"]) == 1
+
+        filtered = await client.get(
+            f"/api/business-yansi/{sample.business.id}/v2/conversation-drafts",
+            params={"status": "draft"},
+        )
+        assert filtered.status_code == 200
+        assert filtered.json()["total"] == 3
+        assert all(row["status"] == "draft" for row in filtered.json()["items"])
+
+        bad_status = await client.get(
+            f"/api/business-yansi/{sample.business.id}/v2/conversation-drafts",
+            params={"status": "nope"},
+        )
+        assert bad_status.status_code == 400
+        assert bad_status.json()["detail"]["code"] == "invalid_status"
+
+        foreign = await client.get(
+            f"/api/business-yansi/{sample.other.id}/v2/conversation-drafts",
+        )
+    assert foreign.status_code in {403, 404}
+
+    outsider_app = _app(sample.db, str(sample.outsider.id))
+    async with httpx.AsyncClient(app=outsider_app, base_url="http://test") as client:
+        denied = await client.get(
+            f"/api/business-yansi/{sample.business.id}/v2/conversation-drafts",
+        )
+    assert denied.status_code == 403
+    assert denied.json()["detail"]["code"] == "membership_required"
+
+    async with httpx.AsyncClient(app=owner_app, base_url="http://test") as client:
+        own = await client.get(
+            f"/api/business-yansi/{sample.business.id}/v2/conversation-drafts",
+            params={"limit": 100},
+        )
+    assert {row["id"] for row in own.json()["items"]} == set(created_ids)

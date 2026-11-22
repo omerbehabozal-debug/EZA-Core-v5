@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from backend.core.schemas.yansi_v2_publication import (
     MAX_FROZEN_TURNS,
@@ -254,6 +254,99 @@ def draft_public_dto(row: YansiV2ConversationDraft) -> dict[str, Any]:
         "publishedNodeId": str(row.published_node_id).lower() if row.published_node_id else None,
         "publishedVersion": row.published_version,
         "createdBy": str(row.created_by).lower(),
+        "createdAt": row.created_at.isoformat().replace("+00:00", "Z") if row.created_at else None,
+        "updatedAt": row.updated_at.isoformat().replace("+00:00", "Z") if row.updated_at else None,
+    }
+
+
+def draft_list_summary_dto(row: YansiV2ConversationDraft) -> dict[str, Any]:
+    """List payload — metadata only; no turns / notes / pins / digests."""
+    return {
+        "id": str(row.id).lower(),
+        "businessId": str(row.business_id).lower(),
+        "title": row.title,
+        "status": row.status,
+        "revision": int(row.revision),
+        "turnCount": len(row.turns or []),
+        "coverAssetId": str(row.cover_asset_id).lower() if row.cover_asset_id else None,
+        "publishedNodeId": str(row.published_node_id).lower() if row.published_node_id else None,
+        "publishedVersion": row.published_version,
+        "createdAt": row.created_at.isoformat().replace("+00:00", "Z") if row.created_at else None,
+        "updatedAt": row.updated_at.isoformat().replace("+00:00", "Z") if row.updated_at else None,
+    }
+
+
+_LIST_STATUSES = frozenset({"draft", "review", "approved", "published", "archived"})
+_LIST_DEFAULT_LIMIT = 50
+_LIST_MAX_LIMIT = 100
+
+
+async def list_conversation_drafts_v2(
+    db,
+    *,
+    business_id: str,
+    actor_user_id: str,
+    status: str | None = None,
+    limit: int = _LIST_DEFAULT_LIMIT,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Member list of tenant-scoped conversation drafts (viewer+). Summary rows only."""
+    biz = _uuid(business_id, "business_not_found")
+    actor_id = _uuid(actor_user_id, "inactive_account")
+    business = await db.get(BusinessProfile, biz)
+    organization = await db.get(Organization, biz)
+    actor = await db.get(User, actor_id)
+    if not business or not organization or organization.status != "active" or business.status != "active":
+        raise ConversationDraftV2Error("business_not_found")
+    if not actor or not actor.is_active:
+        raise ConversationDraftV2Error("inactive_account")
+    membership = await db.get(BusinessMember, (biz, actor_id))
+    if membership is None or (membership.role or "").lower() not in {"owner", "editor", "viewer"}:
+        raise ConversationDraftV2Error("membership_required")
+
+    status_filter: str | None = None
+    if status is not None and str(status).strip():
+        status_filter = str(status).strip().lower()
+        if status_filter not in _LIST_STATUSES:
+            raise ConversationDraftV2Error("invalid_status")
+
+    try:
+        lim = int(limit)
+        off = int(offset)
+    except (TypeError, ValueError) as exc:
+        raise ConversationDraftV2Error("invalid_pagination") from exc
+    if isinstance(limit, bool) or isinstance(offset, bool) or lim < 1 or off < 0:
+        raise ConversationDraftV2Error("invalid_pagination")
+    lim = min(lim, _LIST_MAX_LIMIT)
+
+    filters = [YansiV2ConversationDraft.business_id == biz]
+    if status_filter:
+        filters.append(YansiV2ConversationDraft.status == status_filter)
+
+    total = int(
+        await db.scalar(
+            select(func.count()).select_from(YansiV2ConversationDraft).where(*filters)
+        )
+        or 0
+    )
+    rows = (
+        await db.scalars(
+            select(YansiV2ConversationDraft)
+            .where(*filters)
+            .order_by(
+                YansiV2ConversationDraft.updated_at.desc(),
+                YansiV2ConversationDraft.id.desc(),
+            )
+            .limit(lim)
+            .offset(off)
+        )
+    ).all()
+
+    return {
+        "items": [draft_list_summary_dto(row) for row in rows],
+        "total": total,
+        "limit": lim,
+        "offset": off,
     }
 
 

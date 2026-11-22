@@ -192,7 +192,7 @@ function PreviewCard({
         )}
       </div>
       <div className="biz-photo-create-preview-body">
-        <p className="biz-studio-eyebrow">Kaynaklı Yansı · grounded</p>
+        <p className="biz-studio-eyebrow">Görsel yayın</p>
         <h3>{preview.title}</h3>
         {preview.description ? <p className="biz-copy">{preview.description}</p> : null}
         <p className="biz-card-meta" data-testid="biz-photo-create-preview-manifest">
@@ -225,7 +225,7 @@ function PreviewCard({
             </ul>
           )}
         </div>
-        <p className="biz-card-meta">Business: {businessId.slice(0, 8)}… · Keşfet feed’e henüz eklenmez.</p>
+        <p className="biz-card-meta">Yayın owner onayı ister; otomatik yayınlanmaz.</p>
       </div>
     </article>
   );
@@ -468,11 +468,9 @@ export default function BusinessYansiPhotoCreate({
   return (
     <div className="biz-yansi-workspace-block biz-photo-create" data-testid="biz-photo-create">
       <div className="biz-studio-hero">
-        <p className="biz-studio-eyebrow">Yeni Yansı</p>
-        <h2 className="biz-section-title">Tek fotoğrafla Kaynaklı Yansı</h2>
+        <h2 className="biz-section-title">Sadece görselle yayınla</h2>
         <p className="biz-section-lead">
-          Bilgi Deposu isteğe bağlı. Fotoğraf seçin; gerekirse mevcut kayıtlardan AI kaynaklarını
-          bağlayın veya yeni kayıt ekleyin. Eski 8 soruluk stüdyo aşağıda duruyor.
+          Kapak görseli seçin. Bilgi kaynakları isteğe bağlıdır. Yayın owner onayı gerektirir.
         </p>
         {!open ? (
           <div className="biz-actions">
@@ -485,7 +483,7 @@ export default function BusinessYansiPhotoCreate({
                 resetCompose(false);
               }}
             >
-              Yeni Yansı oluştur
+              Görsel seç
             </button>
             {onOpenLibrary ? (
               <button type="button" className="biz-btn-ghost" onClick={onOpenLibrary}>
@@ -878,12 +876,9 @@ export default function BusinessYansiPhotoCreate({
                   Public bağlantı
                 </a>
               </p>
-              <p className="biz-card-meta">
-                Keşfet listesine henüz eklenmez. contractHash: {result.contractHash.slice(0, 12)}…
-              </p>
               {result.public?.contract && parseYansiV2PublicationContract(result.public.contract) ? (
                 <p className="biz-card-meta" data-testid="biz-photo-create-published-kind">
-                  contentKind:{' '}
+                  Tür:{' '}
                   {String(
                     (parseYansiV2PublicationContract(result.public.contract) as { contentKind: string })
                       .contentKind,

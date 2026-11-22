@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import {
   businessRequest as api,
   fetchCoverAiAvailability,
+  listYansiV2ConversationDrafts,
   uploadBusinessLogo,
   isBusinessApiError,
   type Business,
@@ -13,6 +14,7 @@ import {
   type Publication,
   type BrandApplication,
   type BrandAsset,
+  type YansiV2ConversationDraftSummary,
 } from '@/lib/eza/businessYansi';
 import { useAuth } from '@/context/AuthContext';
 import SainaBusinessGate from '@/components/saina/SainaBusinessGate';
@@ -25,7 +27,14 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { buildProfileAvatarDisplaySrc } from '@/lib/eza/profile/avatarDisplayUrl';
 
-const tabs = ['Genel Bakış', 'Bilgi Havuzu', 'İçerik Kütüphanesi', 'Yansı Stüdyosu', 'Yayınlar', 'Ayarlar'] as const;
+const tabs = [
+  'Genel Bakış',
+  'Bilgi Havuzu',
+  'İçerik Kütüphanesi',
+  'Yansı Oluştur',
+  'Yansılarım',
+  'Ayarlar',
+] as const;
 const LOGIN_MSG = 'Business yönetimi için giriş yapmalısın.';
 
 type CatalogState = 'idle' | 'loading' | 'ready' | 'unavailable' | 'blocked';
@@ -41,20 +50,13 @@ function SectionLoading({ label = 'Bölüm yükleniyor…' }: { label?: string }
 
 const BusinessYansiStudio = dynamic(() => import('@/components/saina/business-studio/BusinessYansiStudio'), {
   ssr: false,
-  loading: () => <SectionLoading label="Yansı Stüdyosu yükleniyor…" />,
+  loading: () => <SectionLoading label="Gelişmiş düzenleyici yükleniyor…" />,
 });
-const BusinessYansiPhotoCreate = dynamic(
-  () => import('@/components/saina/business-studio/BusinessYansiPhotoCreate'),
-  {
-    ssr: false,
-    loading: () => <SectionLoading label="Yeni Yansı yükleniyor…" />,
-  },
-);
 const BusinessYansiConversationCreate = dynamic(
   () => import('@/components/saina/business-studio/BusinessYansiConversationCreate'),
   {
     ssr: false,
-    loading: () => <SectionLoading label="Esnek Yansı yükleniyor…" />,
+    loading: () => <SectionLoading label="Yansı Oluştur yükleniyor…" />,
   },
 );
 const BusinessKnowledgePool = dynamic(() => import('@/components/saina/business-studio/BusinessKnowledgePool'), {
@@ -79,6 +81,15 @@ function mediaBlockLabel(type: string) {
   if (type === 'video') return 'Video';
   if (type === 'map') return 'Konum';
   return 'Bağlantı';
+}
+
+/** Display-only: strip common markdown emphasis markers without mutating stored content. */
+function displayPlainTitle(value: string | null | undefined): string {
+  return String(value || '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/`(.+?)`/g, '$1')
+    .trim();
 }
 
 function BrandMark({
@@ -154,6 +165,10 @@ export default function SainaBusinessManager() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<Draft | null>(null);
+  const [resumeDraftId, setResumeDraftId] = useState<string | null>(null);
+  const [v2Drafts, setV2Drafts] = useState<YansiV2ConversationDraftSummary[]>([]);
+  const [v2DraftTotal, setV2DraftTotal] = useState(0);
+  const [v2DraftsError, setV2DraftsError] = useState<string | null>(null);
   const [editorialChat, setEditorialChat] = useState('');
   const [answer, setAnswer] = useState('');
   const [previewMedia, setPreviewMedia] = useState<PublicBusinessBlock[]>([]);
@@ -215,9 +230,31 @@ export default function SainaBusinessManager() {
         const studio = await api<{ items: Draft[] }>(`/${id}/drafts`);
         if (selectedRef.current !== id) return;
         setDrafts(studio.items);
+
+        let v2Items: YansiV2ConversationDraftSummary[] = [];
+        let v2Total = 0;
+        let v2Error: string | null = null;
+        try {
+          const v2List = await listYansiV2ConversationDrafts(id, { limit: 50, offset: 0 });
+          v2Items = v2List.items || [];
+          v2Total = Number(v2List.total ?? v2Items.length);
+        } catch (err) {
+          v2Error =
+            err instanceof Error && err.message
+              ? err.message
+              : 'Sohbet taslakları yüklenemedi.';
+          v2Items = [];
+          v2Total = 0;
+        }
+        if (selectedRef.current !== id) return;
+        setV2Drafts(v2Items);
+        setV2DraftTotal(v2Total);
+        setV2DraftsError(v2Error);
         setOverviewStats((prev) => ({
           ...prev,
-          draftCount: studio.items.filter((d) => d.status !== 'published').length,
+          draftCount:
+            studio.items.filter((d) => d.status !== 'published').length +
+            v2Items.filter((d) => d.status !== 'published' && d.status !== 'archived').length,
         }));
       } else if (section === 'assets') {
         const library = await api<{ items: BrandAsset[] }>(`/${id}/assets`);
@@ -328,6 +365,10 @@ export default function SainaBusinessManager() {
     setLoadedSections({});
     setSectionLoading({});
     setCoverAiEnabled(false);
+    setResumeDraftId(null);
+    setV2Drafts([]);
+    setV2DraftTotal(0);
+    setV2DraftsError(null);
     setAnswer('');
     setPreviewMedia([]);
     setEditorialChat('');
@@ -362,7 +403,12 @@ export default function SainaBusinessManager() {
       void loadSection(selected, 'knowledge').catch(fail);
     } else if (tab === 'İçerik Kütüphanesi') {
       void Promise.all([loadSection(selected, 'assets'), loadSection(selected, 'knowledge')]).catch(fail);
-    } else if (tab === 'Yansı Stüdyosu') {
+    } else if (tab === 'Yansı Oluştur') {
+      void Promise.all([
+        loadSection(selected, 'knowledge'),
+        loadSection(selected, 'assets'),
+      ]).catch(fail);
+    } else if (tab === 'Yansılarım') {
       void Promise.all([
         loadSection(selected, 'drafts'),
         loadSection(selected, 'knowledge'),
@@ -374,8 +420,8 @@ export default function SainaBusinessManager() {
   }, [selected, business, tab, role]);
 
   useEffect(() => {
-    if (!selected || tab !== 'Yansı Stüdyosu') {
-      if (tab !== 'Yansı Stüdyosu') setCoverAiEnabled(false);
+    if (!selected || (tab !== 'Yansı Oluştur' && tab !== 'Yansılarım')) {
+      if (tab !== 'Yansı Oluştur' && tab !== 'Yansılarım') setCoverAiEnabled(false);
       return;
     }
     let active = true;
@@ -801,9 +847,10 @@ export default function SainaBusinessManager() {
                 )
               )}
 
-              {business && tab === 'Yansı Stüdyosu' && (
-                sectionLoading.drafts && !loadedSections.drafts ? (
-                  <SectionLoading label="Yansı Stüdyosu yükleniyor…" />
+              {business && tab === 'Yansı Oluştur' && (
+                (sectionLoading.knowledge && !loadedSections.knowledge) ||
+                (sectionLoading.assets && !loadedSections.assets) ? (
+                  <SectionLoading label="Yansı Oluştur yükleniyor…" />
                 ) : (
                 <section className="biz-yansi-workspace" data-testid="biz-yansi-workspace">
                   <BusinessYansiConversationCreate
@@ -814,6 +861,12 @@ export default function SainaBusinessManager() {
                     canEdit={editor}
                     busy={busy}
                     brandName={business.name}
+                    startOpen
+                    resumeDraftId={resumeDraftId}
+                    onResumeConsumed={() => setResumeDraftId(null)}
+                    onConversationDraftIndexed={() => {
+                      if (selected) void loadSection(selected, 'drafts', { force: true });
+                    }}
                     onOpenLibrary={() => goToTab('İçerik Kütüphanesi')}
                     onOpenKnowledgePool={() => goToTab('Bilgi Havuzu')}
                     onSaveKnowledge={async (payload) => {
@@ -829,171 +882,15 @@ export default function SainaBusinessManager() {
                       if (selected) await loadSection(selected, 'knowledge', { force: true });
                     }}
                     onPublished={() => {
-                      setNotice(
-                        'Yansı yayımlandı. Keşfet feed henüz birleşik değil; public slug bağlantısından açabilirsiniz.',
-                      );
+                      setNotice('Yansı yayımlandı. Keşfet ve Deneyimle üzerinden açabilirsiniz.');
+                      if (selected) void load(selected);
+                    }}
+                    onImagePublished={() => {
+                      setNotice('Görsel Yansı yayımlandı.');
                       if (selected) void load(selected);
                     }}
                   />
 
-                  <details className="biz-yansi-secondary" data-testid="biz-yansi-photo-secondary">
-                    <summary>Fotoğraf Yansı (tek görsel)</summary>
-                    <BusinessYansiPhotoCreate
-                      businessId={selected}
-                      assets={assets}
-                      knowledge={knowledge}
-                      role={role}
-                      canEdit={editor}
-                      busy={busy}
-                      onOpenLibrary={() => goToTab('İçerik Kütüphanesi')}
-                      onOpenKnowledgePool={() => goToTab('Bilgi Havuzu')}
-                      onSaveKnowledge={async (payload) => {
-                        await api(`${base}/knowledge`, 'POST', {
-                          title: payload.title,
-                          category: payload.category,
-                          content: payload.content,
-                          source: payload.source,
-                          publicAllowed: payload.publicAllowed,
-                        });
-                      }}
-                      onKnowledgeChanged={async () => {
-                        if (selected) await loadSection(selected, 'knowledge', { force: true });
-                      }}
-                      onPublished={() => {
-                        setNotice(
-                          'Fotoğraf Yansı yayımlandı. Keşfet feed henüz V2 ile birleşik değil; public slug bağlantısından açabilirsiniz.',
-                        );
-                        if (selected) void load(selected);
-                      }}
-                    />
-                  </details>
-
-                  <details className="biz-yansi-secondary" data-testid="biz-yansi-v1-studio-secondary">
-                    <summary>Klasik 8 adımlı AI Studio (V1)</summary>
-                    <BusinessYansiStudio
-                      key={editDraft?.id || `studio-${selected}`}
-                      businessId={selected}
-                      knowledge={knowledge}
-                      canEdit={editor}
-                      editDraft={editDraft}
-                      onClearEdit={() => setEditDraft(null)}
-                      brand={{
-                        name: business.name,
-                        logoUrl: business.logo_url,
-                        cacheBust: business.updated_at,
-                        verified: business.verified,
-                        official: business.official,
-                      }}
-                      assets={assets}
-                      coverAiEnabled={coverAiEnabled}
-                      onOpenKnowledgePool={() => goToTab('Bilgi Havuzu')}
-                      onDraftSaved={async () => {
-                        setEditDraft(null);
-                        if (selected) await load(selected);
-                        setNotice('Taslak kaydedildi. İncelemeye gönderme owner onayını atlamaz.');
-                      }}
-                    />
-                  </details>
-
-                  <div className="biz-yansi-workspace-block">
-                    <h2 className="biz-section-title">Taslaklar</h2>
-                    <p className="biz-section-lead">
-                      İnceleme, onay ve yayın mevcut Business kurallarıyla ilerler. AI önerisi owner onayını atlamaz.
-                    </p>
-                    {!drafts.length && <p className="biz-empty">Henüz Yansı taslağı yok.</p>}
-                    {drafts.map((d) => (
-                      <article className="biz-card" key={d.id}>
-                        <div className="biz-card-head">
-                          <h3>{d.title}</h3>
-                          <span className={statusClass(d.status)}>{d.status}</span>
-                        </div>
-                        <p className="biz-card-meta">revision {d.revision}</p>
-                        {d.media_plan?.coverAssetId ? (
-                          <p className="biz-card-meta" data-testid="biz-draft-cover">
-                            Kapak:{' '}
-                            {(() => {
-                              const cover = assets.find((asset) => asset.id === d.media_plan?.coverAssetId);
-                              if (!cover) return 'Marka görseli';
-                              return `${cover.title} · ${cover.asset_type === 'video' ? 'video' : 'görsel'}`;
-                            })()}
-                          </p>
-                        ) : null}
-                        <details>
-                          <summary>Soru-cevap önizlemesi</summary>
-                          {d.steps.map((s, i) => (
-                            <div key={i}>
-                              <strong>
-                                {i + 1}. {s.question}
-                              </strong>
-                              <p className="biz-copy">{s.answer}</p>
-                              {(d.media_plan?.blocks?.[i] || []).map((block) => (
-                                <p className="biz-card-meta" key={block.assetId}>
-                                  {mediaBlockLabel(block.type)}: {assets.find((asset) => asset.id === block.assetId)?.title || 'Marka içeriği'}
-                                </p>
-                              ))}
-                            </div>
-                          ))}
-                        </details>
-                        {editor && d.status === 'draft' && !d.conversation_id && (
-                          <div className="biz-actions">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditDraft(d);
-                              }}
-                            >
-                              Taslağı düzenle
-                            </button>
-                          </div>
-                        )}
-                        {draftActions(d)}
-                        {editor && d.status === 'approved' && (
-                          <div className="biz-actions">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void run(async () => {
-                                  const result = await api<{ clientConversationId: string }>(
-                                    `${base}/drafts/${d.id}/editorial-conversation`,
-                                    'POST'
-                                  );
-                                  setEditorialChat(result.clientConversationId);
-                                  setNotice(
-                                    `Editoryal sohbet hazır: ${result.clientConversationId}. Sohbet arşivinden açıp mevcut Ayna akışıyla özel Yansı oluştur; ardından slug ile yayın onayı ver.`
-                                  );
-                                })
-                              }
-                            >
-                              Mevcut Ayna akışına hazırla
-                            </button>
-                          </div>
-                        )}
-                        {role === 'owner' && d.status === 'approved' && (
-                          <form
-                            className="biz-form"
-                            onSubmit={submit((data) =>
-                              api(`${base}/drafts/${d.id}/publish`, 'POST', {
-                                slug: data.slug,
-                                revision: d.revision,
-                              })
-                            )}
-                          >
-                            <input name="slug" placeholder="Özel sealed Yansı slug" required />
-                            <button type="submit" className="biz-btn-primary">
-                              Onaylı Business Yansı&apos;yı yayımla
-                            </button>
-                          </form>
-                        )}
-                      </article>
-                    ))}
-                    {editorialChat && (
-                      <p>
-                        <a href={`/standalone?chat=${encodeURIComponent(editorialChat)}`}>
-                          Ayna için editoryal sohbeti aç
-                        </a>
-                      </p>
-                    )}
-                  </div>
                   {editor && (
                     <div className="biz-engine-panel" data-testid="biz-engine-panel">
                       <button
@@ -1035,21 +932,282 @@ export default function SainaBusinessManager() {
               )
               )}
 
-              {business && tab === 'Yayınlar' && (
-                <section>
-                  <h2 className="biz-section-title">Yayınlar</h2>
-                  <p className="biz-section-lead">Aktif Business Yansıları ve taslak durumu.</p>
+              {business && tab === 'Yansılarım' && (
+                sectionLoading.drafts && !loadedSections.drafts ? (
+                  <SectionLoading label="Yansılarım yükleniyor…" />
+                ) : (
+                <section className="biz-yansi-mine" data-testid="biz-yansi-mine">
+                  <h2 className="biz-section-title">Yansılarım</h2>
+                  <p className="biz-section-lead">
+                    Taslaklar, inceleme, onay ve yayınlar. İnceleme ve yayın owner onayını atlamaz.
+                  </p>
                   <div className="biz-stats" style={{ marginBottom: 16 }}>
                     <div className="biz-stat">
                       <span className="biz-stat-value">{publicCount}</span>
-                      <span className="biz-stat-label">Aktif yayın</span>
+                      <span className="biz-stat-label">Yayında</span>
                     </div>
                     <div className="biz-stat">
                       <span className="biz-stat-value">{draftCount}</span>
-                      <span className="biz-stat-label">Taslak / incelemede</span>
+                      <span className="biz-stat-label">Taslak / inceleme</span>
                     </div>
                   </div>
-                  {!publications.length && <p className="biz-empty">Henüz yayımlanmış Business Yansı yok.</p>}
+
+                  {v2DraftsError ? (
+                    <div className="biz-notice" role="alert" data-testid="biz-v2-drafts-error">
+                      <p className="biz-copy">Sohbet taslakları yüklenemedi. {v2DraftsError}</p>
+                      <div className="biz-actions">
+                        <button
+                          type="button"
+                          className="biz-btn-primary"
+                          data-testid="biz-v2-drafts-retry"
+                          onClick={() => {
+                            if (!selected) return;
+                            void loadSection(selected, 'drafts', { force: true }).catch((e) =>
+                              setError(e instanceof Error ? e.message : 'Yeniden yükleme başarısız.'),
+                            );
+                          }}
+                        >
+                          Tekrar dene
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {(
+                    [
+                      ['draft', 'Taslaklar'],
+                      ['review', 'İncelemede'],
+                      ['approved', 'Onaylananlar'],
+                    ] as const
+                  ).map(([statusKey, heading]) => {
+                    const v1Rows = drafts.filter((d) => d.status === statusKey);
+                    const v2Rows = v2Drafts.filter((d) => d.status === statusKey);
+                    const empty = !v1Rows.length && !v2Rows.length;
+                    return (
+                      <div key={statusKey} className="biz-yansi-mine-group" data-testid={`biz-yansi-mine-${statusKey}`}>
+                        <h3 className="biz-studio-panel-title">{heading}</h3>
+                        {empty ? <p className="biz-empty">Kayıt yok.</p> : null}
+                        {v2Rows.map((row) => (
+                          <article className="biz-card" key={`v2-${row.id}`} data-testid={`biz-v2-draft-${row.id}`}>
+                            <div className="biz-card-head">
+                              <h3>{displayPlainTitle(row.title)}</h3>
+                              <span className={statusClass(row.status)}>{row.status}</span>
+                            </div>
+                            <p className="biz-card-meta">
+                              revision {row.revision}
+                              {row.turnCount ? ` · ${row.turnCount} soru` : ''}
+                              {row.updatedAt ? ` · ${row.updatedAt.slice(0, 10)}` : ''}
+                            </p>
+                            {row.coverAssetId ? (
+                              <p className="biz-card-meta">
+                                Kapak:{' '}
+                                {assets.find((asset) => asset.id === row.coverAssetId)?.title || 'Marka görseli'}
+                              </p>
+                            ) : null}
+                            {editor ? (
+                              <div className="biz-actions">
+                                <button
+                                  type="button"
+                                  className="biz-btn-primary"
+                                  data-testid={`biz-draft-resume-v2-${row.id}`}
+                                  onClick={() => {
+                                    setResumeDraftId(row.id);
+                                    goToTab('Yansı Oluştur');
+                                  }}
+                                >
+                                  {statusKey === 'approved' ? 'İncele / yayınla' : 'Düzenlemeye devam et'}
+                                </button>
+                              </div>
+                            ) : null}
+                          </article>
+                        ))}
+                        {v1Rows.map((d) => (
+                          <article className="biz-card" key={`v1-${d.id}`}>
+                            <div className="biz-card-head">
+                              <h3>{displayPlainTitle(d.title)}</h3>
+                              <span className={statusClass(d.status)}>{d.status}</span>
+                            </div>
+                            <p className="biz-card-meta">revision {d.revision}</p>
+                            {d.media_plan?.coverAssetId ? (
+                              <p className="biz-card-meta" data-testid="biz-draft-cover">
+                                Kapak:{' '}
+                                {(() => {
+                                  const cover = assets.find((asset) => asset.id === d.media_plan?.coverAssetId);
+                                  if (!cover) return 'Marka görseli';
+                                  return `${cover.title} · ${cover.asset_type === 'video' ? 'video' : 'görsel'}`;
+                                })()}
+                              </p>
+                            ) : null}
+                            <details>
+                              <summary>Soru-cevap önizlemesi</summary>
+                              {d.steps.map((s, i) => (
+                                <div key={i}>
+                                  <strong>
+                                    {i + 1}. {displayPlainTitle(s.question)}
+                                  </strong>
+                                  <p className="biz-copy">{s.answer}</p>
+                                  {(d.media_plan?.blocks?.[i] || []).map((block) => (
+                                    <p className="biz-card-meta" key={block.assetId}>
+                                      {mediaBlockLabel(block.type)}:{' '}
+                                      {assets.find((asset) => asset.id === block.assetId)?.title || 'Marka içeriği'}
+                                    </p>
+                                  ))}
+                                </div>
+                              ))}
+                            </details>
+                            {editor && d.status === 'draft' && !d.conversation_id && (
+                              <div className="biz-actions">
+                                <button
+                                  type="button"
+                                  data-testid={`biz-draft-edit-${d.id}`}
+                                  onClick={() => {
+                                    setEditDraft(d);
+                                  }}
+                                >
+                                  Taslağı düzenle
+                                </button>
+                              </div>
+                            )}
+                            {draftActions(d)}
+                            {editor && d.status === 'approved' && (
+                              <div className="biz-actions">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    void run(async () => {
+                                      const result = await api<{ clientConversationId: string }>(
+                                        `${base}/drafts/${d.id}/editorial-conversation`,
+                                        'POST'
+                                      );
+                                      setEditorialChat(result.clientConversationId);
+                                      setNotice(
+                                        'Editoryal sohbet hazır. Sohbet arşivinden açıp özel Yansı oluşturabilirsiniz.'
+                                      );
+                                    })
+                                  }
+                                >
+                                  Ayna akışına hazırla
+                                </button>
+                              </div>
+                            )}
+                            {role === 'owner' && d.status === 'approved' && (
+                              <form
+                                className="biz-form"
+                                onSubmit={submit((data) =>
+                                  api(`${base}/drafts/${d.id}/publish`, 'POST', {
+                                    slug: data.slug,
+                                    revision: d.revision,
+                                  })
+                                )}
+                              >
+                                <input name="slug" placeholder="Yayın adresi (slug)" required />
+                                <button type="submit" className="biz-btn-primary">
+                                  Onaylı Yansı&apos;yı yayımla
+                                </button>
+                              </form>
+                            )}
+                          </article>
+                        ))}
+                      </div>
+                    );
+                  })}
+
+                  {v2DraftTotal > v2Drafts.length ? (
+                    <div className="biz-actions">
+                      <button
+                        type="button"
+                        className="biz-btn-ghost"
+                        data-testid="biz-v2-drafts-more"
+                        onClick={() =>
+                          void run(async () => {
+                            if (!selected) return;
+                            const more = await listYansiV2ConversationDrafts(selected, {
+                              limit: 50,
+                              offset: v2Drafts.length,
+                            });
+                            setV2Drafts((prev) => [...prev, ...more.items]);
+                            setV2DraftTotal(more.total);
+                          })
+                        }
+                      >
+                        Daha fazla taslak ({v2Drafts.length}/{v2DraftTotal})
+                      </button>
+                    </div>
+                  ) : null}
+
+                  {editDraft ? (
+                    <div className="biz-yansi-workspace-block" data-testid="biz-yansi-v1-editor">
+                      <h3 className="biz-studio-panel-title">Taslak düzenleyici</h3>
+                      <BusinessYansiStudio
+                        key={editDraft.id}
+                        businessId={selected}
+                        knowledge={knowledge}
+                        canEdit={editor}
+                        editDraft={editDraft}
+                        onClearEdit={() => setEditDraft(null)}
+                        brand={{
+                          name: business.name,
+                          logoUrl: business.logo_url,
+                          cacheBust: business.updated_at,
+                          verified: business.verified,
+                          official: business.official,
+                        }}
+                        assets={assets}
+                        coverAiEnabled={coverAiEnabled}
+                        onOpenKnowledgePool={() => goToTab('Bilgi Havuzu')}
+                        onDraftSaved={async () => {
+                          setEditDraft(null);
+                          if (selected) await load(selected);
+                          setNotice('Taslak kaydedildi. İncelemeye gönderme owner onayını atlamaz.');
+                        }}
+                      />
+                    </div>
+                  ) : null}
+
+                  {editorialChat && (
+                    <p>
+                      <a href={`/standalone?chat=${encodeURIComponent(editorialChat)}`}>
+                        Ayna için editoryal sohbeti aç
+                      </a>
+                    </p>
+                  )}
+
+                  <h3 className="biz-studio-panel-title" style={{ marginTop: 28 }}>
+                    Yayınlananlar
+                  </h3>
+                  {!publications.length &&
+                  !v2Drafts.some((row) => row.status === 'published') ? (
+                    <p className="biz-empty">Henüz yayımlanmış Yansı yok.</p>
+                  ) : null}
+                  {v2Drafts
+                    .filter((row) => row.status === 'published')
+                    .map((row) => (
+                      <article className="biz-card" key={`v2-pub-${row.id}`} data-testid={`biz-v2-draft-${row.id}`}>
+                        <div className="biz-card-head">
+                          <h3>{displayPlainTitle(row.title)}</h3>
+                          <span className={statusClass(row.status)}>{row.status}</span>
+                        </div>
+                        <p className="biz-card-meta">
+                          revision {row.revision}
+                          {row.publishedVersion != null ? ` · sürüm ${row.publishedVersion}` : ''}
+                        </p>
+                        {editor ? (
+                          <div className="biz-actions">
+                            <button
+                              type="button"
+                              className="biz-btn-ghost"
+                              data-testid={`biz-draft-resume-v2-${row.id}`}
+                              onClick={() => {
+                                setResumeDraftId(row.id);
+                                goToTab('Yansı Oluştur');
+                              }}
+                            >
+                              Görüntüle
+                            </button>
+                          </div>
+                        ) : null}
+                      </article>
+                    ))}
                   {publications.map((p) => (
                     <article className="biz-card" key={p.slug + ':' + p.journey_version}>
                       <div className="biz-card-head">
@@ -1077,6 +1235,7 @@ export default function SainaBusinessManager() {
                     </article>
                   ))}
                 </section>
+              )
               )}
 
               {business && tab === 'Ayarlar' && (

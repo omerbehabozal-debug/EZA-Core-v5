@@ -17,6 +17,8 @@ const apiMocks = vi.hoisted(() => ({
   reviseYansiV2ConversationDraft: vi.fn(),
   transitionYansiV2ConversationDraft: vi.fn(),
   publishYansiV2ConversationDraft: vi.fn(),
+  publishYansiV2Image: vi.fn(),
+  getYansiV2ConversationDraft: vi.fn(),
   requestYansiV2ConversationProposal: vi.fn(),
   pollYansiV2ConversationProposal: vi.fn(),
   applyYansiV2ConversationProposal: vi.fn(),
@@ -35,6 +37,8 @@ vi.mock('@/lib/eza/businessYansi', async () => {
     reviseYansiV2ConversationDraft: apiMocks.reviseYansiV2ConversationDraft,
     transitionYansiV2ConversationDraft: apiMocks.transitionYansiV2ConversationDraft,
     publishYansiV2ConversationDraft: apiMocks.publishYansiV2ConversationDraft,
+    publishYansiV2Image: apiMocks.publishYansiV2Image,
+    getYansiV2ConversationDraft: apiMocks.getYansiV2ConversationDraft,
     requestYansiV2ConversationProposal: apiMocks.requestYansiV2ConversationProposal,
     pollYansiV2ConversationProposal: apiMocks.pollYansiV2ConversationProposal,
     applyYansiV2ConversationProposal: apiMocks.applyYansiV2ConversationProposal,
@@ -128,6 +132,8 @@ describe('BusinessYansiConversationCreate', () => {
     apiMocks.reviseYansiV2ConversationDraft.mockReset();
     apiMocks.transitionYansiV2ConversationDraft.mockReset();
     apiMocks.publishYansiV2ConversationDraft.mockReset();
+    apiMocks.publishYansiV2Image.mockReset();
+    apiMocks.getYansiV2ConversationDraft.mockReset();
     apiMocks.requestYansiV2ConversationProposal.mockReset();
     apiMocks.pollYansiV2ConversationProposal.mockReset();
     apiMocks.applyYansiV2ConversationProposal.mockReset();
@@ -205,7 +211,6 @@ describe('BusinessYansiConversationCreate', () => {
     fireEvent.click(screen.getByTestId('biz-conv-flow-1'));
     await screen.findByTestId('biz-conv-step-select');
     fireEvent.click(screen.getByTestId('biz-conv-cover-' + ASSET));
-    fireEvent.click(screen.getByTestId('biz-conv-bind'));
     fireEvent.click(screen.getByTestId(`biz-conv-bind-${KV}`));
     fireEvent.click(screen.getByTestId('biz-conv-goto-manual'));
     await screen.findByTestId('biz-conv-section-chat');
@@ -348,7 +353,6 @@ describe('BusinessYansiConversationCreate', () => {
     fireEvent.click(screen.getByTestId('biz-conv-create-open'));
     await screen.findByTestId('biz-conv-step-select');
     expect(screen.queryByTestId('biz-conv-section-chat')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId('biz-conv-bind'));
     fireEvent.click(screen.getByTestId(`biz-conv-bind-${KV}`));
     fireEvent.click(screen.getByTestId('biz-conv-to-ai'));
     await screen.findByTestId('biz-conv-step-ai');
@@ -391,7 +395,6 @@ describe('BusinessYansiConversationCreate', () => {
     );
     fireEvent.click(screen.getByTestId('biz-conv-create-open'));
     await screen.findByTestId('biz-conv-step-select');
-    fireEvent.click(screen.getByTestId('biz-conv-bind'));
     fireEvent.click(screen.getByTestId(`biz-conv-bind-${KV}`));
     fireEvent.click(screen.getByTestId('biz-conv-cover-' + ASSET));
     fireEvent.click(screen.getByTestId('biz-conv-to-ai'));
@@ -429,5 +432,119 @@ describe('BusinessYansiConversationCreate', () => {
     expect(screen.getByTestId('biz-conv-preview-composer-locked')).toBeInTheDocument();
     expect(screen.getByTestId('biz-conv-preview-turns')).toHaveTextContent('Merak?');
     expect(screen.getByTestId('biz-conv-preview-turns')).toHaveTextContent('Cevap');
+  });
+
+  it('publishes image-only without calling AI proposal APIs', async () => {
+    apiMocks.publishYansiV2Image.mockResolvedValue({
+      status: 'published',
+      idempotent: false,
+      nodeId: 'nnnnnnnn-nnnn-nnnn-nnnn-nnnnnnnnnnnn',
+      slug: 'foto-1',
+      publicationVersion: 1,
+      contractHash: 'b'.repeat(64),
+      manifestHash: 'c'.repeat(64),
+      bundleVersionId: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+      bundleHash: 'd'.repeat(64),
+      public: { slug: 'foto-1', contract: { contentKind: 'image' }, bundle: {} },
+    });
+    render(
+      <BusinessYansiConversationCreate
+        businessId={BIZ}
+        assets={[image()]}
+        knowledge={[knowledge()]}
+        role="owner"
+        canEdit
+      />,
+    );
+    fireEvent.click(screen.getByTestId('biz-conv-create-open'));
+    await screen.findByTestId('biz-conv-step-select');
+    fireEvent.click(screen.getByTestId('biz-conv-cover-' + ASSET));
+    expect(screen.getByTestId('biz-conv-live-preview')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('biz-conv-to-ai'));
+    await screen.findByTestId('biz-conv-step-review-image');
+    fireEvent.change(screen.getByTestId('biz-conv-image-title'), { target: { value: 'Fırın' } });
+    fireEvent.click(screen.getByTestId('biz-conv-image-confirm'));
+    fireEvent.click(screen.getByTestId('biz-conv-image-publish'));
+    await waitFor(() => expect(apiMocks.publishYansiV2Image).toHaveBeenCalledTimes(1));
+    expect(apiMocks.requestYansiV2ConversationProposal).not.toHaveBeenCalled();
+    expect(apiMocks.createYansiV2ConversationDraft).not.toHaveBeenCalled();
+    const [, body] = apiMocks.publishYansiV2Image.mock.calls[0];
+    expect(body.assetId).toBe(ASSET);
+    expect(body.title).toBe('Fırın');
+    await screen.findByTestId('biz-conv-done');
+  });
+
+  it('hydrates a conversation draft by id for the same business', async () => {
+    apiMocks.getYansiV2ConversationDraft.mockResolvedValue(
+      draftDto({
+        title: 'Kayıtlı sohbet',
+        turns: [{ stepIndex: 1, question: 'Ne?', answer: 'Bu.' }],
+        coverAssetId: ASSET,
+        coverAssetRevision: 3,
+        knowledgeSourcePins: [{ knowledgeVersionId: KV, expectedRevision: 2 }],
+      }),
+    );
+    const onResumeConsumed = vi.fn();
+    render(
+      <BusinessYansiConversationCreate
+        businessId={BIZ}
+        assets={[image()]}
+        knowledge={[knowledge()]}
+        role="owner"
+        canEdit
+        resumeDraftId={DRAFT}
+        onResumeConsumed={onResumeConsumed}
+      />,
+    );
+    await waitFor(() => expect(apiMocks.getYansiV2ConversationDraft).toHaveBeenCalledWith(BIZ, DRAFT));
+    await screen.findByTestId('biz-conv-section-chat');
+    expect(screen.getByTestId('biz-conv-title')).toHaveValue('Kayıtlı sohbet');
+    expect(screen.getByTestId('biz-conv-question-1')).toHaveValue('Ne?');
+    expect(onResumeConsumed).toHaveBeenCalled();
+  });
+
+  it('rejects hydrating another business draft id', async () => {
+    apiMocks.getYansiV2ConversationDraft.mockResolvedValue(
+      draftDto({
+        id: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+        businessId: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+        title: 'Yabancı',
+      }),
+    );
+    render(
+      <BusinessYansiConversationCreate
+        businessId={BIZ}
+        assets={[image()]}
+        knowledge={[knowledge()]}
+        role="owner"
+        canEdit
+        resumeDraftId="ffffffff-ffff-ffff-ffff-ffffffffffff"
+      />,
+    );
+    await screen.findByTestId('biz-conv-error');
+    expect(screen.getByTestId('biz-conv-error')).toHaveTextContent('bu markaya ait değil');
+    expect(screen.queryByTestId('biz-conv-section-chat')).not.toBeInTheDocument();
+  });
+
+  it('locks published drafts against edits', async () => {
+    apiMocks.getYansiV2ConversationDraft.mockResolvedValue(
+      draftDto({
+        status: 'published',
+        publishedNodeId: 'nnnnnnnn-nnnn-nnnn-nnnn-nnnnnnnnnnnn',
+        title: 'Yayında',
+      }),
+    );
+    render(
+      <BusinessYansiConversationCreate
+        businessId={BIZ}
+        assets={[image()]}
+        knowledge={[knowledge()]}
+        role="owner"
+        canEdit
+        resumeDraftId={DRAFT}
+      />,
+    );
+    await screen.findByTestId('biz-conv-locked');
+    expect(screen.queryByTestId('biz-conv-section-chat')).not.toBeInTheDocument();
   });
 });
