@@ -84,6 +84,9 @@ export default function ConversationCoverAiPanel({
     };
   }, []);
 
+  // Reset private AI preview only when the draft identity changes.
+  // Revision bumps (title/Q&A edits, confirm bind) must not wipe a ready preview;
+  // confirm still sends expectedRevision and backend enforces stale/revision checks.
   useEffect(() => {
     setSuggestion(null);
     setError(null);
@@ -94,7 +97,7 @@ export default function ConversationCoverAiPanel({
       previewObjectRef.current = null;
     }
     setPreviewUrl(null);
-  }, [draftId, draftRevision]);
+  }, [draftId]);
 
   async function loadPreview(proposalId: string) {
     const token = getAuthToken();

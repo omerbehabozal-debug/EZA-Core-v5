@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { BusinessApiError, revisionCoverPayload } from '@/lib/eza/businessYansi';
+import {
+  BusinessApiError,
+  buildConversationDraftBody,
+  revisionCoverPayload,
+} from '@/lib/eza/businessYansi';
 
 describe('BusinessApiError classification', () => {
   it('maps feature-flag detail not_found to unavailable copy', () => {
@@ -53,5 +57,29 @@ describe('BusinessApiError classification', () => {
     expect(revisionCoverPayload('', false)).toEqual({});
     expect(revisionCoverPayload('', true)).toEqual({ coverAssetId: null });
     expect(revisionCoverPayload('asset-1', true)).toEqual({ coverAssetId: 'asset-1' });
+  });
+});
+
+describe('buildConversationDraftBody cover three-state', () => {
+  const base = {
+    title: 'Sohbet',
+    turns: [{ stepIndex: 1, question: 'Q?', answer: 'A' }],
+  };
+
+  it('omits cover when undefined, clears with null, sets with id', () => {
+    const omitted = buildConversationDraftBody(base);
+    expect(omitted).not.toHaveProperty('coverAssetId');
+
+    const cleared = buildConversationDraftBody({ ...base, coverAssetId: null });
+    expect(cleared.coverAssetId).toBeNull();
+    expect(cleared).not.toHaveProperty('coverAssetRevision');
+
+    const set = buildConversationDraftBody({
+      ...base,
+      coverAssetId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      coverAssetRevision: 2,
+    });
+    expect(set.coverAssetId).toBe('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+    expect(set.coverAssetRevision).toBe(2);
   });
 });

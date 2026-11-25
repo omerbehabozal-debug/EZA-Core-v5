@@ -92,6 +92,30 @@ describe('yansiV2ConversationCreate turns', () => {
     expect(input.turns[2].media?.[0]?.assetId).toBe(ASSET);
   });
 
+  it('keeps coverAssetId out of API input when catalog refresh lags', () => {
+    const draft = {
+      ...emptyConversationLocalDraft(),
+      title: 'Kapak gecikmesi',
+      turns: [{ question: 'Q?', answer: 'A', mediaAssetId: '' }],
+      coverAssetId: ASSET,
+      linkedKnowledgeIds: [KV],
+    };
+    const lagged = buildConversationApiInput(draft, [], [knowledge()]);
+    expect(lagged.coverAssetId).toBeUndefined();
+    expect(lagged).not.toHaveProperty('coverAssetRevision');
+
+    const cleared = buildConversationApiInput(
+      { ...draft, coverAssetId: '' },
+      [image()],
+      [knowledge()],
+    );
+    expect(cleared.coverAssetId).toBeNull();
+
+    const bound = buildConversationApiInput(draft, [image()], [knowledge()]);
+    expect(bound.coverAssetId).toBe(ASSET);
+    expect(bound.coverAssetRevision).toBe(2);
+  });
+
   it('rejects empty Q/A and builds preview curiosity from first turn', () => {
     expect(
       validateConversationCompose({

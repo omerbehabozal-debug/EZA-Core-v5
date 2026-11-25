@@ -29,6 +29,10 @@ class ConversationDraftV2Error(ValueError):
         super().__init__(code)
 
 
+# Sentinel for revise(): omit cover fields → keep existing cover binding.
+COVER_ASSET_UNSET: object = object()
+
+
 TRANSITIONS = {
     "draft": {"review"},
     "review": {"draft", "approved"},
@@ -585,10 +589,16 @@ async def revise_conversation_draft_v2(
     summary: str | None = None,
     knowledge_sources: list[dict[str, Any]] | None = None,
     knowledge_notes: list[str] | None = None,
-    cover_asset_id: str | None = None,
+    cover_asset_id: Any = COVER_ASSET_UNSET,
     cover_asset_revision: int | None = None,
     commit: bool = True,
 ) -> dict[str, Any]:
+    """Revise draft content. Cover binding uses a three-state contract:
+
+    - ``COVER_ASSET_UNSET`` / omitted: keep existing cover + revision
+    - ``None``: clear cover
+    - asset id string: replace cover (tenant/eligibility checks via assert_media_pins_owned)
+    """
     biz = _uuid(business_id, "business_not_found")
     actor_id = _uuid(actor_user_id, "inactive_account")
     draft_uuid = _uuid(draft_id, "draft_not_found")
@@ -613,9 +623,15 @@ async def revise_conversation_draft_v2(
     normalized_turns = normalize_draft_turns(turns)
     pins = normalize_knowledge_source_pins(knowledge_sources)
     notes = normalize_knowledge_notes(knowledge_notes)
-    cover_uuid = _uuid(cover_asset_id, "invalid_cover_asset") if cover_asset_id else None
-    cover_rev = None
-    if cover_uuid is not None:
+
+    if cover_asset_id is COVER_ASSET_UNSET:
+        cover_uuid = row.cover_asset_id
+        cover_rev = row.cover_asset_revision
+    elif cover_asset_id is None or cover_asset_id == "":
+        cover_uuid = None
+        cover_rev = None
+    else:
+        cover_uuid = _uuid(cover_asset_id, "invalid_cover_asset")
         if cover_asset_revision is None:
             raise ConversationDraftV2Error("invalid_cover_asset")
         cover_rev = int(cover_asset_revision)

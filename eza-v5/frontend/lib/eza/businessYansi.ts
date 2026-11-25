@@ -861,7 +861,14 @@ export type YansiV2ConversationPublishResult = {
   };
 };
 
-function buildConversationDraftBody(input: YansiV2ConversationDraftInput): Record<string, unknown> {
+/**
+ * Build V2 conversation draft create/revise JSON body.
+ * Cover three-state (matches backend PATCH contract):
+ * - `coverAssetId` omitted/undefined → keep existing cover on revise
+ * - `coverAssetId: null` → clear cover
+ * - `coverAssetId: <id>` → set cover (+ revision)
+ */
+export function buildConversationDraftBody(input: YansiV2ConversationDraftInput): Record<string, unknown> {
   const body: Record<string, unknown> = {
     title: input.title.trim(),
     turns: input.turns.map((turn) => {
@@ -894,9 +901,13 @@ function buildConversationDraftBody(input: YansiV2ConversationDraftInput): Recor
       expectedRevision: pin.expectedRevision,
     }));
   if (sources.length) body.knowledgeSources = sources;
-  if (input.coverAssetId) {
-    body.coverAssetId = input.coverAssetId;
-    body.coverAssetRevision = input.coverAssetRevision ?? 0;
+  if (input.coverAssetId !== undefined) {
+    if (input.coverAssetId) {
+      body.coverAssetId = input.coverAssetId;
+      body.coverAssetRevision = input.coverAssetRevision ?? 0;
+    } else {
+      body.coverAssetId = null;
+    }
   }
   return body;
 }

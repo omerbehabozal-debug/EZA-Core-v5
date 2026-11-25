@@ -198,7 +198,8 @@ export function buildConversationApiInput(
     }
     return item;
   });
-  const cover = images.find((row) => row.id === normalized.coverAssetId) || null;
+  const coverId = (normalized.coverAssetId || '').trim();
+  const cover = coverId ? images.find((row) => row.id === coverId) || null : null;
   const pins = buildKnowledgeSourcePins(
     {
       assetId: '',
@@ -211,15 +212,25 @@ export function buildConversationApiInput(
     knowledge,
   );
   const notes = normalized.knowledgeNotes.map((n) => n.trim()).filter(Boolean);
-  return {
+  const input: YansiV2ConversationDraftInput = {
     title: normalized.title.trim(),
     summary: normalized.summary.trim() || null,
     turns,
     knowledgeNotes: notes.length ? notes : null,
     knowledgeSources: pins.length ? pins : null,
-    coverAssetId: cover?.id ?? null,
-    coverAssetRevision: cover ? cover.revision : null,
   };
+  // Three-state cover for revise PATCH:
+  // - no local cover → explicit null (clear)
+  // - cover in publishable catalog → send id + revision
+  // - cover selected but catalog refresh lag → omit (backend keeps binding)
+  // Never send an unvalidated asset id that skipped eligibility checks.
+  if (!coverId) {
+    input.coverAssetId = null;
+  } else if (cover) {
+    input.coverAssetId = cover.id;
+    input.coverAssetRevision = cover.revision;
+  }
+  return input;
 }
 
 export function buildConversationPreview(

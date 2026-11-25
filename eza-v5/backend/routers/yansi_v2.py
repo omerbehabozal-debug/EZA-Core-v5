@@ -361,8 +361,20 @@ async def revise_conversation_draft(
     db=Depends(get_db),
     claims=Depends(get_current_user),
 ):
-    """Revise draft content; invalidates prior approval."""
+    """Revise draft content; invalidates prior approval.
+
+    Cover contract (Pydantic ``model_fields_set``):
+    - omitted ``coverAssetId`` → keep existing cover + revision
+    - ``coverAssetId: null`` → clear cover
+    - ``coverAssetId: <uuid>`` → replace cover (revision required)
+    """
     user = await svc.actor(db, claims)
+    if "coverAssetId" in body.model_fields_set:
+        cover_arg: object = str(body.coverAssetId) if body.coverAssetId else None
+        cover_rev = body.coverAssetRevision
+    else:
+        cover_arg = conv_drafts.COVER_ASSET_UNSET
+        cover_rev = None
     try:
         return await conv_drafts.revise_conversation_draft_v2(
             db,
@@ -375,8 +387,8 @@ async def revise_conversation_draft(
             turns=_turns_payload(body.turns),
             knowledge_notes=body.knowledgeNotes,
             knowledge_sources=_pins_payload(body.knowledgeSources),
-            cover_asset_id=str(body.coverAssetId) if body.coverAssetId else None,
-            cover_asset_revision=body.coverAssetRevision,
+            cover_asset_id=cover_arg,
+            cover_asset_revision=cover_rev,
         )
     except conv_drafts.ConversationDraftV2Error as exc:
         raise_draft_http(exc)

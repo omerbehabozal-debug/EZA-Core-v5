@@ -233,6 +233,44 @@ async def test_v2_suggest_preview_confirm_binds_cover(sample, monkeypatch, tmp_p
     )
     assert again["asset"].id == asset.id
 
+    # 07H.4B — title/Q&A revise without cover field must keep AI-bound cover.
+    after_title = await drafts.revise_conversation_draft_v2(
+        sample.db,
+        business_id=str(sample.business.id),
+        actor_user_id=str(sample.editor.id),
+        draft_id=created["id"],
+        expected_revision=draft["revision"],
+        title="Başlık düzenlendi",
+        summary=draft.get("summary") or "",
+        turns=draft["turns"],
+        knowledge_sources=draft.get("knowledgeSourcePins"),
+        knowledge_notes=draft.get("knowledgeNotes"),
+    )
+    assert after_title["coverAssetId"] == str(asset.id).lower()
+    assert after_title["coverAssetRevision"] == int(asset.revision)
+    assert after_title["title"] == "Başlık düzenlendi"
+
+    after_qa = await drafts.revise_conversation_draft_v2(
+        sample.db,
+        business_id=str(sample.business.id),
+        actor_user_id=str(sample.editor.id),
+        draft_id=created["id"],
+        expected_revision=after_title["revision"],
+        title=after_title["title"],
+        summary=after_title.get("summary") or "",
+        turns=[
+            {
+                "stepIndex": 1,
+                "question": "Yeni merak?",
+                "answer": "Yeni cevap.",
+            }
+        ],
+        knowledge_sources=after_title.get("knowledgeSourcePins"),
+        knowledge_notes=after_title.get("knowledgeNotes"),
+    )
+    assert after_qa["coverAssetId"] == str(asset.id).lower()
+    assert after_qa["turns"][0]["question"] == "Yeni merak?"
+
 
 @pytest.mark.asyncio
 async def test_v2_confirm_requires_public_allowed(sample, monkeypatch, tmp_path):

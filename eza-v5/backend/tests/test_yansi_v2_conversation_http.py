@@ -583,3 +583,136 @@ async def test_list_conversation_drafts_member_only_and_paginated(sample):
             params={"limit": 100},
         )
     assert {row["id"] for row in own.json()["items"]} == set(created_ids)
+
+
+@pytest.mark.asyncio
+async def test_revise_cover_three_state_omitted_null_and_set(sample):
+    """07H.4B — PATCH coverAssetId: omit=keep, null=clear, id=replace."""
+    await _ensure_tables(sample.db)
+    asset = await _image_asset(sample)
+    other = await _image_asset(sample)
+    app = _app(sample.db, str(sample.editor.id))
+    async with httpx.AsyncClient(app=app, base_url="http://test") as client:
+        created = await _create_draft(client, sample.business.id, {
+            "title": "Kapaklı",
+            "turns": _turns(1),
+            "coverAssetId": str(asset.id),
+            "coverAssetRevision": int(asset.revision),
+        })
+        assert created.status_code == 200, created.text
+        draft_id = created.json()["id"]
+        rev = created.json()["revision"]
+        assert created.json()["coverAssetId"] == str(asset.id).lower()
+
+        # Omitted coverAssetId → keep binding while editing title.
+        kept = await client.patch(
+            f"/api/business-yansi/{sample.business.id}/v2/conversation-drafts/{draft_id}",
+            json={
+                "expectedRevision": rev,
+                "title": "Başlık güncellendi",
+                "turns": _turns(1),
+            },
+        )
+        assert kept.status_code == 200, kept.text
+        assert kept.json()["title"] == "Başlık güncellendi"
+        assert kept.json()["coverAssetId"] == str(asset.id).lower()
+        assert kept.json()["coverAssetRevision"] == int(asset.revision)
+        assert kept.json()["status"] == "draft"
+        rev = kept.json()["revision"]
+
+        # Explicit null → clear cover.
+        cleared = await client.patch(
+            f"/api/business-yansi/{sample.business.id}/v2/conversation-drafts/{draft_id}",
+            json={
+                "expectedRevision": rev,
+                "title": "Başlık güncellendi",
+                "turns": _turns(1),
+                "coverAssetId": None,
+            },
+        )
+        assert cleared.status_code == 200, cleared.text
+        assert cleared.json()["coverAssetId"] is None
+        assert cleared.json()["coverAssetRevision"] is None
+        rev = cleared.json()["revision"]
+
+        # Valid asset id → set cover again.
+        replaced = await client.patch(
+            f"/api/business-yansi/{sample.business.id}/v2/conversation-drafts/{draft_id}",
+            json={
+                "expectedRevision": rev,
+                "title": "Başlık güncellendi",
+                "turns": _turns(1),
+                "coverAssetId": str(other.id),
+                "coverAssetRevision": int(other.revision),
+            },
+        )
+        assert replaced.status_code == 200, replaced.text
+        assert replaced.json()["coverAssetId"] == str(other.id).lower()
+        assert replaced.json()["coverAssetRevision"] == int(other.revision)
+
+        # Q&A edit without cover field → still keep.
+        qa = await client.patch(
+            f"/api/business-yansi/{sample.business.id}/v2/conversation-drafts/{draft_id}",
+            json={
+                "expectedRevision": replaced.json()["revision"],
+                "title": "Başlık güncellendi",
+                "turns": [
+                    {"stepIndex": 1, "question": "Yeni merak?", "answer": "Yeni cevap."},
+                ],
+            },
+        )
+        assert qa.status_code == 200, qa.text
+        assert qa.json()["coverAssetId"] == str(other.id).lower()
+        assert qa.json()["turns"][0]["question"] == "Yeni merak?"
+
+
+@pytest.mark.asyncio
+async def test_revise_cover_rejects_foreign_asset_and_published_lock(sample):
+    await _ensure_tables(sample.db)
+    asset = await _image_asset(sample)
+    app = _app(sample.db, str(sample.editor.id))
+    async with httpx.AsyncClient(app=app, base_url="http://test") as client:
+        created = await _create_draft(client, sample.business.id, {
+            "title": "Kilit",
+            "turns": _turns(1),
+            "coverAssetId": str(asset.id),
+            "coverAssetRevision": int(asset.revision),
+        })
+        draft_id = created.json()["id"]
+        rev = created.json()["revision"]
+
+        foreign = await client.patch(
+            f"/api/business-yansi/{sample.business.id}/v2/conversation-drafts/{draft_id}",
+            json={
+                "expectedRevision": rev,
+                "title": "Kilit",
+                "turns": _turns(1),
+                "coverAssetId": "00000000-0000-4000-8000-000000000099",
+                "coverAssetRevision": 1,
+            },
+        )
+        assert foreign.status_code in {400, 404, 409, 422}
+        # Cover must remain after rejected replace.
+        got = await client.get(
+            f"/api/business-yansi/{sample.business.id}/v2/conversation-drafts/{draft_id}",
+        )
+        assert got.json()["coverAssetId"] == str(asset.id).lower()
+        assert got.json()["revision"] == rev
+
+    # Mark published and ensure revise is locked.
+    row = await sample.db.get(YansiV2ConversationDraft, uuid.UUID(draft_id))
+    assert row is not None
+    row.status = "published"
+    await sample.db.commit()
+
+    async with httpx.AsyncClient(app=app, base_url="http://test") as client:
+        locked = await client.patch(
+            f"/api/business-yansi/{sample.business.id}/v2/conversation-drafts/{draft_id}",
+            json={
+                "expectedRevision": rev,
+                "title": "Kilit",
+                "turns": _turns(1),
+            },
+        )
+    assert locked.status_code == 409
+    assert locked.json()["detail"]["code"] == "draft_immutable"

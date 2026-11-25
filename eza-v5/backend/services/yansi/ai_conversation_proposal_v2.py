@@ -452,21 +452,24 @@ async def apply_conversation_proposal_v2(
     if draft_id:
         if expected_revision is None:
             raise drafts.ConversationDraftV2Error("revision_conflict")
-        dto = await drafts.revise_conversation_draft_v2(
-            db,
-            business_id=str(biz),
-            actor_user_id=str(actor),
-            draft_id=draft_id,
-            expected_revision=int(expected_revision),
-            title=proposal["title"],
-            summary=proposal.get("summary") or "",
-            turns=turns_payload,
-            knowledge_sources=live_pins or None,
-            knowledge_notes=notes or None,
-            cover_asset_id=cover_id,
-            cover_asset_revision=cover_rev,
-            commit=commit,
-        )
+        # Only touch cover when the proposal resolved a cover suggestion.
+        # Omitting cover_asset_id preserves any existing Studio/AI cover binding.
+        revise_kwargs: dict[str, Any] = {
+            "business_id": str(biz),
+            "actor_user_id": str(actor),
+            "draft_id": draft_id,
+            "expected_revision": int(expected_revision),
+            "title": proposal["title"],
+            "summary": proposal.get("summary") or "",
+            "turns": turns_payload,
+            "knowledge_sources": live_pins or None,
+            "knowledge_notes": notes or None,
+            "commit": commit,
+        }
+        if cover_id:
+            revise_kwargs["cover_asset_id"] = cover_id
+            revise_kwargs["cover_asset_revision"] = cover_rev
+        dto = await drafts.revise_conversation_draft_v2(db, **revise_kwargs)
     else:
         dto = await drafts.create_conversation_draft_v2(
             db,

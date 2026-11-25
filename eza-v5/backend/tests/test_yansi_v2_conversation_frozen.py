@@ -192,6 +192,23 @@ def test_image_only_contract_unchanged():
 
 
 @pytest.mark.asyncio
+async def test_approve_bumps_revision_while_binding_approved_revision(sample):
+    """Workflow approve: approved_revision = pre-bump revision; revision += 1.
+
+    Publish gate requires revision == approved_revision + 1 and matching digest.
+    Content revise (not transition) clears approval — see test_draft_revise_invalidates_approval.
+    """
+    approved = await _approve_ready(sample, n=1)
+    assert approved["status"] == "approved"
+    assert approved["approvedRevision"] is not None
+    assert int(approved["revision"]) == int(approved["approvedRevision"]) + 1
+    assert approved["approvedContentDigest"] == approved["contentDigest"]
+    row = await sample.db.get(YansiV2ConversationDraft, uuid.UUID(approved["id"]))
+    assert row is not None
+    drafts.assert_draft_approval_current(row)
+
+
+@pytest.mark.asyncio
 async def test_draft_revise_invalidates_approval(sample):
     approved = await _approve_ready(sample, n=2)
     assert approved["status"] == "approved"
