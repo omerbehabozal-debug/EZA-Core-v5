@@ -20,8 +20,14 @@ from backend.services.mirror_network.public_payload import (
     split_curiosity_payloads,
 )
 from backend.services.mirror_network.safety_gate import evaluate_mirror_network_safety
-from backend.services.mirror_network.service import build_debug_report, node_to_public_payload
+from backend.services.mirror_network.service import (
+    build_debug_report,
+    fetch_public_mirror_by_slug,
+    is_yansi_v2_public_node,
+    node_to_public_payload,
+)
 from backend.services.mirror_network.slug import build_mirror_share_url, generate_mirror_slug
+from fastapi import HTTPException
 
 client = TestClient(app)
 
@@ -232,3 +238,91 @@ def test_debug_endpoint_with_secret_returns_audit():
     body = response.json()
     assert body["publicAudit"]["passed"] is True
     assert "private_payload" not in json.dumps(body).lower() or body["privatePayloadPresent"] is True
+
+
+def test_is_yansi_v2_public_node_detects_slim_marker():
+    node = build_fixture_mirror_node(slug_suffix="v2mark")
+    assert is_yansi_v2_public_node(node) is False
+    node.public_payload = {
+        "yansiV2": True,
+        "contentKind": "conversation",
+        "publicationVersion": 1,
+        "curiosityQuestion": "Yansı nedir?",
+        "turnCount": 8,
+    }
+    assert is_yansi_v2_public_node(node) is True
+
+
+@pytest.mark.asyncio
+async def test_fetch_public_mirror_v2_node_returns_controlled_404_not_500():
+    """07F — V2 slim payload must not ValidationError → HTTP 500 on V1 route."""
+    node = build_fixture_mirror_node(slug_suffix="v2pub")
+    node.public_payload = {
+        "yansiV2": True,
+        "contentKind": "conversation",
+        "contractHash": "a" * 64,
+        "publicationVersion": 1,
+        "curiosityQuestion": "Yansı nedir ve nasıl çalışır?",
+        "turnCount": 8,
+    }
+    node.published_at = node.created_at
+
+    class _Orm:
+        id = node.id
+        slug = node.slug
+        user_id = node.user_id
+        conversation_id = node.conversation_id
+        visibility = node.visibility
+        safety_status = node.safety_status
+        card_title = node.card_title
+        card_date = node.card_date
+        scene_image_url = node.scene_image_url
+        public_payload = node.public_payload
+        private_payload = node.private_payload
+        parent_slug = None
+        artifact_kind = "legacy_landing"
+        journey_version = 1
+        created_at = node.created_at
+        published_at = node.published_at
+
+    with patch(
+        "backend.services.mirror_network.service.get_mirror_network_node_by_slug",
+        new=AsyncMock(return_value=_Orm()),
+    ):
+        with pytest.raises(HTTPException) as raised:
+            await fetch_public_mirror_by_slug(AsyncMock(), node.slug)
+    assert raised.value.status_code == 404
+    detail = raised.value.detail
+    assert isinstance(detail, dict)
+    assert detail.get("code") == "mirror_not_found"
+
+
+@pytest.mark.asyncio
+async def test_fetch_public_mirror_v1_still_returns_payload():
+    node = build_fixture_mirror_node(slug_suffix="v1ok")
+
+    class _Orm:
+        id = node.id
+        slug = node.slug
+        user_id = node.user_id
+        conversation_id = node.conversation_id
+        visibility = node.visibility
+        safety_status = node.safety_status
+        card_title = node.card_title
+        card_date = node.card_date
+        scene_image_url = node.scene_image_url
+        public_payload = node.public_payload
+        private_payload = node.private_payload
+        parent_slug = None
+        artifact_kind = "legacy_landing"
+        journey_version = 1
+        created_at = node.created_at
+        published_at = node.published_at
+
+    with patch(
+        "backend.services.mirror_network.service.get_mirror_network_node_by_slug",
+        new=AsyncMock(return_value=_Orm()),
+    ):
+        payload = await fetch_public_mirror_by_slug(AsyncMock(), node.slug)
+    assert payload.slug == node.slug
+    assert payload.cardTitle == node.card_title

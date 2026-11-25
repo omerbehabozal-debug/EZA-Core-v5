@@ -924,13 +924,27 @@ export default function SainaBusinessManager() {
                     onAssetsChanged={async () => {
                       if (selected) await loadSection(selected, 'assets', { force: true });
                     }}
-                    onPublished={() => {
-                      setNotice('Yansı yayımlandı. Keşfet ve Deneyimle üzerinden açabilirsiniz.');
+                    onPublished={(published) => {
+                      const hasCover = Boolean(
+                        published?.public?.cover &&
+                          typeof published.public.cover === 'object' &&
+                          (published.public.cover as { assetId?: string }).assetId,
+                      );
+                      setNotice(
+                        hasCover
+                          ? 'Yansı yayımlandı. Public bağlantı hazır; kapaklı yayınlar Keşfet uygunluğuna göre listelenebilir.'
+                          : 'Yansı yayımlandı. Public bağlantı hazır. Kapak olmadığı için Keşfet’te görünmeyebilir.',
+                      );
                       if (selected) void load(selected);
                     }}
                     onImagePublished={() => {
-                      setNotice('Görsel Yansı yayımlandı.');
+                      setNotice(
+                        'Görsel Yansı yayımlandı. Public bağlantı hazır; Keşfet uygunluğuna göre listelenebilir.',
+                      );
                       if (selected) void load(selected);
+                    }}
+                    onOpenMine={() => {
+                      setTab('Yansılarım');
                     }}
                   />
                 </section>

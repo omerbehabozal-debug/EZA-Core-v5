@@ -3,9 +3,10 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any
 
 from fastapi import HTTPException, status
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.schemas.mirror_network import (
@@ -26,7 +27,21 @@ def _not_found() -> HTTPException:
     )
 
 
+def is_yansi_v2_public_node(node: MirrorNetworkNodeRecord | Any) -> bool:
+    """True when the node is a sealed Yansı V2 publication (not V1 landing payload).
+
+    V2 stores a slim marker payload (``yansiV2``) that must not be validated as
+    ``MirrorNetworkPublicPayload``. Public V2 reads use
+    ``/api/business-yansi/v2/public/{slug}``.
+    """
+    payload = getattr(node, "public_payload", None)
+    return isinstance(payload, dict) and payload.get("yansiV2") is True
+
+
 def node_to_public_payload(node: MirrorNetworkNodeRecord) -> MirrorNetworkPublicPayload:
+    # Callers must not pass V2 nodes here — use is_yansi_v2_public_node first.
+    # Slim V2 markers fail model_validate; fetch_public_mirror_by_slug maps that
+    # path to a controlled 404 before this runs.
     payload = MirrorNetworkPublicPayload.model_validate(node.public_payload)
     payload.slug = node.slug
     payload.shareUrl = build_mirror_share_url(node.slug)
@@ -84,11 +99,26 @@ async def fetch_public_mirror_by_slug(
     if not safety.passed:
         raise _not_found()
 
-    public_payload = node_to_public_payload(record)
+    # V2 publications are not V1 MirrorNetworkPublicPayload. Controlled 404 so
+    # /m SSR can fall through to GET /api/business-yansi/v2/public/{slug}.
+    if is_yansi_v2_public_node(record):
+        raise _not_found()
+
+    try:
+        public_payload = node_to_public_payload(record)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "code": "public_payload_invalid",
+                "message": "Mirror public payload failed schema validation",
+            },
+        ) from exc
+
     audit = audit_public_payload(public_payload)
     if not audit.passed:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status.HTTP_502_BAD_GATEWAY,
             detail={
                 "code": "public_payload_invalid",
                 "message": "Mirror public payload failed safety audit",
@@ -100,7 +130,18 @@ async def fetch_public_mirror_by_slug(
 
 def build_debug_report(node: MirrorNetworkNodeRecord) -> MirrorNetworkDebugReport:
     safety = evaluate_mirror_network_safety(node)
-    public_payload = node_to_public_payload(node)
+    if is_yansi_v2_public_node(node):
+        raise _not_found()
+    try:
+        public_payload = node_to_public_payload(node)
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "code": "public_payload_invalid",
+                "message": "Mirror public payload failed schema validation",
+            },
+        ) from exc
     audit = audit_public_payload(public_payload)
     private_data = node.private_payload if isinstance(node.private_payload, dict) else {}
 

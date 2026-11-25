@@ -50,13 +50,18 @@ describe('Phase 8.4.1 public mirror trust cache', () => {
       join(process.cwd(), 'app/(bilign)/m/[slug]/page.tsx'),
       'utf8'
     );
+    const resolveSrc = readFileSync(
+      join(process.cwd(), 'lib/eza/mirror-network/resolvePublicMirrorLanding.ts'),
+      'utf8'
+    );
     const sohbet = readFileSync(
       join(process.cwd(), 'app/(bilign)/m/[slug]/sohbet/page.tsx'),
       'utf8'
     );
     expect(landing).toContain("dynamic = 'force-dynamic'");
     expect(landing).toContain('revalidate = 0');
-    expect(landing).toContain('trustAuthoritative: true');
+    expect(landing).toContain('resolvePublicMirrorLanding');
+    expect(resolveSrc).toContain('trustAuthoritative: true');
     expect(landing).not.toContain('revalidateSeconds: 300');
     expect(sohbet).toContain("dynamic = 'force-dynamic'");
     expect(sohbet).toContain('trustAuthoritative: true');

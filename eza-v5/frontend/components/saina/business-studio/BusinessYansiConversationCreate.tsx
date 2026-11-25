@@ -92,6 +92,8 @@ type Props = {
   onConversationDraftIndexed?: (draft: YansiV2ConversationDraftDto) => void;
   onPublished?: (result: YansiV2ConversationPublishResult) => void;
   onImagePublished?: (result: YansiV2ImagePublishResult) => void;
+  /** Switch Business hub to Yansılarım after a successful publish. */
+  onOpenMine?: () => void;
   onOpenLibrary?: () => void;
   onOpenKnowledgePool?: () => void;
   onSaveKnowledge?: (payload: {
@@ -234,6 +236,7 @@ export default function BusinessYansiConversationCreate({
   onConversationDraftIndexed,
   onPublished,
   onImagePublished,
+  onOpenMine,
   onOpenLibrary,
   onOpenKnowledgePool,
   onSaveKnowledge,
@@ -270,6 +273,9 @@ export default function BusinessYansiConversationCreate({
   const [hydrateBusy, setHydrateBusy] = useState(false);
   const [editLocked, setEditLocked] = useState(false);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+  /** True after this session (or hydrate) observed an approval — survives revise clearing approved*. */
+  const [sawApproved, setSawApproved] = useState(false);
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const idempotencyRef = useRef(newIdempotencyKey('publish'));
   const proposeKeyRef = useRef(newIdempotencyKey('v2prop'));
   const actionLock = useRef(false);
@@ -374,6 +380,14 @@ export default function BusinessYansiConversationCreate({
         setDraft(merged);
         writeConversationDraftStorage(businessId, merged);
         setServer(dto);
+        if (
+          dto.status === 'approved' ||
+          dto.status === 'published' ||
+          dto.approvedAt ||
+          dto.approvedRevision != null
+        ) {
+          setSawApproved(true);
+        }
         rememberDraft(dto);
         setOpen(true);
         setPublishKind('conversation');
@@ -465,6 +479,8 @@ export default function BusinessYansiConversationCreate({
     setResult(null);
     setImageResult(null);
     setServer(null);
+    setSawApproved(false);
+    setCopyFeedback(null);
     setProposalJob(null);
     setAddOpen(false);
     setSourcesOpen(false);
@@ -791,6 +807,7 @@ export default function BusinessYansiConversationCreate({
         });
         persist(applyServerDraft({ ...draft, slug: draft.slug }, next));
         setServer(next);
+        setSawApproved(true);
         rememberDraft(next);
         setDirty(false);
         setPhase('preview');
@@ -821,6 +838,25 @@ export default function BusinessYansiConversationCreate({
           expectedCurrentVersion: null,
           idempotencyKey: idempotencyRef.current,
         });
+        // Authoritative status: prefer fresh draft GET; fall back to publish result fields.
+        let nextServer: YansiV2ConversationDraftDto = {
+          ...current,
+          status: 'published',
+          publishedNodeId: published.nodeId,
+          publishedVersion: published.publicationVersion,
+        };
+        try {
+          nextServer = await getYansiV2ConversationDraft(businessId, published.draftId);
+        } catch {
+          /* keep merged publish status */
+        }
+        if (nextServer.status !== 'published') {
+          setError('Yayın tamamlanamadı. Durum güncellenemedi.');
+          setPhase('preview');
+          return;
+        }
+        setServer(nextServer);
+        rememberDraft(nextServer);
         setResult(published);
         setPhase('done');
         clearConversationDraftStorage(businessId);
@@ -865,8 +901,31 @@ export default function BusinessYansiConversationCreate({
 
   const status = server?.status || draft.status;
   const approvalDropped =
-    Boolean(draft.draftId) && status === 'draft' && (draft.revision || 0) > 1;
+    sawApproved && status === 'draft' && !server?.publishedNodeId;
   const locked = phase === 'busy' || busy || aiBusy || hydrateBusy || editLocked || uploadBusy;
+  const publishedHref = result
+    ? yansiV2PublicHref(result.slug, result.publicationVersion, 'conversation')
+    : imageResult
+      ? yansiV2PublicHref(imageResult.slug, imageResult.publicationVersion, 'image')
+      : null;
+  const publishedHasCover = Boolean(
+    (result?.public?.cover && result.public.cover.assetId) ||
+      (imageResult && imageResult.slug),
+  );
+
+  async function copyPublishedLink() {
+    if (!publishedHref) return;
+    const absolute =
+      typeof window !== 'undefined'
+        ? `${window.location.origin}${publishedHref}`
+        : publishedHref;
+    try {
+      await navigator.clipboard.writeText(absolute);
+      setCopyFeedback('Bağlantı kopyalandı');
+    } catch {
+      setCopyFeedback('Kopyalanamadı — bağlantıyı elle seçin');
+    }
+  }
   const liveTitle = displayPlainText(draft.title);
   const liveCuriosity = displayPlainText(draft.turns[0]?.question || '');
   const hasLiveCopy = Boolean(liveTitle || liveCuriosity);
@@ -1887,24 +1946,31 @@ export default function BusinessYansiConversationCreate({
             </div>
           ) : null}
 
-          {phase === 'done' && (result || imageResult) ? (
+          {phase === 'done' && (result || imageResult) && publishedHref ? (
             <div className="biz-conv-done" data-testid="biz-conv-done">
               <h3>Yayınlandı</h3>
+              <p className="biz-card-meta" data-testid="biz-conv-status-published">
+                Durum: {statusLabel('published')}
+              </p>
               <p className="biz-copy">
-                Yansı yayımlandı. Public bağlantıyı paylaşabilir veya Keşfet / Deneyimle üzerinden
-                açabilirsiniz.
+                Yansı yayımlandı. Public bağlantıyı paylaşabilir veya doğrudan açabilirsiniz.
+                {publishedHasCover
+                  ? ' Kapaklı yayınlar Keşfet uygunluk kurallarına göre listelenebilir.'
+                  : ' Kapak seçilmediği için Keşfet’te görünmeyebilir; public bağlantı yine de çalışır.'}
               </p>
               {result ? (
                 <ul data-testid="biz-conv-publish-meta">
                   <li>Adres: {result.slug}</li>
-                  <li>Soru-cevap: {result.turnCount}</li>
+                  <li data-testid="biz-conv-publish-turn-count">
+                    Soru-cevap: {result.turnCount}
+                  </li>
                   <li>
                     Public URL:{' '}
                     <a
-                      href={yansiV2PublicHref(result.slug, result.publicationVersion)}
+                      href={publishedHref}
                       data-testid="biz-conv-public-url"
                     >
-                      {yansiV2PublicHref(result.slug, result.publicationVersion)}
+                      {publishedHref}
                     </a>
                   </li>
                 </ul>
@@ -1915,25 +1981,62 @@ export default function BusinessYansiConversationCreate({
                   <li>
                     Public URL:{' '}
                     <a
-                      href={yansiV2PublicHref(imageResult.slug, imageResult.publicationVersion, 'image')}
+                      href={publishedHref}
                       data-testid="biz-conv-image-public-url"
                     >
-                      {yansiV2PublicHref(imageResult.slug, imageResult.publicationVersion, 'image')}
+                      {publishedHref}
                     </a>
                   </li>
                 </ul>
               ) : null}
-              <button
-                type="button"
-                className="biz-btn-primary"
-                data-testid="biz-conv-new-after-publish"
-                onClick={() => {
-                  setOpen(true);
-                  resetAll(false);
-                }}
-              >
-                Yeni Yansı
-              </button>
+              {copyFeedback ? (
+                <p className="biz-notice" role="status" data-testid="biz-conv-copy-feedback">
+                  {copyFeedback}
+                </p>
+              ) : null}
+              <div className="biz-actions">
+                <a
+                  className="biz-btn-primary"
+                  href={publishedHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  data-testid="biz-conv-open-public"
+                >
+                  Yansı&apos;yı aç
+                </a>
+                <button
+                  type="button"
+                  className="biz-btn-secondary"
+                  data-testid="biz-conv-copy-link"
+                  onClick={() => {
+                    void copyPublishedLink();
+                  }}
+                >
+                  Bağlantıyı kopyala
+                </button>
+                <button
+                  type="button"
+                  className="biz-btn-secondary"
+                  data-testid="biz-conv-go-mine"
+                  onClick={() => {
+                    onOpenMine?.();
+                    setOpen(false);
+                  }}
+                >
+                  Yansılarım&apos;a dön
+                </button>
+                <button
+                  type="button"
+                  className="biz-btn-secondary"
+                  data-testid="biz-conv-new-after-publish"
+                  onClick={() => {
+                    setOpen(true);
+                    resetAll(false);
+                  }}
+                >
+                  Yeni Yansı
+                </button>
+              </div>
             </div>
           ) : null}
 

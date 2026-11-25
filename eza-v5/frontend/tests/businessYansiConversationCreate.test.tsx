@@ -215,8 +215,21 @@ describe('BusinessYansiConversationCreate', () => {
           curiosityQuestion: 'Merak?',
           turns: [{ stepIndex: 1, question: 'Merak?', answer: 'Cevap' }],
         },
+        cover: {
+          assetId: ASSET,
+          title: 'Kiln',
+          contentPath: `/api/business-yansi/public-media/${BIZ}/${ASSET}`,
+        },
       },
     });
+    apiMocks.getYansiV2ConversationDraft.mockResolvedValue(
+      draftDto({
+        status: 'published',
+        revision: 4,
+        publishedNodeId: 'nnnnnnnn-nnnn-nnnn-nnnn-nnnnnnnnnnnn',
+        publishedVersion: 1,
+      }),
+    );
 
     await openCompose('owner');
     fireEvent.click(screen.getByTestId('biz-conv-flow-1'));
@@ -252,11 +265,31 @@ describe('BusinessYansiConversationCreate', () => {
     fireEvent.click(screen.getByTestId('biz-conv-publish'));
     await waitFor(() => expect(apiMocks.publishYansiV2ConversationDraft).toHaveBeenCalledTimes(1));
     await screen.findByTestId('biz-conv-done');
+    expect(screen.getByTestId('biz-conv-status-published')).toHaveTextContent('Durum: Yayında');
+    expect(screen.getByTestId('biz-conv-publish-turn-count')).toHaveTextContent('Soru-cevap: 1');
     expect(screen.getByTestId('biz-conv-public-url')).toHaveAttribute(
       'href',
-      yansiV2PublicHref('sohbet-1', 1),
+      yansiV2PublicHref('sohbet-1', 1, 'conversation'),
     );
-    expect(screen.getByTestId('biz-conv-done')).not.toHaveTextContent('Keşfet\'te yayınlandı');
+    expect(screen.getByTestId('biz-conv-open-public')).toHaveAttribute(
+      'href',
+      yansiV2PublicHref('sohbet-1', 1, 'conversation'),
+    );
+    expect(screen.getByTestId('biz-conv-done')).not.toHaveTextContent("Keşfet'te yayınlandı");
+    expect(screen.getByTestId('biz-conv-done')).toHaveTextContent('Keşfet uygunluk');
+  });
+
+  it('does not show approval-dropped on first saved draft before any approval', async () => {
+    apiMocks.createYansiV2ConversationDraft.mockResolvedValue(
+      draftDto({ status: 'draft', revision: 2 }),
+    );
+    await openCompose('owner');
+    fireEvent.change(screen.getByTestId('biz-conv-title'), { target: { value: 'Sohbet' } });
+    fireEvent.change(screen.getByTestId('biz-conv-question-1'), { target: { value: 'Merak?' } });
+    fireEvent.change(screen.getByTestId('biz-conv-answer-1'), { target: { value: 'Cevap' } });
+    fireEvent.click(screen.getByTestId('biz-conv-save-preview'));
+    await screen.findByTestId('biz-conv-preview');
+    expect(screen.queryByTestId('biz-conv-approval-dropped')).not.toBeInTheDocument();
   });
 
   it('revises after approval and shows approval-dropped notice', async () => {
