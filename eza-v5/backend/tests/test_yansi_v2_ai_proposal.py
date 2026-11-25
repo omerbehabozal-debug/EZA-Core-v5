@@ -201,6 +201,53 @@ async def test_validate_proposal_turn_count_one_to_eight():
 
 
 @pytest.mark.asyncio
+async def test_v2_provider_http_400_fails_without_retry_and_settles_budget(ready, caplog):
+    import logging
+
+    s = ready
+    body = TopicsRequest(
+        idempotencyKey="v2-prop-400",
+        sourceVersionIds=[s.knowledge.id],
+        topicHint="workshop care",
+    )
+    job = await studio.create_job(s.db, s.business.id, s.owner.id, body, v2ai.KIND)
+    provider = fake(
+        {
+            "ok": False,
+            "output": None,
+            "error": "OpenAI API error: 400 type=invalid_request_error code=invalid_json_schema",
+            "provider": "openai",
+            "model_id": job.model,
+            "skipped": False,
+            "failureKind": "http",
+            "retriable": False,
+            "providerDiagnostics": {
+                "httpStatus": 400,
+                "errorType": "invalid_request_error",
+                "errorCode": "invalid_json_schema",
+                "errorParam": "response_format",
+                "requestId": "req_v2_400",
+                "retriable": False,
+            },
+        }
+    )
+    with caplog.at_level(logging.WARNING):
+        row = await execution.execute(s.db, job, router=provider)
+    assert row.status == "failed"
+    assert row.error_code == "studio_provider_failed"
+    assert row.attempts == 1
+    assert provider.generate.await_count == 1
+    # Budget settlement still closes the attempt (estimated reserve when usage absent).
+    assert row.input_tokens >= 0
+    assert row.cost_usd >= 0
+    joined = " ".join(r.message for r in caplog.records)
+    assert "studio_provider_failed" in joined
+    assert "req_v2_400" in joined
+    assert "invalid_json_schema" in joined
+    assert "workshop care" not in joined
+
+
+@pytest.mark.asyncio
 async def test_v1_topics_path_unchanged(ready):
     """Regression: V1 topics admission/execution still works beside v2_prop."""
     s = ready

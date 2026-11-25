@@ -23,6 +23,7 @@ from backend.services.business_yansi.studio_generation import (
     normalized,
     passage,
 )
+from backend.core.openai.strict_schema import for_openai_strict_schema
 from backend.services.business_yansi.studio_validation import digest, safe_content
 from backend.services.yansi import conversation_draft_v2 as drafts
 from backend.models.business_yansi import BusinessKnowledgeVersion
@@ -101,6 +102,7 @@ def catalog_v2(snapshot: dict[str, Any]) -> dict[str, Any]:
 
 
 def output_schema(passages: dict[str, Any], media: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Provider-facing JSON Schema (OpenAI strict). Domain Pydantic rules stay unchanged."""
     schema = ProposalEnvelope.model_json_schema()
     turn = schema["$defs"]["ProposalTurn"]
     schema["$defs"]["EvidenceRef"]["properties"]["passageId"]["enum"] = list(passages)
@@ -115,7 +117,8 @@ def output_schema(passages: dict[str, Any], media: dict[str, Any] | None = None)
         turn["properties"].pop("mediaSuggestions", None)
         schema["$defs"]["ProposalResult"]["properties"].pop("coverAssetId", None)
         schema["$defs"]["ProposalResult"]["properties"].pop("coverReason", None)
-    return schema
+    # OpenAI strict requires every property listed under required; strip defaults/noise.
+    return for_openai_strict_schema(schema)
 
 
 def prompt(passages: dict[str, Any], hint: str, media: dict[str, Any] | None = None) -> str:

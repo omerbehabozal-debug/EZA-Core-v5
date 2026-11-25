@@ -176,7 +176,10 @@ class ModelRouter:
                 "error": f"API key not configured for {provider}",
                 "provider": provider,
                 "model_id": model_id,
-                "skipped": True
+                "skipped": True,
+                "failureKind": "config",
+                "retriable": False,
+                "providerDiagnostics": {"httpStatus": None, "retriable": False},
             }
         
         last_error = None

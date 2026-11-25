@@ -48,6 +48,13 @@ def parse_openai_http_error(
     err_body = _extract_openai_error_body(body_text or "")
     error_type = err_body.get("type")
     error_code = err_body.get("code")
+    raw_param = err_body.get("param")
+    error_param = None
+    if isinstance(raw_param, str) and raw_param.strip():
+        # Path-like params only; never echo free-form content.
+        cleaned = sanitize_text(raw_param.strip())[:120]
+        if cleaned and " " not in cleaned and len(cleaned) <= 120:
+            error_param = cleaned
     error_message = sanitize_text(
         str(err_body.get("message") or err_body.get("rawMessage") or body_text or "")[:800]
     )
@@ -61,8 +68,10 @@ def parse_openai_http_error(
         "httpStatus": http_status,
         "errorType": error_type,
         "errorCode": error_code,
+        "errorParam": error_param,
         "errorMessage": error_message,
         "requestId": request_id,
+        "retriable": http_status in {408, 409, 429, 500, 502, 503, 504},
     }
     enriched = create_openai_diagnostic(diagnostic)
     diagnostic.update(enriched)

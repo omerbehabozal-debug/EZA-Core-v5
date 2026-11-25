@@ -382,11 +382,32 @@ async def execute(db, job, *, router=None, limits=studio.Limits()):
             remaining = (deadline - datetime.now(timezone.utc)).total_seconds()
             if remaining <= 0:
                 raise TimeoutError()
+            # Permanent request failures (e.g. HTTP 400 invalid schema) must not retry.
             result = await asyncio.wait_for(router.generate(prompt=text, model_id=job.model,
                 temperature=0, max_tokens=job.execution['reserveOut'], timeout=remaining,
                 retries=0, json_schema=schema), timeout=remaining)
             if not result.get('ok'):
-                error = 'studio_provider_failed'
+                if result.get('failureKind') == 'timeout':
+                    error = 'studio_provider_timeout'
+                else:
+                    error = 'studio_provider_failed'
+                diag = result.get('providerDiagnostics') if isinstance(result.get('providerDiagnostics'), dict) else {}
+                logger.warning(
+                    'studio_provider_failed generation_id=%s provider=%s model=%s '
+                    'http_status=%s error_type=%s error_code=%s error_param=%s '
+                    'request_id=%s stage=%s retriable=%s failure_kind=%s',
+                    job.id,
+                    result.get('provider') or 'unknown',
+                    job.model,
+                    diag.get('httpStatus'),
+                    diag.get('errorType'),
+                    diag.get('errorCode'),
+                    diag.get('errorParam'),
+                    diag.get('requestId'),
+                    'provider_generate',
+                    bool(result.get('retriable') or diag.get('retriable')),
+                    result.get('failureKind'),
+                )
             else:
                 finish = finish_classification(result)
                 parsed = parse_output(result, finish, job, passages, topic, media)
