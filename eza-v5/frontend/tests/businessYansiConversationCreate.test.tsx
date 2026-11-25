@@ -279,6 +279,292 @@ describe('BusinessYansiConversationCreate', () => {
     expect(screen.getByTestId('biz-conv-done')).toHaveTextContent('Keşfet uygunluk');
   });
 
+  it('applies AI proposal into a new draft when current draft is published', async () => {
+    apiMocks.getYansiV2ConversationDraft.mockResolvedValue(
+      draftDto({
+        status: 'published',
+        revision: 5,
+        publishedNodeId: 'nnnnnnnn-nnnn-nnnn-nnnn-nnnnnnnnnnnn',
+        publishedVersion: 1,
+        knowledgeSourcePins: [{ knowledgeVersionId: KV, expectedRevision: 2 }],
+      }),
+    );
+    const completed = {
+      generationId: 'gggggggg-gggg-gggg-gggg-gggggggggggg',
+      businessId: BIZ,
+      kind: 'v2_prop',
+      status: 'completed',
+      proposal: {
+        insufficientSources: false,
+        warnings: [
+          {
+            code: 'cover_skipped',
+            message: 'Kapak önerisi katalog/uygunluk kontrolünden geçmedi.',
+          },
+        ],
+        result: {
+          title: 'Yeni',
+          summary: 'Özet',
+          curiosityQuestion: 'Nasıl?',
+          turns: [
+            {
+              stepIndex: 1,
+              question: 'Nasıl?',
+              answer: 'Böyle.',
+              claimSafety: 'grounded',
+              mediaSuggestions: [],
+            },
+          ],
+          coverSuggestion: null,
+          knowledgeSourcePins: [{ knowledgeVersionId: KV, expectedRevision: 2 }],
+          rationale: '',
+        },
+      },
+    };
+    apiMocks.requestYansiV2ConversationProposal.mockResolvedValue(completed);
+    apiMocks.pollYansiV2ConversationProposal.mockResolvedValue(completed);
+    apiMocks.applyYansiV2ConversationProposal.mockResolvedValue({
+      status: 'applied',
+      generationId: 'gggggggg-gggg-gggg-gggg-gggggggggggg',
+      draft: draftDto({
+        id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+        status: 'draft',
+        revision: 1,
+        title: 'Yeni',
+        publishedNodeId: null,
+        publishedVersion: null,
+      }),
+      curiosityQuestion: 'Nasıl?',
+      warnings: [],
+    });
+
+    render(
+      <BusinessYansiConversationCreate
+        businessId={BIZ}
+        assets={[image()]}
+        knowledge={[knowledge()]}
+        role="owner"
+        canEdit
+        startOpen
+        resumeDraftId={DRAFT}
+      />,
+    );
+    await screen.findByTestId('biz-conv-locked');
+    fireEvent.click(screen.getByTestId('biz-conv-flow-2'));
+    await screen.findByTestId('biz-conv-step-ai');
+    expect(screen.getByTestId('biz-conv-ai-fork-hint')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('biz-conv-ai-generate'));
+    await screen.findByTestId('biz-conv-proposal');
+    // Cover skip is a soft notice — proposal remains actionable.
+    expect(screen.getByTestId('biz-conv-proposal-warnings')).toHaveTextContent(
+      'Kapak önerisi katalog/uygunluk kontrolünden geçmedi.',
+    );
+    expect(screen.queryByTestId('biz-conv-error')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('biz-conv-ai-apply'));
+    await waitFor(() => expect(apiMocks.applyYansiV2ConversationProposal).toHaveBeenCalled());
+    const applyArgs = apiMocks.applyYansiV2ConversationProposal.mock.calls[0];
+    // (businessId, generationId, input) — omit draftId so backend creates a new draft
+    expect(applyArgs[2] || {}).toEqual({});
+    expect(screen.queryByText(/Yayımlanmış taslak düzenlenemez/i)).not.toBeInTheDocument();
+  });
+
+  it('shows friendly cover-none message when library is empty (not a hard AI failure)', async () => {
+    apiMocks.requestYansiV2ConversationProposal.mockResolvedValue({
+      generationId: 'gggggggg-gggg-gggg-gggg-gggggggggggg',
+      businessId: BIZ,
+      kind: 'v2_prop',
+      status: 'completed',
+      proposal: {
+        insufficientSources: false,
+        warnings: [
+          {
+            code: 'cover_skipped',
+            message: 'Kapak önerisi katalog/uygunluk kontrolünden geçmedi.',
+          },
+        ],
+        result: {
+          title: 'Yeni',
+          summary: 'Özet',
+          curiosityQuestion: 'Nasıl?',
+          turns: [
+            {
+              stepIndex: 1,
+              question: 'Nasıl?',
+              answer: 'Böyle.',
+              claimSafety: 'grounded',
+              mediaSuggestions: [],
+            },
+          ],
+          coverSuggestion: null,
+          knowledgeSourcePins: [{ knowledgeVersionId: KV, expectedRevision: 2 }],
+          rationale: '',
+        },
+      },
+    });
+
+    render(
+      <BusinessYansiConversationCreate
+        businessId={BIZ}
+        assets={[]}
+        knowledge={[knowledge()]}
+        role="owner"
+        canEdit
+      />,
+    );
+    fireEvent.click(screen.getByTestId('biz-conv-create-open'));
+    await screen.findByTestId('biz-conv-step-select');
+    await openSourcePicker();
+    fireEvent.click(screen.getByTestId(`biz-conv-bind-${KV}`));
+    fireEvent.click(screen.getByTestId('biz-conv-to-ai'));
+    fireEvent.click(screen.getByTestId('biz-conv-ai-generate'));
+    await screen.findByTestId('biz-conv-proposal');
+    expect(screen.getByTestId('biz-conv-proposal-warnings')).toHaveTextContent(
+      'Henüz kapak seçilmedi. İnceleme aşamasında kapak ekleyebilirsiniz.',
+    );
+    expect(screen.queryByTestId('biz-conv-error')).not.toBeInTheDocument();
+    expect(screen.getByTestId('biz-conv-ai-apply')).toBeInTheDocument();
+  });
+
+  it('resets session after publish so Yeni Yansı does not reuse published draftId', async () => {
+    apiMocks.createYansiV2ConversationDraft
+      .mockResolvedValueOnce(draftDto({ id: DRAFT, revision: 1, title: 'Birinci' }))
+      .mockResolvedValueOnce(
+        draftDto({
+          id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+          revision: 1,
+          title: 'İkinci',
+          publishedNodeId: null,
+          publishedVersion: null,
+        }),
+      );
+    apiMocks.transitionYansiV2ConversationDraft
+      .mockResolvedValueOnce(draftDto({ status: 'review', revision: 2 }))
+      .mockResolvedValueOnce(
+        draftDto({
+          status: 'approved',
+          revision: 3,
+          approvedBy: 'owner',
+          approvedRevision: 2,
+          approvedContentDigest: 'a'.repeat(64),
+        }),
+      );
+    apiMocks.publishYansiV2ConversationDraft.mockResolvedValue({
+      status: 'published',
+      idempotent: false,
+      nodeId: 'nnnnnnnn-nnnn-nnnn-nnnn-nnnnnnnnnnnn',
+      slug: 'sohbet-1',
+      publicationVersion: 1,
+      contractHash: 'b'.repeat(64),
+      manifestHash: 'c'.repeat(64),
+      bundleVersionId: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+      bundleHash: 'd'.repeat(64),
+      draftId: DRAFT,
+      public: {
+        slug: 'sohbet-1',
+        contract: { contentKind: 'conversation' },
+        cover: null,
+        turnCount: 1,
+      },
+    });
+    apiMocks.getYansiV2ConversationDraft.mockResolvedValue(
+      draftDto({
+        status: 'published',
+        publishedNodeId: 'nnnnnnnn-nnnn-nnnn-nnnn-nnnnnnnnnnnn',
+        publishedVersion: 1,
+      }),
+    );
+
+    await openCompose('owner');
+    fireEvent.click(screen.getByTestId('biz-conv-flow-1'));
+    await openSourcePicker();
+    fireEvent.click(screen.getByTestId(`biz-conv-bind-${KV}`));
+    fireEvent.click(screen.getByTestId('biz-conv-goto-manual'));
+    fireEvent.change(screen.getByTestId('biz-conv-title'), { target: { value: 'Birinci' } });
+    fireEvent.change(screen.getByTestId('biz-conv-question-1'), { target: { value: 'Merak?' } });
+    fireEvent.change(screen.getByTestId('biz-conv-answer-1'), { target: { value: 'Cevap' } });
+    fireEvent.click(screen.getByTestId('biz-conv-save-preview'));
+    await screen.findByTestId('biz-conv-preview');
+    fireEvent.click(screen.getByTestId('biz-conv-submit-review'));
+    await waitFor(() => expect(apiMocks.transitionYansiV2ConversationDraft).toHaveBeenCalled());
+    fireEvent.click(screen.getByTestId('biz-conv-approve'));
+    await waitFor(() =>
+      expect(apiMocks.transitionYansiV2ConversationDraft.mock.calls.length).toBe(2),
+    );
+    fireEvent.click(screen.getByTestId('biz-conv-publish'));
+    await screen.findByTestId('biz-conv-done');
+    expect(screen.getByTestId('biz-conv-public-url')).toHaveAttribute(
+      'href',
+      yansiV2PublicHref('sohbet-1', 1, 'conversation'),
+    );
+
+    fireEvent.click(screen.getByTestId('biz-conv-new-after-publish'));
+    await screen.findByTestId('biz-conv-step-select');
+    expect(screen.queryByTestId('biz-conv-done')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('biz-conv-proposal')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('biz-conv-locked')).not.toBeInTheDocument();
+    expect(screen.getByTestId('biz-conv-bind')).toHaveTextContent('(0)');
+
+    fireEvent.click(screen.getByTestId('biz-conv-goto-manual'));
+    fireEvent.change(screen.getByTestId('biz-conv-title'), { target: { value: 'İkinci' } });
+    fireEvent.change(screen.getByTestId('biz-conv-question-1'), { target: { value: 'İki?' } });
+    fireEvent.change(screen.getByTestId('biz-conv-answer-1'), { target: { value: 'Yanıt' } });
+    fireEvent.click(screen.getByTestId('biz-conv-save-preview'));
+    await waitFor(() => expect(apiMocks.createYansiV2ConversationDraft).toHaveBeenCalledTimes(2));
+    const secondBody = apiMocks.createYansiV2ConversationDraft.mock.calls[1][1];
+    expect(secondBody.title).toBe('İkinci');
+    // New session must create — never revise the published draft id.
+    expect(apiMocks.reviseYansiV2ConversationDraft).not.toHaveBeenCalled();
+    expect(apiMocks.publishYansiV2ConversationDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it('forks create (not revise) when Elle yaz after published draft hydrate', async () => {
+    apiMocks.getYansiV2ConversationDraft.mockResolvedValue(
+      draftDto({
+        status: 'published',
+        revision: 5,
+        publishedNodeId: 'nnnnnnnn-nnnn-nnnn-nnnn-nnnnnnnnnnnn',
+        publishedVersion: 1,
+        title: 'Yayında',
+        turns: [{ stepIndex: 1, question: 'Eski?', answer: 'Eski cevap' }],
+        knowledgeSourcePins: [{ knowledgeVersionId: KV, expectedRevision: 2 }],
+      }),
+    );
+    apiMocks.createYansiV2ConversationDraft.mockResolvedValue(
+      draftDto({
+        id: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+        status: 'draft',
+        revision: 1,
+        title: 'Fork',
+        publishedNodeId: null,
+        publishedVersion: null,
+      }),
+    );
+
+    render(
+      <BusinessYansiConversationCreate
+        businessId={BIZ}
+        assets={[image()]}
+        knowledge={[knowledge()]}
+        role="owner"
+        canEdit
+        startOpen
+        resumeDraftId={DRAFT}
+      />,
+    );
+    await screen.findByTestId('biz-conv-locked');
+    fireEvent.click(screen.getByTestId('biz-conv-flow-2'));
+    fireEvent.click(screen.getByTestId('biz-conv-goto-manual'));
+    await screen.findByTestId('biz-conv-section-chat');
+    expect(screen.queryByTestId('biz-conv-locked')).not.toBeInTheDocument();
+    expect(screen.getByTestId('biz-conv-title')).toHaveValue('Yayında');
+    fireEvent.change(screen.getByTestId('biz-conv-title'), { target: { value: 'Fork' } });
+    fireEvent.click(screen.getByTestId('biz-conv-save-preview'));
+    await waitFor(() => expect(apiMocks.createYansiV2ConversationDraft).toHaveBeenCalledTimes(1));
+    expect(apiMocks.reviseYansiV2ConversationDraft).not.toHaveBeenCalled();
+    const body = apiMocks.createYansiV2ConversationDraft.mock.calls[0][1];
+    expect(body.title).toBe('Fork');
+  });
+
   it('does not show approval-dropped on first saved draft before any approval', async () => {
     apiMocks.createYansiV2ConversationDraft.mockResolvedValue(
       draftDto({ status: 'draft', revision: 2 }),

@@ -38,7 +38,9 @@ import {
   canAddTurn,
   clearConversationDraftStorage,
   conversationErrorMessage,
+  COVER_NONE_YET_MESSAGE,
   emptyConversationLocalDraft,
+  formatConversationProposalWarning,
   moveTurn,
   normalizeConversationLocalDraft,
   readConversationDraftStorage,
@@ -337,6 +339,15 @@ export default function BusinessYansiConversationCreate({
 
   const proposalResult = proposalJob?.proposal?.result ?? null;
   const proposalWarnings = proposalJob?.proposal?.warnings || [];
+  const coverLibraryEmpty = images.length === 0;
+  const proposalWarningViews = proposalWarnings.map((w) =>
+    formatConversationProposalWarning(w, { coverLibraryEmpty }),
+  );
+  const showCoverNoneYet =
+    Boolean(proposalResult) &&
+    !proposalResult?.coverSuggestion?.assetId &&
+    coverLibraryEmpty &&
+    !proposalWarningViews.some((w) => w.code === 'cover_skipped' || w.code === 'cover_not_eligible');
 
   function rememberDraft(dto: YansiV2ConversationDraftDto) {
     upsertConversationDraftIndex(businessId, dto);
@@ -471,6 +482,8 @@ export default function BusinessYansiConversationCreate({
   }
 
   function resetAll(keepInputs: boolean) {
+    // Fresh create session: drop transient UI/API state. Does NOT delete server drafts
+    // or the Yansılarım index — only the in-progress workspace + localStorage scratch.
     proposeAbortRef.current?.abort();
     proposeAbortRef.current = null;
     setFlowStep(1);
@@ -484,6 +497,8 @@ export default function BusinessYansiConversationCreate({
     setProposalJob(null);
     setAddOpen(false);
     setSourcesOpen(false);
+    setSourceFilter('all');
+    setSourceQuery('');
     setTopicHint('');
     setUploadBusy(false);
     setAiBusy(false);
@@ -492,6 +507,8 @@ export default function BusinessYansiConversationCreate({
     setPublishKind('conversation');
     setImageConfirm(false);
     setEditLocked(false);
+    setCoverPreviewUrl(null);
+    setHydrateBusy(false);
     actionLock.current = false;
     idempotencyRef.current = newIdempotencyKey('publish');
     proposeKeyRef.current = newIdempotencyKey('v2prop');
@@ -503,7 +520,31 @@ export default function BusinessYansiConversationCreate({
     }
   }
 
+  function forkAwayFromPublishedLocally() {
+    // Keep visible content; drop published identity so save/create cannot revise frozen draft.
+    const forked = normalizeConversationLocalDraft({
+      ...draft,
+      draftId: '',
+      revision: null,
+      status: 'draft',
+      slug: '',
+    });
+    setDraft(forked);
+    writeConversationDraftStorage(businessId, forked);
+    setServer(null);
+    setEditLocked(false);
+    setSawApproved(false);
+    setResult(null);
+    setImageResult(null);
+    setProposalJob(null);
+    setDirty(true);
+    idempotencyRef.current = newIdempotencyKey('publish');
+  }
+
   function goToManualEdit() {
+    if (isCurrentDraftImmutable()) {
+      forkAwayFromPublishedLocally();
+    }
     setPublishKind('conversation');
     setFlowStep(3);
     setPhase('compose');
@@ -635,6 +676,14 @@ export default function BusinessYansiConversationCreate({
     }
   }
 
+  function isCurrentDraftImmutable(): boolean {
+    if (editLocked) return true;
+    return isConversationDraftLocked(
+      server?.status ?? draft.status,
+      server?.publishedNodeId ?? null,
+    );
+  }
+
   async function acceptProposal() {
     if (!proposalJob?.generationId || !proposalResult) {
       setError('Önce AI önerisi oluşturun.');
@@ -644,21 +693,30 @@ export default function BusinessYansiConversationCreate({
       setPhase('busy');
       setError(null);
       try {
+        // Published drafts are immutable — apply into a NEW draft (omit draftId).
+        const immutable = isCurrentDraftImmutable();
         const applied = await applyYansiV2ConversationProposal(
           businessId,
           proposalJob.generationId,
-          draft.draftId && draft.revision != null
+          !immutable && draft.draftId && draft.revision != null
             ? { draftId: draft.draftId, expectedRevision: draft.revision }
             : {},
         );
-        const merged = applyServerDraft({ ...draft, slug: draft.slug }, applied.draft);
+        const merged = applyServerDraft(
+          { ...draft, slug: immutable ? '' : draft.slug },
+          applied.draft,
+        );
         persist(merged);
         setServer(applied.draft);
+        setEditLocked(false);
+        setSawApproved(false);
         rememberDraft(applied.draft);
         setDirty(false);
         setPublishKind('conversation');
         setFlowStep(3);
         setPhase('compose');
+        setResult(null);
+        setImageResult(null);
       } catch (err) {
         setError(mapErr(err));
         setPhase('compose');
@@ -667,10 +725,6 @@ export default function BusinessYansiConversationCreate({
   }
 
   async function saveDraft(): Promise<YansiV2ConversationDraftDto | null> {
-    if (editLocked) {
-      setError('Bu taslak kilitli; düzenlenemez.');
-      return null;
-    }
     const composeError = validateConversationCompose(draft);
     if (composeError) {
       setError(composeError);
@@ -681,18 +735,26 @@ export default function BusinessYansiConversationCreate({
     setError(null);
     try {
       let saved: YansiV2ConversationDraftDto;
-      if (draft.draftId && draft.revision != null) {
-        saved = await reviseYansiV2ConversationDraft(businessId, draft.draftId, {
+      const immutable = isCurrentDraftImmutable();
+      const canRevise = !immutable && draft.draftId && draft.revision != null;
+      if (canRevise) {
+        saved = await reviseYansiV2ConversationDraft(businessId, draft.draftId!, {
           ...input,
-          expectedRevision: draft.revision,
+          expectedRevision: draft.revision!,
         });
       } else {
+        // New draft or fork away from a published/locked draft.
         saved = await createYansiV2ConversationDraft(businessId, input);
       }
-      const merged = applyServerDraft(draft, saved);
-      if (draft.slug) merged.slug = draft.slug;
+      const merged = applyServerDraft(
+        { ...draft, slug: immutable ? '' : draft.slug },
+        saved,
+      );
+      if (!immutable && draft.slug) merged.slug = draft.slug;
       persist(merged);
       setServer(saved);
+      setEditLocked(false);
+      if (immutable) setSawApproved(false);
       rememberDraft(saved);
       setDirty(false);
       setPublishKind('conversation');
@@ -856,6 +918,7 @@ export default function BusinessYansiConversationCreate({
           return;
         }
         setServer(nextServer);
+        setEditLocked(true);
         rememberDraft(nextServer);
         setResult(published);
         setPhase('done');
@@ -903,6 +966,9 @@ export default function BusinessYansiConversationCreate({
   const approvalDropped =
     sawApproved && status === 'draft' && !server?.publishedNodeId;
   const locked = phase === 'busy' || busy || aiBusy || hydrateBusy || editLocked || uploadBusy;
+  // AI generate/apply may fork a new draft when the current one is published.
+  const aiBusyLocked = phase === 'busy' || busy || aiBusy || hydrateBusy || uploadBusy;
+  const draftImmutable = isCurrentDraftImmutable();
   const publishedHref = result
     ? yansiV2PublicHref(result.slug, result.publicationVersion, 'conversation')
     : imageResult
@@ -987,7 +1053,9 @@ export default function BusinessYansiConversationCreate({
                 data-testid={`biz-conv-flow-${step}`}
                 data-state={flowStep === step ? 'active' : flowStep > step ? 'done' : 'upcoming'}
                 onClick={() => {
-                  if (phase === 'done' || editLocked) return;
+                  if (phase === 'done') return;
+                  // Published drafts: allow steps 1–2 to fork a new draft via AI/apply.
+                  if (editLocked && step === 3) return;
                   if (step === 2 && isImageOnly && !readySourceIds.length) {
                     setError('AI için önce bilgi kaynağı seçin. Yalnızca görsel için 3. adıma geçin.');
                     return;
@@ -1394,6 +1462,12 @@ export default function BusinessYansiConversationCreate({
                 Seçili kaynak: {readySourceIds.length || 'yok'}
                 {draft.coverAssetId ? ' · kapak seçili' : ''}
               </p>
+              {draftImmutable ? (
+                <p className="biz-notice" role="status" data-testid="biz-conv-ai-fork-hint">
+                  Bu taslak yayında. “Taslağa uygula” yeni bir taslak oluşturur; yayımlanmış
+                  kayıt değişmez.
+                </p>
+              ) : null}
               {aiStatusLabel ? (
                 <p
                   className="biz-notice"
@@ -1409,7 +1483,7 @@ export default function BusinessYansiConversationCreate({
                   type="button"
                   className="biz-btn-primary"
                   data-testid="biz-conv-ai-generate"
-                  disabled={locked || !readySourceIds.length}
+                  disabled={aiBusyLocked || !readySourceIds.length}
                   onClick={() => void runAiPropose(Boolean(proposalJob))}
                 >
                   {aiBusy
@@ -1465,10 +1539,21 @@ export default function BusinessYansiConversationCreate({
                       </li>
                     ))}
                   </ol>
-                  {proposalWarnings.length ? (
+                  {showCoverNoneYet ? (
+                    <p className="biz-notice" role="status" data-testid="biz-conv-cover-none-yet">
+                      {COVER_NONE_YET_MESSAGE}
+                    </p>
+                  ) : null}
+                  {proposalWarningViews.length ? (
                     <ul data-testid="biz-conv-proposal-warnings">
-                      {proposalWarnings.map((w, i) => (
-                        <li key={`${w.code}-${i}`}>{w.message}</li>
+                      {proposalWarningViews.map((w, i) => (
+                        <li
+                          key={`${w.code}-${i}`}
+                          className={w.soft ? 'biz-notice' : undefined}
+                          data-soft={w.soft ? 'true' : 'false'}
+                        >
+                          {w.message}
+                        </li>
                       ))}
                     </ul>
                   ) : null}
@@ -1477,10 +1562,10 @@ export default function BusinessYansiConversationCreate({
                       type="button"
                       className="biz-btn-primary"
                       data-testid="biz-conv-ai-apply"
-                      disabled={locked}
+                      disabled={aiBusyLocked}
                       onClick={() => void acceptProposal()}
                     >
-                      Taslağa uygula
+                      {draftImmutable ? 'Yeni taslağa uygula' : 'Taslağa uygula'}
                     </button>
                   </div>
                 </article>

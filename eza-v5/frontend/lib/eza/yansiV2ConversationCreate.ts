@@ -380,6 +380,40 @@ export function conversationErrorMessage(error: { code?: string; message?: strin
   return 'İşlem başarısız oldu.';
 }
 
+/** Soft cover notice when AI did not attach a cover — not a proposal failure. */
+export const COVER_NONE_YET_MESSAGE =
+  'Henüz kapak seçilmedi. İnceleme aşamasında kapak ekleyebilirsiniz.';
+
+const COVER_SKIP_CODES = new Set(['cover_skipped', 'cover_not_eligible']);
+
+/**
+ * Map proposal warnings for UI. Cover eligibility skips stay notices (proposal still valid).
+ * Empty library → friendly copy; real eligibility failures keep the server message.
+ */
+export function formatConversationProposalWarning(
+  warning: { code?: string; message?: string },
+  opts: { coverLibraryEmpty: boolean },
+): { code: string; message: string; soft: boolean } {
+  const code = String(warning.code || '');
+  if (COVER_SKIP_CODES.has(code)) {
+    if (opts.coverLibraryEmpty) {
+      return { code, message: COVER_NONE_YET_MESSAGE, soft: true };
+    }
+    return {
+      code,
+      message:
+        (warning.message && String(warning.message).trim()) ||
+        'Kapak önerisi uygunluk kontrolünden geçmedi.',
+      soft: true,
+    };
+  }
+  return {
+    code,
+    message: (warning.message && String(warning.message).trim()) || code || 'Uyarı',
+    soft: false,
+  };
+}
+
 export function pinsFromLocal(
   draft: YansiV2ConversationLocalDraft,
   knowledge: Knowledge[],
