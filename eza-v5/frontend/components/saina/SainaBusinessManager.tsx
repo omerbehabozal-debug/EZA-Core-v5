@@ -902,6 +902,7 @@ export default function SainaBusinessManager() {
                     busy={busy}
                     brandName={business.name}
                     startOpen
+                    coverAiEnabled={coverAiEnabled}
                     resumeDraftId={resumeDraftId}
                     onResumeConsumed={() => setResumeDraftId(null)}
                     onConversationDraftIndexed={() => {

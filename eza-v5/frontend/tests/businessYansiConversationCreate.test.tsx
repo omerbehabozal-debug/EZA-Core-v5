@@ -954,4 +954,48 @@ describe('BusinessYansiConversationCreate', () => {
     expect(screen.getByTestId('biz-conv-direction-examples').querySelectorAll('button').length).toBeGreaterThan(3);
     expect(screen.queryByRole('button', { name: 'Kapat' })).not.toBeInTheDocument();
   });
+
+  it('surfaces coverless discover note and defers AI cover until review', async () => {
+    render(
+      <BusinessYansiConversationCreate
+        businessId={BIZ}
+        assets={[image()]}
+        knowledge={[knowledge()]}
+        role="owner"
+        canEdit
+        startOpen
+        coverAiEnabled
+      />,
+    );
+    await screen.findByTestId('biz-conv-step-select');
+    expect(screen.getByTestId('biz-conv-cover-ai-later')).toBeInTheDocument();
+    expect(screen.getByTestId('biz-conv-coverless-discover-note')).toBeInTheDocument();
+    expect(screen.queryByTestId('biz-conv-cover-ai-generate')).not.toBeInTheDocument();
+  });
+
+  it('renders cover AI controls when enabled on saved draft compose', async () => {
+    apiMocks.createYansiV2ConversationDraft.mockResolvedValue(draftDto());
+    render(
+      <BusinessYansiConversationCreate
+        businessId={BIZ}
+        assets={[image()]}
+        knowledge={[knowledge()]}
+        role="owner"
+        canEdit
+        coverAiEnabled
+      />,
+    );
+    fireEvent.click(screen.getByTestId('biz-conv-create-open'));
+    fireEvent.click(screen.getByTestId('biz-conv-goto-manual'));
+    await screen.findByTestId('biz-conv-section-chat');
+    fireEvent.change(screen.getByTestId('biz-conv-title'), { target: { value: 'Sohbet' } });
+    fireEvent.change(screen.getByTestId('biz-conv-question-1'), { target: { value: 'Merak?' } });
+    fireEvent.change(screen.getByTestId('biz-conv-answer-1'), { target: { value: 'Cevap' } });
+    fireEvent.click(screen.getByTestId('biz-conv-save-preview'));
+    await screen.findByTestId('biz-conv-preview');
+    fireEvent.click(screen.getByTestId('biz-conv-back-compose'));
+    await screen.findByTestId('biz-conv-cover-ai');
+    expect(screen.getByTestId('biz-conv-cover-ai-generate')).toBeInTheDocument();
+    expect(screen.getByTestId('biz-conv-review-cover-upload')).toBeInTheDocument();
+  });
 });

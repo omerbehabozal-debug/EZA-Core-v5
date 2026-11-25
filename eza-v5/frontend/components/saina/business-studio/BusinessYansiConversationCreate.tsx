@@ -68,6 +68,7 @@ import {
 } from '@/lib/eza/yansiV2PhotoCreate';
 import YansiProductCard from '@/components/mirror/YansiProductCard';
 import YansiStudioDraftPreview from './YansiStudioDraftPreview';
+import ConversationCoverAiPanel from './ConversationCoverAiPanel';
 import {
   SAINA_DISCOVER_OPEN_CTA,
   SAINA_DISCOVER_OPEN_CTA_SHORT,
@@ -108,6 +109,8 @@ type Props = {
   onKnowledgeChanged?: () => Promise<void> | void;
   /** Refresh asset list after in-flow library upload (same validation path as İçerik Kütüphanesi). */
   onAssetsChanged?: () => Promise<void> | void;
+  /** Business Cover AI flag (same source as V1 CoverExperience). Off by default. */
+  coverAiEnabled?: boolean;
 };
 
 const DIRECTION_EXAMPLES = [
@@ -244,6 +247,7 @@ export default function BusinessYansiConversationCreate({
   onSaveKnowledge,
   onKnowledgeChanged,
   onAssetsChanged,
+  coverAiEnabled = false,
 }: Props) {
   const formId = useId();
   const uploadInputId = useId();
@@ -1241,9 +1245,9 @@ export default function BusinessYansiConversationCreate({
                   </section>
 
                   <section className="biz-conv-pick-card" data-testid="biz-conv-section-media">
-                    <h3>Görsel Ekle</h3>
+                    <h3>Kapak</h3>
                     <p className="biz-card-meta">
-                      Yayınlanabilir kapak seçin veya İçerik Kütüphanesi doğrulamasıyla yeni görsel yükleyin.
+                      Üç yol: görsel yükle, kütüphaneden seç veya (içerik oluşunca) AI ile oluştur.
                     </p>
                     <div className="biz-conv-media-actions">
                       <label className="biz-btn-ghost biz-conv-upload-label" htmlFor={uploadInputId}>
@@ -1306,6 +1310,17 @@ export default function BusinessYansiConversationCreate({
                         ) : null}
                       </div>
                     )}
+                    {coverAiEnabled ? (
+                      <p className="biz-notice" role="status" data-testid="biz-conv-cover-ai-later">
+                        AI kapak üretimi için önce sohbet içeriğini oluşturun. İncele ve Yayınla
+                        aşamasında yapay zekâ ile kapak oluşturabilirsiniz.
+                      </p>
+                    ) : null}
+                    {!draft.coverAssetId ? (
+                      <p className="biz-card-meta" data-testid="biz-conv-coverless-discover-note">
+                        Kapaksız yayın public bağlantıyla açılır; Keşfet’te görünmez.
+                      </p>
+                    ) : null}
                   </section>
 
                   <section className="biz-conv-pick-card" data-testid="biz-conv-section-intent">
@@ -1730,7 +1745,31 @@ export default function BusinessYansiConversationCreate({
                   <section data-testid="biz-conv-section-chat">
                     <h3>İncele ve düzenle</h3>
                     <div data-testid="biz-conv-review-cover">
-                      <p className="biz-card-meta">Kapak</p>
+                      <p className="biz-card-meta">
+                        Kapak — yükle, kütüphaneden seç veya AI ile oluştur
+                      </p>
+                      <div className="biz-conv-media-actions">
+                        <label className="biz-btn-ghost biz-conv-upload-label" htmlFor={`${uploadInputId}-review`}>
+                          {uploadBusy ? 'Yükleniyor…' : 'Görsel yükle'}
+                        </label>
+                        <input
+                          id={`${uploadInputId}-review`}
+                          data-testid="biz-conv-review-cover-upload"
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/jpg"
+                          disabled={locked}
+                          className="biz-conv-upload-input"
+                          onChange={(e) => {
+                            void handleCoverUpload(e.target.files);
+                            e.target.value = '';
+                          }}
+                        />
+                        {onOpenLibrary ? (
+                          <button type="button" className="biz-btn-ghost" onClick={onOpenLibrary}>
+                            Kütüphane
+                          </button>
+                        ) : null}
+                      </div>
                       <div className="biz-photo-create-grid" role="listbox" aria-label="Kapak">
                         <button
                           type="button"
@@ -1753,6 +1792,36 @@ export default function BusinessYansiConversationCreate({
                           />
                         ))}
                       </div>
+                      {!draft.coverAssetId ? (
+                        <p className="biz-card-meta" data-testid="biz-conv-review-coverless-note">
+                          Kapaksız yayın public bağlantıyla açılır; Keşfet’te görünmez.
+                        </p>
+                      ) : null}
+                      {draft.draftId && draft.revision != null ? (
+                        <ConversationCoverAiPanel
+                          businessId={businessId}
+                          draftId={draft.draftId}
+                          draftRevision={draft.revision}
+                          knowledgeVersionIds={readySourceIds}
+                          enabled={coverAiEnabled}
+                          locked={locked}
+                          onBound={(dto) => {
+                            const merged = applyServerDraft(draft, dto);
+                            persist(merged);
+                            setServer(dto);
+                            rememberDraft(dto);
+                            setDirty(false);
+                            if (dto.status === 'draft' && sawApproved) {
+                              /* approval invalidation surfaced by existing banner */
+                            }
+                          }}
+                          onAssetsChanged={onAssetsChanged}
+                        />
+                      ) : (
+                        <p className="biz-notice" data-testid="biz-conv-cover-ai-need-save">
+                          AI kapak için önce taslağı kaydedin (önizleme kaydı).
+                        </p>
+                      )}
                     </div>
                     <label>
                       Başlık

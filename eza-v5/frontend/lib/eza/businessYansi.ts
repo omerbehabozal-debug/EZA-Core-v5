@@ -528,6 +528,68 @@ export function coverImageSuggestionPreviewUrl(
     + `/api/business-yansi/${businessId}/drafts/${draftId}/cover-image-suggestions/${proposalId}/preview`;
 }
 
+/** V2 conversation-draft Cover AI (reuses Business Cover AI ledger; separate route). */
+export async function requestYansiV2CoverImageSuggestion(
+  businessId: string,
+  draftId: string,
+  input: { idempotencyKey: string; visualDirection?: string },
+): Promise<CoverImageSuggestion> {
+  return businessRequest(
+    `/${businessId}/v2/conversation-drafts/${draftId}/cover-image-suggestions`,
+    'POST',
+    {
+      idempotencyKey: input.idempotencyKey,
+      ...(input.visualDirection?.trim()
+        ? { visualDirection: input.visualDirection.trim().slice(0, 400) }
+        : {}),
+    },
+  );
+}
+
+export async function fetchYansiV2CoverImageSuggestion(
+  businessId: string,
+  draftId: string,
+  proposalId: string,
+): Promise<CoverImageSuggestion> {
+  return businessRequest(
+    `/${businessId}/v2/conversation-drafts/${draftId}/cover-image-suggestions/${proposalId}`,
+  );
+}
+
+export async function confirmYansiV2CoverImageSuggestion(
+  businessId: string,
+  draftId: string,
+  proposalId: string,
+  input: {
+    publicAllowed: boolean;
+    knowledgeVersionIds?: string[];
+    expectedRevision?: number;
+    bindCover?: boolean;
+  },
+): Promise<{ asset: BrandAsset; draft: YansiV2ConversationDraftDto | null }> {
+  return businessRequest(
+    `/${businessId}/v2/conversation-drafts/${draftId}/cover-image-suggestions/${proposalId}/confirm`,
+    'POST',
+    {
+      publicAllowed: input.publicAllowed === true,
+      knowledgeVersionIds: input.knowledgeVersionIds || [],
+      ...(input.expectedRevision != null ? { expectedRevision: input.expectedRevision } : {}),
+      bindCover: input.bindCover !== false,
+    },
+  );
+}
+
+export function yansiV2CoverImageSuggestionPreviewUrl(
+  businessId: string,
+  draftId: string,
+  proposalId: string,
+): string {
+  return (
+    getApiUrl().replace(/\/$/, '') +
+    `/api/business-yansi/${businessId}/v2/conversation-drafts/${draftId}/cover-image-suggestions/${proposalId}/preview`
+  );
+}
+
 export function uploadBrandVideo(
   businessId: string,
   file: File,

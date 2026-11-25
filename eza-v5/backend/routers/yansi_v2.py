@@ -9,7 +9,7 @@ import os
 import uuid
 from typing import Any, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.auth.deps import get_current_user
@@ -503,6 +503,114 @@ async def apply_conversation_proposal(
         )
     except conv_drafts.ConversationDraftV2Error as exc:
         raise_draft_http(exc)
+
+
+class V2CoverImageSuggestionBody(Body):
+    idempotencyKey: str = Field(..., min_length=8, max_length=128)
+    visualDirection: Optional[str] = Field(None, max_length=400)
+
+
+class V2CoverImageConfirmBody(Body):
+    publicAllowed: bool = False
+    knowledgeVersionIds: Optional[list[uuid.UUID]] = Field(None, max_length=32)
+    expectedRevision: Optional[int] = Field(None, ge=1)
+    bindCover: bool = True
+
+
+@router.post("/{business_id}/v2/conversation-drafts/{draft_id}/cover-image-suggestions")
+async def create_v2_cover_image_suggestion(
+    business_id: uuid.UUID,
+    draft_id: uuid.UUID,
+    body: V2CoverImageSuggestionBody,
+    db=Depends(get_db),
+    claims=Depends(get_current_user),
+):
+    """Paid Cover AI image proposal for a V2 conversation draft. Explicit confirm required."""
+    from backend.services.business_yansi.cover_image_suggestions import present_image_suggestion
+    from backend.services.yansi.cover_image_suggestions_v2 import (
+        current_v2_draft_matches,
+        suggest_image_cover_v2,
+    )
+
+    user = await svc.actor(db, claims)
+    row = await suggest_image_cover_v2(
+        db,
+        business_id,
+        user.id,
+        draft_id,
+        body.idempotencyKey,
+        visual_direction=body.visualDirection,
+    )
+    current = await current_v2_draft_matches(db, row, business_id, draft_id)
+    return present_image_suggestion(row, draft_id, source_current=current)
+
+
+@router.get("/{business_id}/v2/conversation-drafts/{draft_id}/cover-image-suggestions/{proposal_id}")
+async def get_v2_cover_image_suggestion(
+    business_id: uuid.UUID,
+    draft_id: uuid.UUID,
+    proposal_id: uuid.UUID,
+    db=Depends(get_db),
+    claims=Depends(get_current_user),
+):
+    from backend.services.yansi.cover_image_suggestions_v2 import read_image_suggestion_v2
+
+    user = await svc.actor(db, claims)
+    return await read_image_suggestion_v2(db, business_id, user.id, draft_id, proposal_id)
+
+
+@router.get(
+    "/{business_id}/v2/conversation-drafts/{draft_id}/cover-image-suggestions/{proposal_id}/preview"
+)
+async def get_v2_cover_image_suggestion_preview(
+    business_id: uuid.UUID,
+    draft_id: uuid.UUID,
+    proposal_id: uuid.UUID,
+    db=Depends(get_db),
+    claims=Depends(get_current_user),
+):
+    from backend.services.yansi.cover_image_suggestions_v2 import read_image_preview_v2
+
+    user = await svc.actor(db, claims)
+    blob, mime = await read_image_preview_v2(db, business_id, user.id, draft_id, proposal_id)
+    return Response(content=blob, media_type=mime, headers={"Cache-Control": "private, no-store"})
+
+
+@router.post(
+    "/{business_id}/v2/conversation-drafts/{draft_id}/cover-image-suggestions/{proposal_id}/confirm"
+)
+async def confirm_v2_cover_image_suggestion(
+    business_id: uuid.UUID,
+    draft_id: uuid.UUID,
+    proposal_id: uuid.UUID,
+    body: V2CoverImageConfirmBody,
+    db=Depends(get_db),
+    claims=Depends(get_current_user),
+):
+    """Promote private preview → brand asset and optionally bind V2 draft cover."""
+    from backend.services.business_yansi import brand_asset_library as assets
+    from backend.services.yansi.cover_image_suggestions_v2 import confirm_image_suggestion_v2
+
+    user = await svc.actor(db, claims)
+    try:
+        result = await confirm_image_suggestion_v2(
+            db,
+            business_id,
+            user.id,
+            draft_id,
+            proposal_id,
+            public_allowed=body.publicAllowed,
+            link_version_ids=body.knowledgeVersionIds or None,
+            expected_revision=body.expectedRevision,
+            bind_cover=body.bindCover,
+        )
+    except conv_drafts.ConversationDraftV2Error as exc:
+        raise_draft_http(exc)
+    asset_view = await assets.present_asset_by_id(db, business_id, result["asset"].id)
+    return {
+        "asset": asset_view,
+        "draft": result.get("draft"),
+    }
 
 
 @router.get("/v2/public/{slug}")
