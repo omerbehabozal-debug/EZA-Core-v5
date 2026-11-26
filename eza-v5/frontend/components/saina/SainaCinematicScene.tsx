@@ -27,6 +27,8 @@ const analysisAtmosphereUrl =
     : (analysisAtmosphereImage as { src: string }).src;
 
 const IDENTITY_FADE_MS = 420;
+/** Neutral stage while a known cover decodes — never the default cityscape. */
+const PENDING_SCENE_FILL = '#0c0b0a';
 
 export type SainaSceneAtmosphere = 'conversation' | 'analysis';
 
@@ -72,33 +74,43 @@ export default function SainaCinematicScene({
       : null;
   const focalStyle = mirrorFocalCssVars(focal);
 
-  const [activeIdentityUrl, setActiveIdentityUrl] = useState<string | null>(null);
-  const [identityVisible, setIdentityVisible] = useState(false);
+  // Optimistic first paint: Keşfet→Deneyimle remount must not flash cityscape.
+  const [activeIdentityUrl, setActiveIdentityUrl] = useState<string | null>(identityUrl);
+  const [identityVisible, setIdentityVisible] = useState(() => Boolean(identityUrl));
+  const [identityFailed, setIdentityFailed] = useState(false);
 
   useEffect(() => {
     if (!identityUrl) {
+      setIdentityFailed(false);
       setIdentityVisible(false);
       const timer = window.setTimeout(() => setActiveIdentityUrl(null), IDENTITY_FADE_MS);
       return () => window.clearTimeout(timer);
     }
 
     let cancelled = false;
-    setIdentityVisible(false);
+    setIdentityFailed(false);
+    setActiveIdentityUrl(identityUrl);
+    setIdentityVisible(true);
 
     const img = new Image();
-    img.onload = () => {
+    const confirmReady = () => {
       if (cancelled) return;
       setActiveIdentityUrl(identityUrl);
-      requestAnimationFrame(() => {
-        if (!cancelled) setIdentityVisible(true);
-      });
+      setIdentityVisible(true);
+      setIdentityFailed(false);
     };
+    img.onload = confirmReady;
     img.onerror = () => {
       if (cancelled) return;
+      setIdentityFailed(true);
       setIdentityVisible(false);
       setActiveIdentityUrl(null);
     };
     img.src = identityUrl;
+    // Warm cache / already-decoded decode from Keşfet — confirm synchronously when possible.
+    if (img.complete && img.naturalWidth > 0) {
+      confirmReady();
+    }
 
     return () => {
       cancelled = true;
@@ -107,9 +119,15 @@ export default function SainaCinematicScene({
     };
   }, [identityUrl]);
 
-  const accentSceneUrl = activeIdentityUrl ?? bundledSceneUrl;
+  const showCityscapeFallback = !lockedAnalysis && (!identityUrl || identityFailed);
+  const accentSceneUrl =
+    activeIdentityUrl ?? (showCityscapeFallback || lockedAnalysis ? bundledSceneUrl : null);
 
   useEffect(() => {
+    if (!accentSceneUrl) {
+      applyYansiAccentRgb(YANSI_ACCENT_RGB_DEFAULT);
+      return;
+    }
     let cancelled = false;
 
     void extractYansiAccentRgb(accentSceneUrl).then((rgb) => {
@@ -135,19 +153,30 @@ export default function SainaCinematicScene({
       )}
       aria-hidden
       data-saina-atmosphere={atmosphere}
+      data-saina-scene-pending={
+        !lockedAnalysis && Boolean(identityUrl) && !identityFailed ? 'cover' : undefined
+      }
     >
       <div className="saina-scene-fit">
         <div
           className="saina-scene-fit__frame"
           style={{ aspectRatio: lockedAnalysis ? '16 / 9' : `${SCENE_IMAGE_ASPECT}` }}
         >
-          <div
-            className="saina-canvas-scene-image saina-canvas-scene-image--bundled"
-            style={{ backgroundImage: `url('${bundledSceneUrl}')`, ...focalStyle }}
-            data-testid={
-              lockedAnalysis ? 'saina-scene-analysis-layer' : 'saina-scene-image-layer'
-            }
-          />
+          {showCityscapeFallback || lockedAnalysis ? (
+            <div
+              className="saina-canvas-scene-image saina-canvas-scene-image--bundled"
+              style={{ backgroundImage: `url('${bundledSceneUrl}')`, ...focalStyle }}
+              data-testid={
+                lockedAnalysis ? 'saina-scene-analysis-layer' : 'saina-scene-image-layer'
+              }
+            />
+          ) : (
+            <div
+              className="saina-canvas-scene-image saina-canvas-scene-image--pending"
+              style={{ backgroundColor: PENDING_SCENE_FILL, backgroundImage: 'none' }}
+              data-testid="saina-scene-pending-layer"
+            />
+          )}
           {activeIdentityUrl ? (
             <div
               className={cn(

@@ -94,12 +94,16 @@ describe('07H.5C Business cover full-bleed', () => {
       class {
         onload: (() => void) | null = null;
         onerror: (() => void) | null = null;
+        complete = false;
+        naturalWidth = 0;
         set src(_value: string) {
           queueMicrotask(() => this.onerror?.());
         }
       }
     );
     render(<SainaCinematicScene sceneImageUrl={COVER} preserveFrame />);
+    // Optimistic cover first — cityscape only after confirmed failure.
+    expect(screen.getByTestId('saina-scene-identity-layer')).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.queryByTestId('saina-scene-identity-layer')).toBeNull()
     );

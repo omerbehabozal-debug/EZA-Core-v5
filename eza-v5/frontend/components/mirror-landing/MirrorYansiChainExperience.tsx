@@ -213,6 +213,12 @@ async function enrichNode(
   };
 }
 
+function resolveExperienceSceneUrl(
+  artifact: Pick<PublicFrozenJourneyArtifact, 'sceneImageUrl' | 'businessMedia'>
+): string | null {
+  return businessCoverUrl(artifact.businessMedia) || (artifact.sceneImageUrl || '').trim() || null;
+}
+
 function preloadSceneImage(url: string | null | undefined): void {
   const src = (url || '').trim();
   if (!src || typeof window === 'undefined') return;
@@ -222,6 +228,13 @@ function preloadSceneImage(url: string | null | undefined): void {
   } catch {
     /* ignore */
   }
+}
+
+function preloadArtifactScene(
+  artifact: Pick<PublicFrozenJourneyArtifact, 'sceneImageUrl' | 'businessMedia'> | null | undefined
+): void {
+  if (!artifact) return;
+  preloadSceneImage(resolveExperienceSceneUrl(artifact));
 }
 
 function publicPathForSlug(
@@ -483,7 +496,7 @@ export default function MirrorYansiChainExperience({
     const artifact = await fetchPublicFrozenJourneyArtifact({ slug: key });
     if (!artifact) return null;
     if (artifact.slug.trim().toLowerCase() !== key) return null;
-    preloadSceneImage(artifact.sceneImageUrl);
+    preloadArtifactScene(artifact);
     const node = await enrichNode(artifact);
     setNodesBySlug((prev) => ({ ...prev, [key]: node }));
     return node;
@@ -780,6 +793,8 @@ export default function MirrorYansiChainExperience({
   const openChatDepth = useCallback(() => {
     if (!activeSlug || depth === 'chat' || chatEntryPendingRef.current) return;
     chatEntryPendingRef.current = true;
+    // Warm Deneyimle cinematic layer with the same cover already on the reel.
+    preloadArtifactScene(activeNode?.artifact ?? rootArtifact);
     setKatki(closedKatkiDepth());
     setVerifierOpen(false);
     const version =
@@ -792,8 +807,8 @@ export default function MirrorYansiChainExperience({
     onDepthChange?.('chat');
   }, [
     activeSlug,
-    activeNode?.artifact.journeyVersion,
-    rootArtifact.journeyVersion,
+    activeNode?.artifact,
+    rootArtifact,
     onDepthChange,
     depth,
   ]);
@@ -1060,15 +1075,15 @@ export default function MirrorYansiChainExperience({
     const prev = session.history[session.activeIndex - 1];
     const next = session.history[session.activeIndex + 1];
     const currentNode = nodesBySlug[activeDiscoverSlug(session)];
-    if (currentNode) preloadSceneImage(currentNode.artifact.sceneImageUrl);
+    if (currentNode) preloadArtifactScene(currentNode.artifact);
     if (prev) {
       void ensureArtifactLoaded(prev).then((node) => {
-        if (node) preloadSceneImage(node.artifact.sceneImageUrl);
+        if (node) preloadArtifactScene(node.artifact);
       });
     }
     if (next) {
       void ensureArtifactLoaded(next).then((node) => {
-        if (node) preloadSceneImage(node.artifact.sceneImageUrl);
+        if (node) preloadArtifactScene(node.artifact);
       });
     }
   }, [depth, ensureArtifactLoaded, isDesktop, nodesBySlug, session]);
