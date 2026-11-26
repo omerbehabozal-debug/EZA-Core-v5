@@ -68,7 +68,9 @@ describe('business media display', () => {
     const { rerender } = render(<MirrorYansiSceneCrossfade sceneImageUrl={text.sceneImageUrl} presentation="mobile-fullscreen" />);
     expect(screen.getByTestId('mirror-yansi-scene-current').className).toContain('object-cover');
     rerender(<MirrorYansiSceneCrossfade sceneImageUrl="https://cdn.example/brand.jpg" presentation="desktop-immersive" brandCover />);
-    expect(screen.getByTestId('mirror-yansi-scene-current').className).toContain('object-contain');
+    // 07H.5C — Business covers share personal full-bleed cover crop (not contain letterbox).
+    expect(screen.getByTestId('mirror-yansi-scene-current').className).toContain('yansi-desktop-scene-image');
+    expect(screen.getByTestId('mirror-yansi-scene-current').className).not.toContain('object-contain');
     expect(screen.getByTestId('mirror-yansi-scene-crossfade')).toHaveAttribute('data-yansi-brand-cover', 'true');
   });
 

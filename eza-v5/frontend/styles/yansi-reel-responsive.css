@@ -416,9 +416,10 @@
     border-radius: 0;
   }
 
+  /* 07H.5C — Business covers use the same full-bleed cover crop as personal Yansı. */
   .yansi-desktop-scene-image[data-yansi-brand-cover='true'] {
-    object-fit: contain;
-    background: #0c0b0a;
+    object-fit: var(--yansi-scene-fit, cover);
+    background: transparent;
   }
 
   .yansi-desktop-scene-bleed {

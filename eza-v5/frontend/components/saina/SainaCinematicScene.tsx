@@ -40,7 +40,10 @@ type SainaCinematicSceneProps = {
    * backdrop — chat/mirror identity scenes never appear.
    */
   atmosphere?: SainaSceneAtmosphere;
-  /** Brand covers keep their frame. Personal scenes stay on the existing crop. */
+  /**
+   * Legacy prop — public Deneyimle uses the same full-bleed `cover` crop as
+   * individual Yansı. Kept for call-site compatibility; does not switch to contain.
+   */
   preserveFrame?: boolean;
 };
 
@@ -50,8 +53,9 @@ export default function SainaCinematicScene({
   focalX,
   focalY,
   atmosphere = 'conversation',
-  preserveFrame = false,
+  preserveFrame: _preserveFrame = false,
 }: SainaCinematicSceneProps) {
+  void _preserveFrame;
   const lockedAnalysis = atmosphere === 'analysis';
   const bundledSceneUrl = lockedAnalysis ? analysisAtmosphereUrl : defaultSceneUrl;
 
@@ -150,8 +154,9 @@ export default function SainaCinematicScene({
                 'saina-canvas-scene-image saina-canvas-scene-image--identity',
                 identityVisible && 'saina-canvas-scene-image--identity-visible'
               )}
-              style={{ backgroundImage: `url('${activeIdentityUrl}')`, ...focalStyle, ...(preserveFrame ? { backgroundSize: 'contain', backgroundRepeat: 'no-repeat', backgroundPosition: 'center' } : {}) }}
+              style={{ backgroundImage: `url('${activeIdentityUrl}')`, ...focalStyle }}
               data-testid="saina-scene-identity-layer"
+              data-saina-scene-fit="cover"
             />
           ) : null}
         </div>

@@ -414,7 +414,7 @@ export default function MirrorFrozenReplay({
       data-yansi-source-kind={artifact.sourceKind ?? 'v1_frozen'}
       data-yansi-content-kind={artifact.contentKind ?? undefined}
       data-yansi-rhythm={experience?.rhythm ?? 'normal'} aria-label="Yansı deneyimi">
-        <YansiDesktopExperience mobile={mobilePresentation} slug={frozen.slug} sceneImageUrl={businessCoverUrl(artifact.businessMedia) || artifact.sceneImageUrl} preserveBrandFrame={artifact.businessMedia?.cover?.type === 'image'} identity={desktopIdentity} scrollRef={scrollRootRef}
+        <YansiDesktopExperience mobile={mobilePresentation} slug={frozen.slug} sceneImageUrl={businessCoverUrl(artifact.businessMedia) || artifact.sceneImageUrl} preserveBrandFrame={false} identity={desktopIdentity} scrollRef={scrollRootRef}
           allowPersonalContinue={allowPersonalContinue}
           v2Continuation={v2Continuation}
           replaySelection={{ slug: frozen.slug, journeyVersion: pinnedVersionRef.current, completedStepCount: session.completedStepCount }}

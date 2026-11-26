@@ -21,7 +21,7 @@ export type MirrorYansiSceneCrossfadeProps = {
   presentation?: MirrorYansiScenePresentation;
   /** Active Yansı identity — must match title/author/meta after navigation commit. */
   activeIdentity?: string | null;
-  /** Approved brand cover keeps its aspect ratio. Personal scenes stay cropped. */
+  /** Business cover marker — fit matches personal scenes (full-bleed cover crop). */
   brandCover?: boolean;
   /** Approved brand video cover. The still scene stays underneath. */
   videoSrc?: string | null;
@@ -77,11 +77,9 @@ function ScenePlate({
         data-yansi-scene-src={src}
         data-yansi-brand-cover={brandCover ? 'true' : 'false'}
         className={
-          brandCover
-            ? 'absolute inset-0 h-full w-full object-contain'
-            : immersive
-              ? 'yansi-desktop-scene-image'
-              : 'absolute inset-0 h-full w-full object-cover'
+          immersive
+            ? 'yansi-desktop-scene-image'
+            : 'absolute inset-0 h-full w-full object-cover'
         }
         onError={(e) => {
           (e.currentTarget as HTMLImageElement).style.display = 'none';
