@@ -36,6 +36,7 @@ import {
   type YansiV2PhotoPreview,
 } from '@/lib/eza/yansiV2PhotoCreate';
 import { parseYansiV2PublicationContract } from '@/lib/eza/mirror/journey/yansiV2Publication';
+import StudioBrandImagePicker from './StudioBrandImagePicker';
 
 type Phase = 'compose' | 'preview' | 'publishing' | 'done';
 type SourceFilter = 'all' | 'ready' | 'private_view' | 'unavailable';
@@ -261,6 +262,7 @@ export default function BusinessYansiPhotoCreate({
   const [sourceFilter, setSourceFilter] = useState<SourceFilter>('all');
   const [sourceQuery, setSourceQuery] = useState('');
   const [addBusy, setAddBusy] = useState(false);
+  const [imagePickerOpen, setImagePickerOpen] = useState(false);
   const idempotencyRef = useRef<string>(newIdempotencyKey());
   const selected = images.find((asset) => asset.id === draft.assetId) || null;
   const preview = selected
@@ -512,9 +514,20 @@ export default function BusinessYansiPhotoCreate({
               }}
             >
               <h3>1. Fotoğraf</h3>
+              <div className="biz-actions" style={{ marginBottom: 12 }}>
+                <button
+                  type="button"
+                  className="biz-btn-ghost"
+                  data-testid="biz-photo-create-library"
+                  onClick={() => setImagePickerOpen(true)}
+                >
+                  Kütüphaneden seç
+                </button>
+              </div>
               {!images.length ? (
                 <p className="biz-empty" data-testid="biz-photo-create-empty-library">
-                  Yayımlanabilir kamuya açık görsel yok. Önce İçerik Kütüphanesi’ne fotoğraf ekleyin.
+                  Yayımlanabilir kamuya açık görsel yok. Kütüphaneden uygun bir görsel seçin veya önce
+                  herkese açık fotoğraf yükleyin.
                 </p>
               ) : (
                 <div className="biz-photo-create-grid" role="listbox" aria-label="Görsel seçimi">
@@ -912,6 +925,20 @@ export default function BusinessYansiPhotoCreate({
           ) : null}
         </div>
       ) : null}
+
+      <StudioBrandImagePicker
+        open={imagePickerOpen}
+        businessId={businessId}
+        assets={assets}
+        selectedAssetId={draft.assetId || null}
+        heading="Kütüphaneden görsel seç"
+        confirmLabel="Görsel olarak kullan"
+        onClose={() => setImagePickerOpen(false)}
+        onConfirm={(assetId) => {
+          persistDraft({ ...draft, assetId });
+        }}
+        onManageLibrary={onOpenLibrary}
+      />
     </div>
   );
 }

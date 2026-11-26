@@ -63,6 +63,17 @@ describe('yansiV2PhotoCreate preview / publish alignment', () => {
     expect(publishableImageAssets(assets).map((a) => a.id)).toEqual([ASSET]);
   });
 
+  it('keeps storage images publishable when management API redacts locator', () => {
+    const redacted = image({ locator: null, locator_kind: 'storage' });
+    const privateOnly = image({
+      id: '44444444-4444-4444-4444-444444444444',
+      locator: null,
+      locator_kind: 'storage',
+      public_allowed: false,
+    });
+    expect(publishableImageAssets([redacted, privateOnly]).map((a) => a.id)).toEqual([ASSET]);
+  });
+
   it('builds preview with linked knowledge and honest media labels', () => {
     const preview = buildPhotoPreviewManifest(
       BIZ,

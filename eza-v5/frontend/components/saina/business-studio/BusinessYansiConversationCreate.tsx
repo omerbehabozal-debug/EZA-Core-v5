@@ -69,6 +69,7 @@ import {
 import YansiProductCard from '@/components/mirror/YansiProductCard';
 import YansiStudioDraftPreview from './YansiStudioDraftPreview';
 import ConversationCoverAiPanel from './ConversationCoverAiPanel';
+import StudioBrandImagePicker from './StudioBrandImagePicker';
 import {
   SAINA_DISCOVER_OPEN_CTA,
   SAINA_DISCOVER_OPEN_CTA_SHORT,
@@ -279,6 +280,7 @@ export default function BusinessYansiConversationCreate({
   const [hydrateBusy, setHydrateBusy] = useState(false);
   const [editLocked, setEditLocked] = useState(false);
   const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+  const [coverPickerOpen, setCoverPickerOpen] = useState(false);
   /** True after this session (or hydrate) observed an approval — survives revise clearing approved*. */
   const [sawApproved, setSawApproved] = useState(false);
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
@@ -359,14 +361,17 @@ export default function BusinessYansiConversationCreate({
   }
 
   useEffect(() => {
-    if (resumeDraftId) return;
+    // Skip after a resume hydrate: clearing resumeDraftId must not re-read localStorage
+    // and falsely mark the just-loaded server draft as dirty.
+    if (resumeDraftId || resumeHandledRef.current) return;
     const stored = readConversationDraftStorage(businessId);
     if (stored && (stored.title || stored.turns.some((t) => t.question || t.answer) || stored.coverAssetId)) {
       setDraft(stored);
       setOpen(true);
       setFlowStep(stored.draftId || stored.title || stored.turns.some((t) => t.question) ? 3 : 1);
       setPublishKind(stored.linkedKnowledgeIds.length ? 'conversation' : stored.coverAssetId ? 'image' : 'conversation');
-      setDirty(Boolean(stored.draftId));
+      // Local scratch without an explicit user edit is not publish-dirty.
+      setDirty(false);
     }
   }, [businessId, resumeDraftId]);
 
@@ -1265,15 +1270,20 @@ export default function BusinessYansiConversationCreate({
                           e.target.value = '';
                         }}
                       />
-                      {onOpenLibrary ? (
-                        <button type="button" className="biz-btn-ghost" onClick={onOpenLibrary}>
-                          Kütüphane
-                        </button>
-                      ) : null}
+                      <button
+                        type="button"
+                        className="biz-btn-ghost"
+                        data-testid="biz-conv-cover-library"
+                        disabled={locked}
+                        onClick={() => setCoverPickerOpen(true)}
+                      >
+                        Kütüphane
+                      </button>
                     </div>
                     {!images.length && !draft.coverAssetId && !uploadBusy ? (
                       <p className="biz-empty" data-testid="biz-conv-media-empty">
-                        Henüz yayınlanabilir görsel yok. Yukarıdan yükleyin; kamuya açık olarak kaydedilir.
+                        Henüz yayınlanabilir görsel yok. Yukarıdan yükleyin veya kütüphaneden uygun bir
+                        görsel seçin; kapak için herkese açık yayımlanmış görsel gerekir.
                       </p>
                     ) : (
                       <div className="biz-photo-create-grid" role="listbox" aria-label="Kapak görseli">
@@ -1764,11 +1774,15 @@ export default function BusinessYansiConversationCreate({
                             e.target.value = '';
                           }}
                         />
-                        {onOpenLibrary ? (
-                          <button type="button" className="biz-btn-ghost" onClick={onOpenLibrary}>
-                            Kütüphane
-                          </button>
-                        ) : null}
+                        <button
+                          type="button"
+                          className="biz-btn-ghost"
+                          data-testid="biz-conv-review-cover-library"
+                          disabled={locked}
+                          onClick={() => setCoverPickerOpen(true)}
+                        >
+                          Kütüphane
+                        </button>
                       </div>
                       <div className="biz-photo-create-grid" role="listbox" aria-label="Kapak">
                         <button
@@ -1791,6 +1805,17 @@ export default function BusinessYansiConversationCreate({
                             onSelect={() => persist({ ...draft, coverAssetId: asset.id })}
                           />
                         ))}
+                        {draft.coverAssetId &&
+                        !images.some((asset) => asset.id === draft.coverAssetId) ? (
+                          <CoverThumb
+                            key={`review-orphan-${draft.coverAssetId}`}
+                            businessId={businessId}
+                            assetId={draft.coverAssetId}
+                            title="Seçili kapak"
+                            selected
+                            onSelect={() => persist({ ...draft, coverAssetId: draft.coverAssetId })}
+                          />
+                        ) : null}
                       </div>
                       {!draft.coverAssetId ? (
                         <p className="biz-card-meta" data-testid="biz-conv-review-coverless-note">
@@ -2196,6 +2221,18 @@ export default function BusinessYansiConversationCreate({
 
         </div>
       ) : null}
+
+      <StudioBrandImagePicker
+        open={coverPickerOpen}
+        businessId={businessId}
+        assets={assets}
+        selectedAssetId={draft.coverAssetId || null}
+        onClose={() => setCoverPickerOpen(false)}
+        onConfirm={(assetId) => {
+          persist({ ...draft, coverAssetId: assetId });
+        }}
+        onManageLibrary={onOpenLibrary}
+      />
     </div>
   );
 }

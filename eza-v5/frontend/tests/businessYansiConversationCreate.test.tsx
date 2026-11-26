@@ -998,4 +998,108 @@ describe('BusinessYansiConversationCreate', () => {
     expect(screen.getByTestId('biz-conv-cover-ai-generate')).toBeInTheDocument();
     expect(screen.getByTestId('biz-conv-review-cover-upload')).toBeInTheDocument();
   });
+
+  it('shows storage library covers even when locator is redacted by management API', async () => {
+    const aiCover = image({
+      id: '589954e2-0f7d-4947-8bf9-9ad5fbdf0f2b',
+      title: 'Keşfet: Bilgiyle Sohbetin Yeni Adresi',
+      locator: null,
+      locator_kind: 'storage',
+      public_allowed: true,
+      status: 'published',
+    });
+    render(
+      <BusinessYansiConversationCreate
+        businessId={BIZ}
+        assets={[aiCover]}
+        knowledge={[knowledge()]}
+        role="owner"
+        canEdit
+        startOpen
+      />,
+    );
+    await screen.findByTestId('biz-conv-step-select');
+    expect(screen.queryByTestId('biz-conv-media-empty')).not.toBeInTheDocument();
+    expect(screen.getByTestId(`biz-conv-cover-${aiCover.id}`)).toBeInTheDocument();
+  });
+
+  it('opens in-studio image picker and binds cover without leaving Studio', async () => {
+    const onOpenLibrary = vi.fn();
+    const privateAsset = image({
+      id: '55555555-5555-5555-5555-555555555555',
+      title: 'Marka içi',
+      public_allowed: false,
+      locator: null,
+    });
+    render(
+      <BusinessYansiConversationCreate
+        businessId={BIZ}
+        assets={[image(), privateAsset]}
+        knowledge={[knowledge()]}
+        role="owner"
+        canEdit
+        startOpen
+        onOpenLibrary={onOpenLibrary}
+      />,
+    );
+    await screen.findByTestId('biz-conv-step-select');
+    fireEvent.click(screen.getByTestId('biz-conv-cover-library'));
+    await screen.findByTestId('biz-image-picker');
+    expect(onOpenLibrary).not.toHaveBeenCalled();
+    expect(screen.getByTestId(`biz-image-picker-item-${ASSET}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`biz-image-picker-item-${privateAsset.id}`)).toBeDisabled();
+
+    fireEvent.click(screen.getByTestId('biz-image-picker-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('biz-image-picker')).not.toBeInTheDocument());
+    expect(screen.getByTestId('biz-conv-cover-none')).toHaveAttribute('aria-pressed', 'true');
+
+    fireEvent.click(screen.getByTestId('biz-conv-cover-library'));
+    await screen.findByTestId('biz-image-picker');
+    fireEvent.click(screen.getByTestId(`biz-image-picker-item-${ASSET}`));
+    fireEvent.click(screen.getByTestId('biz-image-picker-confirm'));
+    await waitFor(() => expect(screen.queryByTestId('biz-image-picker')).not.toBeInTheDocument());
+    expect(screen.getByTestId(`biz-conv-cover-${ASSET}`)).toHaveAttribute('aria-pressed', 'true');
+    expect(onOpenLibrary).not.toHaveBeenCalled();
+  });
+
+  it('does not mark a freshly hydrated approved draft as dirty', async () => {
+    apiMocks.getYansiV2ConversationDraft.mockResolvedValue(
+      draftDto({
+        status: 'approved',
+        revision: 10,
+        approvedRevision: 9,
+        title: 'Keşfet: Bilgiyle Sohbetin Yeni Adresi',
+        turns: [{ stepIndex: 1, question: 'Ne?', answer: 'Bu.' }],
+      }),
+    );
+    const { rerender } = render(
+      <BusinessYansiConversationCreate
+        businessId={BIZ}
+        assets={[image()]}
+        knowledge={[knowledge()]}
+        role="owner"
+        canEdit
+        resumeDraftId={DRAFT}
+        onResumeConsumed={() => undefined}
+      />,
+    );
+    await screen.findByTestId('biz-conv-preview');
+    expect(screen.getByTestId('biz-conv-create-panel').textContent || '').not.toMatch(
+      /kaydedilmemiş değişiklikler var/,
+    );
+    // Simulate parent clearing resumeDraftId after consume — must stay clean.
+    rerender(
+      <BusinessYansiConversationCreate
+        businessId={BIZ}
+        assets={[image()]}
+        knowledge={[knowledge()]}
+        role="owner"
+        canEdit
+        resumeDraftId={null}
+      />,
+    );
+    expect(screen.getByTestId('biz-conv-create-panel').textContent || '').not.toMatch(
+      /kaydedilmemiş değişiklikler var/,
+    );
+  });
 });

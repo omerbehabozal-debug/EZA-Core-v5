@@ -59,14 +59,40 @@ export type AssetAiAvailability = {
   label: string;
 };
 
+/**
+ * Images eligible to bind as a V2 / Keşfet cover.
+ *
+ * Management `GET /assets` redacts storage keys (`locator` is null when
+ * `locator_kind === 'storage'`). Do not require a client-visible locator —
+ * that incorrectly emptied cover pickers for every uploaded/AI storage image.
+ */
+export function isPublishableCoverImage(asset: BrandAsset): boolean {
+  if (asset.asset_type !== 'image') return false;
+  if (asset.status !== 'published') return false;
+  if (!asset.public_allowed) return false;
+  if (asset.locator_kind === 'storage') return true;
+  if (asset.locator_kind === 'https' && Boolean(asset.locator)) return true;
+  return false;
+}
+
 export function publishableImageAssets(assets: BrandAsset[]): BrandAsset[] {
-  return assets.filter(
-    (asset) =>
-      asset.asset_type === 'image' &&
-      asset.status === 'published' &&
-      asset.public_allowed &&
-      Boolean(asset.locator),
-  );
+  return assets.filter(isPublishableCoverImage);
+}
+
+/** Non-archived library images for the in-studio picker (eligible + ineligible). */
+export function libraryImageAssets(assets: BrandAsset[]): BrandAsset[] {
+  return assets.filter((asset) => asset.asset_type === 'image' && asset.status !== 'archived');
+}
+
+export function coverImageEligibilityLabel(asset: BrandAsset): string {
+  if (asset.asset_type !== 'image') return 'Görsel değil';
+  if (asset.status === 'archived') return 'Arşivlenmiş';
+  if (asset.status !== 'published') return 'Yayımlanmamış — kapak olamaz';
+  if (!asset.public_allowed) return 'Marka içinde — Keşfet kapağı için herkese açık olmalı';
+  if (asset.locator_kind === 'storage' || (asset.locator_kind === 'https' && asset.locator)) {
+    return 'Kapak olarak kullanılabilir';
+  }
+  return 'Görsel konumu eksik';
 }
 
 /** Text Bilgi Havuzu rows that the server will accept as knowledge_version pins. */
