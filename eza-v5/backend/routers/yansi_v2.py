@@ -9,17 +9,19 @@ import os
 import uuid
 from typing import Any, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from backend.auth.deps import get_current_user
+from backend.auth.mirror_entitlement import optional_mirror_authenticated_user
 from backend.core.schemas.business_studio import TopicsRequest
 from backend.core.utils.dependencies import get_db
-from backend.security.rate_limit import rate_limit_standalone
+from backend.security.rate_limit import get_trusted_client_ip, rate_limit_standalone
 from backend.services.business_yansi import service as svc
 from backend.services.business_yansi import studio, studio_execution
 from backend.services.business_yansi.grounded_answers import _default_provider
 from backend.services.business_yansi.publication import enabled
+from backend.services.yansi.live_answer_budget import hash_client_ip
 from backend.services.yansi import conversation_draft_v2 as conv_drafts
 from backend.services.yansi.ai_conversation_proposal_v2 import (
     KIND as V2_PROP_KIND,
@@ -653,8 +655,10 @@ async def public_version_v2(
 async def public_answer_v2(
     slug: str,
     body: PublicAnswerV2Body,
+    request: Request,
     db=Depends(get_db),
     _: None = Depends(rate_limit_standalone),
+    viewer=Depends(optional_mirror_authenticated_user),
 ):
     """Grounded continuation for a public V2 publication.
 
@@ -662,6 +666,8 @@ async def public_answer_v2(
     ``publicationVersion`` is required so sessions cannot silently float to
     ``current_v2_publication_version``. Provider follows V1 grounded-answer
     injection (``_default_provider``) and remains flag-gated inside the engine.
+    Live-answer quotas/budgets are enforced only around the paid provider call.
+    Actor identity comes from the request (optional auth + IP), never the body.
     """
     raw = body.model_dump()
     try:
@@ -678,6 +684,9 @@ async def public_answer_v2(
     if bound.publication_version != int(body.publicationVersion):
         raise HTTPException(409, detail={"code": "publication_version_mismatch"})
 
+    viewer_id = str(getattr(viewer, "id", "") or "").strip() or None
+    ip_hash = hash_client_ip(get_trusted_client_ip(request))
+
     try:
         result = await answer_yansi_v2_continuation(
             db,
@@ -687,16 +696,33 @@ async def public_answer_v2(
             lexical_only=True,
             provider=_default_provider,
             embedder=None,
+            budget_user_id=viewer_id,
+            budget_ip_hash=ip_hash,
+            enforce_live_answer_budget=True,
         )
     except ContinuationV2Error as exc:
         _map_extra_errors(exc)
 
+    # Never echo internal budget/model diagnostics to the client reason field
+    # when the user-facing status is a soft operational gate.
+    status = result.get("status")
+    public_reason = result.get("reason")
+    if status in {
+        "quota_user",
+        "quota_anon",
+        "quota_business",
+        "budget_business",
+        "budget_platform",
+        "budget_unavailable",
+    }:
+        public_reason = status
+
     return {
-        "status": result.get("status"),
+        "status": status,
         "assistant_answer": result.get("assistant_answer"),
         "sources": result.get("display_sources") or result.get("sources") or [],
         "yansi_v2_grounded": True,
         "publicationVersion": bound.publication_version,
         "slug": bound.slug,
-        "reason": result.get("reason"),
+        "reason": public_reason,
     }

@@ -96,6 +96,9 @@ async def _orchestrated(question, history, provider, db):
                 'yansi_v2_grounded': True,
                 'reason': 'db_required',
             }
+        # Public V2 /answer injects provider + enforce_live_answer_budget with
+        # request identity. Pipeline/streaming typically pass provider=None
+        # (lexical / no paid call). Do not auto-inject a live provider here.
         produced = await answer_yansi_v2_continuation(
             db,
             question,
@@ -115,14 +118,31 @@ async def _orchestrated(question, history, provider, db):
     if not isinstance(history, BusinessHistory):
         return {'assistant_answer': NO_INFORMATION, 'sources': [], 'business_grounded': True, 'reason': 'not_business'}
     flags_open = _flag('BILIGN_BUSINESS_RAG_ENABLED') and _flag('BILIGN_BUSINESS_RAG_ANSWERS_ENABLED')
+    # 07I.3: Do not auto-inject unpaid OpenAI provider/embedder when RAG flags open.
+    # That path bypassed live_answer_budget (and embeddings). Explicit provider
+    # (tests or a future budgeted V1 caller) is still honored; otherwise fail closed.
     if not flags_open:
-        produced = await run_business_rag(object(), history.business_id, question, history=list(history), provider=provider)
+        produced = await run_business_rag(
+            object(), history.business_id, question, history=list(history), provider=provider
+        )
+    elif provider is None:
+        produced = {
+            'assistant_answer': 'Bu yanıt yolu şu anda kapalı.',
+            'answer': 'Bu yanıt yolu şu anda kapalı.',
+            'sources': [],
+            'status': 'flag_off',
+            'reason': 'v1_live_provider_not_budgeted',
+        }
     elif db is not None:
-        produced = await run_business_rag(db, history.business_id, question, history=list(history), provider=provider or _live_provider, embedder=_live_embedder)
+        produced = await run_business_rag(
+            db, history.business_id, question, history=list(history), provider=provider
+        )
     else:
         from backend.core.utils.dependencies import AsyncSessionLocal
         async with AsyncSessionLocal() as owned:
-            produced = await run_business_rag(owned, history.business_id, question, history=list(history), provider=provider or _live_provider, embedder=_live_embedder)
+            produced = await run_business_rag(
+                owned, history.business_id, question, history=list(history), provider=provider
+            )
     return {
         'assistant_answer': produced['assistant_answer'],
         'sources': produced.get('sources') or [],

@@ -127,6 +127,7 @@ describe('04D answer client', () => {
         ok: true,
         json: async () => ({
           status: 'ok',
+          status: 'answered',
           assistant_answer: 'Canlı cevap',
           publicationVersion: 4,
           slug: 'v2-live',
@@ -146,6 +147,10 @@ describe('04D answer client', () => {
       ],
     });
     expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.appendToLiveHistory).toBe(true);
+      expect(result.status).toBe('answered');
+    }
     expect(String(fetchMock.mock.calls[0]?.[0])).toContain(
       '/api/business-yansi/v2/public/v2-live/answer'
     );
@@ -201,6 +206,60 @@ describe('04D desktop V2 composer', () => {
     vi.unstubAllGlobals();
   });
 
+  it('does not append quota soft-gates into live history', async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        status: 'quota_anon',
+        assistant_answer: 'Bu cihazdan bugün için soru hakkı doldu. Biraz sonra veya yarın yeniden deneyebilirsin.',
+        publicationVersion: 4,
+        slug: 'v2-live',
+        sources: [],
+      }),
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const scrollRef = createRef<HTMLDivElement>();
+    render(
+      <YansiDesktopExperience
+        slug="v2-live"
+        identity={{
+          title: 'Merak?',
+          displayName: 'Demo',
+          authorUserId: BIZ,
+          avatarUrl: null,
+          honorific: null,
+          timeLabel: null,
+          businessLabel: 'Business',
+        }}
+        messages={<div data-testid="frozen-only">Frozen cevap.</div>}
+        replayAction={null}
+        scrollRef={scrollRef}
+        replaySelection={{ slug: 'v2-live', journeyVersion: 4, completedStepCount: 1 }}
+        allowPersonalContinue
+        v2Continuation={{
+          publicationVersion: 4,
+          seedHistory: [
+            { role: 'user', content: 'Merak?' },
+            { role: 'assistant', content: 'Frozen cevap.' },
+          ],
+        }}
+      />
+    );
+
+    const input = screen.getByPlaceholderText(/Merak|mesaj|devam/i);
+    fireEvent.change(input, { target: { value: 'Ek soru?' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/soru hakkı doldu/i)
+      ).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('yansi-v2-live-thread')).not.toBeInTheDocument();
+    expect(screen.getByTestId('frozen-only')).toHaveTextContent('Frozen cevap.');
+  });
+
   it('answers in place without calling V1 sohbet session', async () => {
     const { createMirrorSohbetSession } = await import(
       '@/lib/eza/mirror-network/createSohbetSession'
@@ -208,7 +267,7 @@ describe('04D desktop V2 composer', () => {
     const fetchMock = vi.fn(async () => ({
       ok: true,
       json: async () => ({
-        status: 'ok',
+        status: 'answered',
         assistant_answer: 'Canlı cevap metni',
         publicationVersion: 4,
         slug: 'v2-live',

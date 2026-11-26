@@ -10,6 +10,12 @@ export type YansiV2AnswerHistoryTurn = {
   content: string;
 };
 
+/** Statuses that may enter the live thread / next-request history. */
+export const YANSI_V2_LIVE_HISTORY_STATUSES = new Set([
+  'answered',
+  'no_information',
+]);
+
 export type YansiV2AnswerOk = {
   ok: true;
   slug: string;
@@ -17,6 +23,9 @@ export type YansiV2AnswerOk = {
   assistantAnswer: string;
   sources: unknown[];
   reason?: string | null;
+  status: string;
+  /** False for soft gates (quota/budget/flag_off) — do not append to live history. */
+  appendToLiveHistory: boolean;
 };
 
 export type YansiV2AnswerErr = {
@@ -77,6 +86,11 @@ export function parseYansiV2AnswerResponse(
       message: 'Yanıt alınamadı. Yeniden deneyebilirsin.',
     };
   }
+  const status =
+    typeof raw.status === 'string' && raw.status.trim()
+      ? raw.status.trim()
+      : 'answered';
+  const appendToLiveHistory = YANSI_V2_LIVE_HISTORY_STATUSES.has(status);
   return {
     ok: true,
     slug,
@@ -84,6 +98,8 @@ export function parseYansiV2AnswerResponse(
     assistantAnswer,
     sources: Array.isArray(raw.sources) ? raw.sources : [],
     reason: typeof raw.reason === 'string' ? raw.reason : null,
+    status,
+    appendToLiveHistory,
   };
 }
 

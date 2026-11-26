@@ -152,6 +152,9 @@ async def answer_yansi_v2_continuation(
     sibling_loader=None,
     lexical_only: bool = False,
     client_payload: dict[str, Any] | None = None,
+    budget_user_id: str | None = None,
+    budget_ip_hash: str | None = None,
+    enforce_live_answer_budget: bool = False,
 ) -> dict[str, Any]:
     reject_client_overrides(client_payload)
     context = await resolve_server_context(db, history)
@@ -166,4 +169,7 @@ async def answer_yansi_v2_continuation(
         authorize_fn=authorize_fn,
         sibling_loader=sibling_loader,
         lexical_only=lexical_only,
+        budget_user_id=budget_user_id,
+        budget_ip_hash=budget_ip_hash,
+        enforce_live_answer_budget=enforce_live_answer_budget,
     )

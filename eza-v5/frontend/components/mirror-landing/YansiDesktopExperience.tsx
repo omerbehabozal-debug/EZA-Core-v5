@@ -148,6 +148,12 @@ export default function YansiDesktopExperience({ slug, identity, messages, repla
         setError(result.message);
         return;
       }
+      // Soft gates (quota/budget/flag_off) show copy but must not enter history.
+      if (!result.appendToLiveHistory) {
+        setError(result.assistantAnswer);
+        setPendingQuestion(null);
+        return;
+      }
       cancelYansiSpeech();
       trackSeedStart(slug);
       const id = `v2-live:${slug}:pv${result.publicationVersion}:${livePairsRef.current.length + 1}`;
