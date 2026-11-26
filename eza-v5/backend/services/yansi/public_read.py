@@ -12,6 +12,7 @@ from sqlalchemy import select
 
 from backend.models.mirror_network import MirrorNetworkNode, YansiPublicationVersionV2
 from backend.models.yansi_knowledge_bundle import YansiKnowledgeBundle, YansiKnowledgeBundleVersion
+from backend.models.yansi_v2_conversation_draft import YansiV2ConversationDraft
 from backend.services.mirror_network import yansi_v2_contract as pub
 from backend.services.yansi.publication_context import (
     PublicationContextError,
@@ -197,6 +198,62 @@ def _bundle_envelope(
     }
 
 
+def _sealed_cover_or_media_title(dto: dict[str, Any]) -> str | None:
+    """Title sealed inside the requested publication version (cover or image media)."""
+    cover = dto.get("cover")
+    if isinstance(cover, dict):
+        raw = (cover.get("title") or "").strip()
+        if raw:
+            return raw[:200]
+    media = dto.get("media")
+    if isinstance(media, dict):
+        raw = (media.get("title") or "").strip()
+        if raw:
+            return raw[:200]
+    return None
+
+
+async def _public_title_and_summary(
+    db,
+    node: MirrorNetworkNode,
+    *,
+    is_current: bool,
+    sealed_title: str | None = None,
+) -> tuple[str | None, str | None]:
+    """Landing metadata without floating older publication versions.
+
+    - Current version: prefer durable ``node.card_title`` + published draft summary.
+    - Pinned older version: never read live draft / current card_title — only
+      sealed cover/media title from that version's public DTO (summary stays null;
+      clients fall back to sealed curiosityQuestion).
+    """
+    title: str | None = None
+    if is_current:
+        title = (getattr(node, "card_title", None) or "").strip() or None
+        if title and len(title) > 200:
+            title = title[:200]
+    if not title and sealed_title:
+        title = sealed_title[:200] if len(sealed_title) > 200 else sealed_title
+
+    summary: str | None = None
+    if is_current:
+        private = getattr(node, "private_payload", None)
+        if isinstance(private, dict):
+            draft_id_raw = private.get("v2ConversationDraftId")
+            if draft_id_raw:
+                try:
+                    draft_id = uuid.UUID(str(draft_id_raw))
+                except (TypeError, ValueError, AttributeError):
+                    draft_id = None
+                if draft_id is not None:
+                    draft = await db.get(YansiV2ConversationDraft, draft_id)
+                    if draft is not None:
+                        raw = (getattr(draft, "summary", None) or "").strip()
+                        if raw:
+                            summary = raw[:500]
+    return title, summary
+
+
 async def read_public_image_publication(
     db,
     *,
@@ -227,12 +284,21 @@ async def read_public_image_publication(
     except PublicProjectionError as exc:
         raise PublicReadError(exc.code) from exc
 
+    is_current = publication.publication_version == node.current_v2_publication_version
+    title, summary = await _public_title_and_summary(
+        db,
+        node,
+        is_current=is_current,
+        sealed_title=_sealed_cover_or_media_title(dto),
+    )
     return {
         "status": "ok",
         "slug": node.slug,
         "nodeId": str(node.id).lower(),
         "publicationVersion": publication.publication_version,
-        "isCurrent": publication.publication_version == node.current_v2_publication_version,
+        "isCurrent": is_current,
+        "title": title,
+        "summary": summary,
         "public": dto,
     }
 
@@ -282,13 +348,22 @@ async def read_public_v2_publication(
         raise PublicReadError(exc.code) from exc
 
     brand = await _resolve_v2_business_publisher(db, bundle)
+    is_current = publication.publication_version == node.current_v2_publication_version
+    title, summary = await _public_title_and_summary(
+        db,
+        node,
+        is_current=is_current,
+        sealed_title=_sealed_cover_or_media_title(dto),
+    )
     return {
         "status": "ok",
         "slug": node.slug,
         "nodeId": str(node.id).lower(),
         "publicationVersion": publication.publication_version,
-        "isCurrent": publication.publication_version == node.current_v2_publication_version,
+        "isCurrent": is_current,
         "contentKind": kind,
+        "title": title,
+        "summary": summary,
         "businessPublisher": brand,
         "public": dto,
     }

@@ -103,6 +103,7 @@ describe('04C V2 public parse + map', () => {
       sourceKind: 'v2_publication',
       contentKind: 'conversation',
       liveContinuationAvailable: true,
+      publicTitle: 'Kapak',
       publicSummary: 'Kahve neden ritüel?',
     });
     expect(artifact!.steps).toHaveLength(2);

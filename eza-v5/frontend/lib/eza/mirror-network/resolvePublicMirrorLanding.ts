@@ -37,12 +37,15 @@ function surfaceFromV2Publication(
   const slug = publication.slug.trim().toLowerCase();
   let cardTitle = slug;
   let curiosityContext = '';
+  let publicSummary = '';
   let sceneImageUrl: string | null = null;
 
   if (publication.contentKind === 'image' && 'media' in publication.public) {
     const media = publication.public.media;
-    cardTitle = media.title?.trim() || slug;
+    cardTitle =
+      publication.title?.trim() || media.title?.trim() || slug;
     curiosityContext = cardTitle;
+    publicSummary = publication.summary?.trim() || cardTitle;
     sceneImageUrl = businessMediaUrl(media.contentPath);
   } else if (
     publication.contentKind !== 'image' &&
@@ -51,9 +54,12 @@ function surfaceFromV2Publication(
     const { conversation, cover } = publication.public;
     curiosityContext = conversation.curiosityQuestion;
     cardTitle =
-      publication.businessPublisher?.displayName?.trim() ||
+      publication.title?.trim() ||
+      cover?.title?.trim() ||
       conversation.curiosityQuestion ||
       slug;
+    publicSummary =
+      publication.summary?.trim() || conversation.curiosityQuestion;
     if (cover?.contentPath) {
       sceneImageUrl = businessMediaUrl(cover.contentPath);
     }
@@ -66,7 +72,7 @@ function surfaceFromV2Publication(
     dayLabel: formatMirrorLandingDate(''),
     sceneImageUrl,
     curiosityContext,
-    publicSummary: curiosityContext,
+    publicSummary,
   };
 }
 

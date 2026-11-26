@@ -56,11 +56,13 @@ export function mapV2PublicToFrozenArtifact(
   if (publication.contentKind === 'image') {
     const media = 'media' in publication.public ? publication.public.media : null;
     if (!media?.contentPath) return null;
-    const title = media.title?.trim() || slug;
+    const mediaTitle = media.title?.trim() || null;
+    const title =
+      publication.title?.trim() || mediaTitle || slug;
     const coverBlock: PublicBusinessBlock = {
       type: 'image',
       assetId: media.assetId,
-      title,
+      title: mediaTitle || title,
       contentPath: media.contentPath,
     };
     const businessMedia: PublicBusinessMedia = {
@@ -72,7 +74,7 @@ export function mapV2PublicToFrozenArtifact(
       journeyId: slug,
       journeyVersion,
       publicTitle: title,
-      publicSummary: null,
+      publicSummary: publication.summary?.trim() || null,
       sceneImageUrl: businessMediaUrl(media.contentPath),
       authorUserId: authorUserIdFor(publication),
       selectedCount: 0,
@@ -133,12 +135,22 @@ export function mapV2PublicToFrozenArtifact(
     ? businessMediaUrl(coverBlock.contentPath)
     : null;
 
+  // Prefer durable card title; cover.title was sealed as (asset title || draft title).
+  const publicTitle =
+    publication.title?.trim() ||
+    coverBlock?.title?.trim() ||
+    null;
+  const publicSummary =
+    publication.summary?.trim() ||
+    conversation.curiosityQuestion ||
+    null;
+
   return {
     slug,
     journeyId: slug,
     journeyVersion,
-    publicTitle: null,
-    publicSummary: conversation.curiosityQuestion,
+    publicTitle,
+    publicSummary,
     sceneImageUrl,
     authorUserId: authorUserIdFor(publication),
     selectedCount: steps.length,

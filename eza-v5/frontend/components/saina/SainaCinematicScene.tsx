@@ -9,7 +9,7 @@ import {
   type MirrorSceneFocalPoint,
 } from '@/lib/eza/mirror/mirrorSceneFocal';
 import { cn } from '@/lib/utils';
-import { isPersistableConversationSceneUrl } from '@/lib/eza/conversationSceneIdentity';
+import { isConversationSceneDisplayUrl } from '@/lib/eza/conversationSceneIdentity';
 import {
   applyYansiAccentRgb,
   extractYansiAccentRgb,
@@ -56,7 +56,7 @@ export default function SainaCinematicScene({
   const bundledSceneUrl = lockedAnalysis ? analysisAtmosphereUrl : defaultSceneUrl;
 
   const identityUrl =
-    !lockedAnalysis && sceneImageUrl && isPersistableConversationSceneUrl(sceneImageUrl)
+    !lockedAnalysis && sceneImageUrl && isConversationSceneDisplayUrl(sceneImageUrl)
       ? sceneImageUrl.trim()
       : null;
   const focal: Partial<MirrorSceneFocalPoint> | null =

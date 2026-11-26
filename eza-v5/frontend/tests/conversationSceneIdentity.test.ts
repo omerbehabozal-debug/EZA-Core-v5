@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   buildConversationSceneIdentityFields,
+  isConversationSceneDisplayUrl,
+  isDurablePublicBusinessMediaPath,
   isPersistableConversationSceneUrl,
 } from '@/lib/eza/conversationSceneIdentity';
 import {
@@ -32,6 +34,29 @@ describe('conversationSceneIdentity', () => {
       expect(isPersistableConversationSceneUrl('http://cdn.example/scene.jpg')).toBe(false);
       expect(isPersistableConversationSceneUrl('https://cdn.example/scene.jpg')).toBe(true);
       process.env.NODE_ENV = previous;
+    });
+
+    it('rejects same-origin relative public-media paths (archive must stay absolute)', () => {
+      const path =
+        '/api/business-yansi/public-media/11111111-1111-1111-1111-111111111111/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+      expect(isPersistableConversationSceneUrl(path)).toBe(false);
+    });
+  });
+
+  describe('isConversationSceneDisplayUrl', () => {
+    it('accepts durable business public-media paths for Deneyimle backdrop', () => {
+      const path =
+        '/api/business-yansi/public-media/11111111-1111-1111-1111-111111111111/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+      expect(isDurablePublicBusinessMediaPath(path)).toBe(true);
+      expect(isConversationSceneDisplayUrl(path)).toBe(true);
+      expect(
+        isConversationSceneDisplayUrl('/api/public/mirror-scene-assets/demo.jpg')
+      ).toBe(true);
+      expect(isConversationSceneDisplayUrl('https://cdn.example/scene.jpg')).toBe(true);
+      expect(isConversationSceneDisplayUrl('data:image/png;base64,abc')).toBe(false);
+      expect(isConversationSceneDisplayUrl('/api/business-yansi/brand-assets/x')).toBe(
+        false
+      );
     });
   });
 

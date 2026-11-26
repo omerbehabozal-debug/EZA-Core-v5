@@ -70,7 +70,7 @@ async def _image_asset(sample, *, revision=1, business=None):
     return asset
 
 
-async def _approve_ready(sample, *, n=3, knowledge=None, media=None):
+async def _approve_ready(sample, *, n=3, knowledge=None, media=None, summary=None):
     await _ensure_tables(sample.db)
     turns = _turns(n)
     if media is not None:
@@ -91,6 +91,7 @@ async def _approve_ready(sample, *, n=3, knowledge=None, media=None):
         business_id=str(sample.business.id),
         actor_user_id=str(sample.editor.id),
         title=f"Sohbet {n}",
+        summary=summary,
         turns=turns,
         knowledge_sources=pins,
     )
@@ -429,6 +430,8 @@ async def test_public_read_conversation_and_image_regression(sample):
     assert read["public"]["conversation"]["turnCount"] == 2
     assert read["public"]["conversation"]["turns"][0]["stepIndex"] == 1
     assert read["public"]["conversation"]["curiosityQuestion"] == "Merak 1?"
+    assert read["title"] == "Sohbet 2"
+    assert read.get("summary") is None
     assert "locator" not in str(read["public"])
 
     # Image-only regression via same tables
@@ -445,9 +448,75 @@ async def test_public_read_conversation_and_image_regression(sample):
     )
     img_read = await read_public_image_publication(sample.db, slug=img["slug"])
     assert img_read["public"]["contract"]["contentKind"] == "image"
+    assert img_read["title"] == "Image only"
     img_dispatch = await read_public_v2_publication(sample.db, slug=img["slug"])
     assert img_dispatch["contentKind"] == "image"
+    assert img_dispatch["title"] == "Image only"
     assert img_dispatch["public"]["media"]["assetId"] == str(asset.id).lower()
+
+
+@pytest.mark.asyncio
+async def test_public_read_exposes_draft_summary_without_republish_shape(sample):
+    """07H.5A — title/summary from node.card_title + published draft (read-only)."""
+    approved = await _approve_ready(
+        sample, n=1, summary="Gerçek içerik özeti public yüzeye çıkar."
+    )
+    conv = await publish_approved_conversation_v2(
+        sample.db,
+        business_id=str(sample.business.id),
+        actor_user_id=str(sample.owner.id),
+        draft_id=approved["id"],
+        expected_draft_revision=approved["revision"],
+        slug=f"read-sum-{uuid.uuid4().hex[:8]}",
+    )
+    read = await read_public_v2_publication(sample.db, slug=conv["slug"])
+    assert read["title"] == "Sohbet 1"
+    assert read["summary"] == "Gerçek içerik özeti public yüzeye çıkar."
+    assert read["publicationVersion"] == conv["publicationVersion"]
+    assert read["isCurrent"] is True
+
+
+@pytest.mark.asyncio
+async def test_pinned_old_version_does_not_float_live_draft_summary(sample):
+    """07H.5B — pinned older publication must not inherit live card_title/summary."""
+    from backend.models.mirror_network import MirrorNetworkNode
+    from backend.models.yansi_v2_conversation_draft import YansiV2ConversationDraft
+
+    slug = f"pin-sum-{uuid.uuid4().hex[:8]}"
+    approved = await _approve_ready(sample, n=1, summary="Özet v1")
+    v1 = await publish_approved_conversation_v2(
+        sample.db,
+        business_id=str(sample.business.id),
+        actor_user_id=str(sample.owner.id),
+        draft_id=approved["id"],
+        expected_draft_revision=approved["revision"],
+        slug=slug,
+    )
+    assert v1["publicationVersion"] == 1
+
+    # Simulate a later current publish state without re-running full approve:
+    # bump card_title + draft summary while version 1 remains readable.
+    node = await sample.db.scalar(
+        select(MirrorNetworkNode).where(MirrorNetworkNode.slug == slug)
+    )
+    assert node is not None
+    node.card_title = "Yeni başlık v2"
+    draft = await sample.db.get(YansiV2ConversationDraft, uuid.UUID(approved["id"]))
+    assert draft is not None
+    draft.summary = "Özet v2 canlı"
+    # Pretend current is ahead so version 1 is no longer current.
+    node.current_v2_publication_version = 2
+    await sample.db.flush()
+
+    pinned = await read_public_v2_publication(
+        sample.db, slug=slug, publication_version=1
+    )
+    assert pinned["publicationVersion"] == 1
+    assert pinned["isCurrent"] is False
+    assert pinned["summary"] is None
+    assert pinned["title"] != "Yeni başlık v2"
+    # Coverless conversation → sealed title may be None; never float live card.
+    assert pinned["title"] in (None, "Sohbet 1")
 
 
 @pytest.mark.asyncio

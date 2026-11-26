@@ -10,6 +10,17 @@ export function isDurablePublicMirrorScenePath(url: string): boolean {
   return url.trim().startsWith('/api/public/mirror-scene-assets/');
 }
 
+/**
+ * Same-origin Business Yansı public-media path (V2 cover / step image).
+ * On *.ezacore.ai, `businessMediaUrl` resolves to this relative form — display-only.
+ */
+const PUBLIC_BUSINESS_MEDIA_PATH =
+  /^\/api\/business-yansi\/public-media\/[0-9a-f-]{36}\/[0-9a-f-]{36}$/i;
+
+export function isDurablePublicBusinessMediaPath(url: string): boolean {
+  return PUBLIC_BUSINESS_MEDIA_PATH.test(url.trim());
+}
+
 /** HTTP(S) only — rejects data:, blob:, and non-URL strings. Production requires HTTPS. */
 export function isPersistableConversationSceneUrl(url: string): boolean {
   const trimmed = url.trim();
@@ -28,11 +39,16 @@ export function isPersistableConversationSceneUrl(url: string): boolean {
   }
 }
 
-/** Sidebar / chrome display — absolute persistable URLs or durable public asset paths. */
+/**
+ * Scene backdrop display — absolute persistable URLs or durable same-origin
+ * public asset paths (mirror-scene + business-yansi public-media).
+ * Not for archive persistence (relative public-media must not be archived).
+ */
 export function isConversationSceneDisplayUrl(url: string | null | undefined): boolean {
   const trimmed = (url || '').trim();
   if (!trimmed) return false;
   if (isDurablePublicMirrorScenePath(trimmed)) return true;
+  if (isDurablePublicBusinessMediaPath(trimmed)) return true;
   return isPersistableConversationSceneUrl(trimmed);
 }
 

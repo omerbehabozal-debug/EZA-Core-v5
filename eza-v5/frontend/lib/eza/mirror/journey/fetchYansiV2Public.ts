@@ -61,6 +61,10 @@ export type YansiV2PublicPublication = {
   publicationVersion: number;
   contentKind: YansiV2PublicContentKind;
   isCurrent: boolean;
+  /** Durable Discover card title (node.card_title) — preferred over cover/media title. */
+  title?: string | null;
+  /** Approved draft summary when linked; null when absent. */
+  summary?: string | null;
   businessPublisher?: BusinessPublisher;
   public: YansiV2PublicConversationDto | YansiV2PublicImageDto;
 };
@@ -205,11 +209,17 @@ export function parseYansiV2PublicPublication(
   if (!publicDto) return null;
 
   const businessPublisher = parseBusinessPublisher(raw.businessPublisher);
+  const title =
+    typeof raw.title === 'string' ? raw.title.trim() || null : null;
+  const summary =
+    typeof raw.summary === 'string' ? raw.summary.trim() || null : null;
   return {
     slug,
     publicationVersion: Math.trunc(publicationVersion),
     contentKind,
     isCurrent: raw.isCurrent === true,
+    ...(title ? { title } : {}),
+    ...(summary ? { summary } : {}),
     ...(businessPublisher ? { businessPublisher } : {}),
     public: publicDto,
   };

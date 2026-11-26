@@ -168,4 +168,52 @@ describe('07F resolvePublicMirrorLanding', () => {
     expect(result.surface.cardTitle).toBe('Fincan');
     expect(result.surface.sceneImageUrl).toContain(path);
   });
+
+  it('prefers durable V2 title/summary over brand or curiosity for covered conversation', async () => {
+    fetchPublicMirrorBySlug.mockResolvedValue({ ok: false, status: 404 });
+    const path =
+      '/api/business-yansi/public-media/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+    fetchYansiV2PublicPublicationResult.mockResolvedValue({
+      ok: true,
+      data: conversationV2({
+        title: 'Keşfet: Bilgiyle Sohbetin Yeni Adresi',
+        summary: 'Gerçek içerik özeti',
+        contentKind: 'mixed',
+        businessPublisher: {
+          businessId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+          slug: 'bilign-demo',
+          displayName: 'BiligN Demo',
+          logoUrl: null,
+          verified: true,
+          official: true,
+        },
+        public: {
+          slug: 'v2-cafe',
+          conversation: {
+            turnCount: 1,
+            curiosityQuestion: 'Kahve nasıl demlenir?',
+            turns: [
+              {
+                stepIndex: 1,
+                question: 'Kahve nasıl demlenir?',
+                answer: 'Su ve öğütülmüş kahve.',
+                media: [],
+              },
+            ],
+          },
+          cover: {
+            assetId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+            title: 'Kapak başlığı',
+            contentPath: path,
+          },
+        },
+      }),
+    });
+    const result = await resolvePublicMirrorLanding({ slug: 'v2-cafe' });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.surface.cardTitle).toBe('Keşfet: Bilgiyle Sohbetin Yeni Adresi');
+    expect(result.surface.publicSummary).toBe('Gerçek içerik özeti');
+    expect(result.surface.sceneImageUrl).toContain(path);
+  });
 });
